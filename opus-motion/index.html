@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPUS — Reels</title>
+<link rel="stylesheet" href="src/style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/three.module.min.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+<script src="vendor/gsap.min.js"></script>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <canvas id="hud" width="1080" height="1920"></canvas>
+    <div id="type"></div>
+    <div id="frame">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+    <div id="cover"></div>
+  </div>
+</div>
+
+<div id="start">
+  <div class="start-inner">
+    <div class="start-mark">OPUS</div>
+    <button id="play" type="button"><span class="dot"></span>Assistir com som</button>
+    <div class="start-hint">Tela cheia: F · Reiniciar: R · Debug: D</div>
+  </div>
+</div>
+
+<div id="dev" hidden>
+  <input id="scrub" type="range" min="0" max="1" step="0.001" value="0">
+  <span id="devtime">0.00</span>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
