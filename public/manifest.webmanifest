@@ -1,0 +1,10 @@
+{
+  "name": "Comandante FC — inteligência para o Cartola",
+  "short_name": "Comandante FC",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0c0f",
+  "theme_color": "#0b0c0f",
+  "lang": "pt-BR",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
