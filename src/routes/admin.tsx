@@ -11,8 +11,6 @@ import { useAuth } from "../lib/auth";
 import { OFFICIAL_AUTHOR, getCommunity } from "../lib/community";
 import { countdown, fmt1, pct, timeAgo } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
-import { KEYS, useLocal } from "../lib/storage";
-import { getSupabase } from "../lib/supabase";
 import { saveLineupOverride } from "../server/fns";
 import { Composer } from "../components/Composer";
 
@@ -24,8 +22,6 @@ type Tab = "provaveis" | "conteudo" | "alertas";
 
 function AdminPage() {
   const auth = useAuth();
-  const [adminToken, setAdminToken] = useLocal<string>(KEYS.adminToken, "");
-  const [tokenDraft, setTokenDraft] = useState("");
   const [tab, setTab] = useState<Tab>("provaveis");
   const an = useQuery(analysisQuery);
 
@@ -35,25 +31,16 @@ function AdminPage() {
       <Card className="mx-auto max-w-md p-6 text-center">
         <Lock size={28} className="mx-auto text-[var(--color-brand)]" aria-hidden />
         <h1 className="font-display mt-2 text-xl font-bold">Acesso restrito</h1>
-        {auth.cloud ? (
-          <p className="mt-1 text-sm text-[var(--color-ink-3)]">
-            Apenas perfis com papel de administrador. {auth.session ? "Sua conta não tem esse papel." : <Link to="/conta" className="text-[var(--color-brand)] underline">Entre na sua conta</Link>}
-          </p>
-        ) : (
-          <form
-            className="mt-3 space-y-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setAdminToken(tokenDraft.trim());
-            }}
-          >
-            <p className="text-sm text-[var(--color-ink-3)]">Modo local: informe o ADMIN_TOKEN configurado no servidor.</p>
-            <input className="input" type="password" placeholder="ADMIN_TOKEN" value={tokenDraft} onChange={(e) => setTokenDraft(e.target.value)} aria-label="Token de administrador" />
-            <button className="btn btn-primary w-full" type="submit">
-              Entrar
-            </button>
-          </form>
-        )}
+        <p className="mt-1 text-sm text-[var(--color-ink-3)]">
+          Apenas contas de administrador.{" "}
+          {auth.user ? (
+            "Sua conta não tem esse papel (defina ADMIN_EMAILS no servidor)."
+          ) : (
+            <Link to="/conta" className="text-[var(--color-brand)] underline">
+              Entre na sua conta
+            </Link>
+          )}
+        </p>
       </Card>
     );
   }
@@ -78,7 +65,7 @@ function AdminPage() {
           ]}
         />
       </div>
-      {tab === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} adminToken={adminToken} />)}
+      {tab === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
       {tab === "conteudo" && <Conteudo />}
       {tab === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
@@ -92,7 +79,7 @@ const OVERRIDES: Array<{ value: LineupOverride; label: string }> = [
   { value: "fora", label: "Fora" },
 ];
 
-function Provaveis({ a, adminToken }: { a: RoundAnalysis; adminToken: string }) {
+function Provaveis({ a }: { a: RoundAnalysis }) {
   const qc = useQueryClient();
   const clubs = Object.values(a.clubs).sort((x, y) => x.nome.localeCompare(y.nome));
   const [club, setClub] = useState(clubs[0]?.id);
@@ -104,9 +91,7 @@ function Provaveis({ a, adminToken }: { a: RoundAnalysis; adminToken: string }) 
     setSaving(atletaId);
     setErro(null);
     try {
-      const sb = getSupabase();
-      const accessToken = sb ? (await sb.auth.getSession()).data.session?.access_token : undefined;
-      await saveLineupOverride({ data: { atletaId, status, adminToken, accessToken } });
+      await saveLineupOverride({ data: { atletaId, status } });
       await qc.invalidateQueries({ queryKey: analysisQuery.queryKey });
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao salvar");

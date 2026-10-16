@@ -1,14 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Check, LogIn, LogOut, Radio, Save, Trash2, UserRound } from "lucide-react";
+import { Check, KeyRound, Link2, LogIn, LogOut, Radio, Save, Trash2, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AVATAR_LABELS, Avatar } from "../components/avatars";
 import { Alert, Card, SectionTitle, Seg } from "../components/ui";
-import { syncProfile, useAuth } from "../lib/auth";
+import { meQuery, useAuth } from "../lib/auth";
 import { cs, fmt1, timeAgo } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
 import { AVATAR_KEYS, DEFAULT_PROFILE, KEYS, useLocal, writeLocal, type SavedLineup, type UserProfile } from "../lib/storage";
-import { getSupabase } from "../lib/supabase";
+import { changePasswordFn, deleteLineupFn, listLineups, login, logout, register, saveProfile } from "../server/fnsConta";
 
 export const Route = createFileRoute("/conta")({
   component: AccountPage,
@@ -19,11 +19,21 @@ function AccountPage() {
   const [profile, setProfile] = useLocal<UserProfile>(KEYS.profile, DEFAULT_PROFILE);
   const [draft, setDraft] = useState<UserProfile>(profile);
   const [saved, setSaved] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   useEffect(() => setDraft(profile), [profile]);
 
   const save = async () => {
-    setProfile(draft); // atualiza o cabeçalho na hora
-    await syncProfile(draft).catch(() => {});
+    setErro(null);
+    setProfile(draft); // cabeçalho atualiza na hora
+    if (auth.user) {
+      try {
+        await saveProfile({ data: { nome: draft.nome, bio: draft.bio, avatar: draft.avatar } });
+        await auth.refresh();
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : "Falha ao salvar");
+        return;
+      }
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -38,11 +48,11 @@ function AccountPage() {
         </div>
       </div>
 
-      {auth.cloud && <AuthBox />}
+      <AuthBox />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="space-y-4 p-4">
-          <SectionTitle title="Perfil" icon={<UserRound size={18} className="text-[var(--color-brand)]" />} />
+          <SectionTitle title="Perfil" subtitle={auth.user ? "Salvo na sua conta" : "Salvo neste navegador (entre para levar a outros aparelhos)"} icon={<UserRound size={18} className="text-[var(--color-brand)]" />} />
           <div>
             <label htmlFor="nome" className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)] uppercase">
               Nome
@@ -70,11 +80,20 @@ function AccountPage() {
             <Seg label="Tom do Comandante" value={draft.tom} onChange={(v) => setDraft({ ...draft, tom: v })} options={[{ value: "conservador", label: "Conservador" }, { value: "agressivo", label: "Agressivo" }]} />
             <Seg label="Foco" value={draft.foco} onChange={(v) => setDraft({ ...draft, foco: v })} options={[{ value: "pontos", label: "Pontos" }, { value: "cartoletas", label: "Cartoletas" }]} />
           </div>
+          {erro && <Alert tone="critical">{erro}</Alert>}
           <button className="btn btn-primary" onClick={save}>
             {saved ? <Check size={15} /> : <Save size={15} />} {saved ? "Salvo" : "Salvar perfil"}
           </button>
         </Card>
-        <SavedLineups />
+        <div className="space-y-5">
+          <SavedLineups />
+          <Card className="p-4">
+            <SectionTitle title="Conta do Cartola" subtitle="Conecte seu time para ver patrimônio, ligas e enviar a tropa direto ao Cartola" icon={<Link2 size={18} className="text-[var(--color-gold)]" />} />
+            <Link to="/meu-time" className="btn btn-ghost">
+              Abrir Meu Time
+            </Link>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -82,73 +101,130 @@ function AccountPage() {
 
 function AuthBox() {
   const auth = useAuth();
+  const qc = useQueryClient();
+  const [mode, setMode] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [nome, setNome] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
-  const sb = getSupabase()!;
-  if (auth.session) {
+  const [busy, setBusy] = useState(false);
+  const [pw, setPw] = useState({ atual: "", nova: "" });
+
+  const refreshAll = async () => {
+    await qc.invalidateQueries({ queryKey: meQuery.queryKey });
+    await qc.invalidateQueries({ queryKey: ["lineups"] });
+  };
+
+  if (auth.user) {
     return (
-      <Card className="flex items-center justify-between gap-3 p-4">
-        <div className="text-sm">
-          Conectado como <b>{auth.session.user.email}</b>
-          {auth.isAdmin && <span className="chip ml-2 text-[var(--color-gold)]">administrador</span>}
+      <Card className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            Conectado como <b>{auth.user.email}</b>
+            {auth.isAdmin && <span className="chip ml-2 text-[var(--color-gold)]">administrador</span>}
+          </div>
+          <button
+            className="btn btn-ghost"
+            onClick={async () => {
+              await logout();
+              await refreshAll();
+            }}
+          >
+            <LogOut size={15} /> Sair
+          </button>
         </div>
-        <button className="btn btn-ghost" onClick={() => sb.auth.signOut()}>
-          <LogOut size={15} /> Sair
-        </button>
+        <details className="text-sm">
+          <summary className="cursor-pointer text-[var(--color-ink-3)]">
+            <KeyRound size={13} className="mr-1 inline" /> Trocar senha
+          </summary>
+          <form
+            className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await changePasswordFn({ data: pw });
+                setPw({ atual: "", nova: "" });
+                setMsg("Senha alterada.");
+              } catch (err) {
+                setMsg(err instanceof Error ? err.message : "Falha");
+              }
+            }}
+          >
+            <input className="input" type="password" placeholder="senha atual" value={pw.atual} onChange={(e) => setPw({ ...pw, atual: e.target.value })} aria-label="Senha atual" autoComplete="current-password" />
+            <input className="input" type="password" placeholder="nova senha (8+)" value={pw.nova} onChange={(e) => setPw({ ...pw, nova: e.target.value })} aria-label="Nova senha" autoComplete="new-password" />
+            <button className="btn btn-ghost" type="submit">
+              Alterar
+            </button>
+          </form>
+        </details>
+        {msg && <Alert tone="info">{msg}</Alert>}
       </Card>
     );
   }
+
   return (
     <Card className="space-y-3 p-4">
-      <SectionTitle title="Entrar" subtitle="Sincronize perfil, tropas e participe da comunidade" icon={<LogIn size={18} className="text-[var(--color-brand)]" />} />
-      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
-        <input className="input" type="email" placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="E-mail" />
-        <input className="input" type="password" placeholder="senha" value={senha} onChange={(e) => setSenha(e.target.value)} aria-label="Senha" />
-        <button
-          className="btn btn-primary"
-          onClick={async () => {
-            const { error } = await sb.auth.signInWithPassword({ email, password: senha });
-            setMsg(error ? error.message : null);
-          }}
-        >
-          Entrar
-        </button>
-        <button
-          className="btn btn-ghost"
-          onClick={async () => {
-            const { error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: window.location.origin + "/conta" } });
-            setMsg(error ? error.message : "Conta criada. Confirme pelo e-mail.");
-          }}
-        >
-          Criar conta
-        </button>
-      </div>
-      <button
-        className="text-xs font-semibold text-[var(--color-brand)]"
-        onClick={async () => {
-          const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + "/conta" } });
-          setMsg(error ? error.message : "Link de acesso enviado para o seu e-mail.");
+      <SectionTitle
+        title={mode === "entrar" ? "Entrar" : "Criar conta"}
+        subtitle="Sincronize perfil e tropas e participe da comunidade"
+        icon={<LogIn size={18} className="text-[var(--color-brand)]" />}
+        right={<Seg label="Modo" value={mode} onChange={setMode} options={[{ value: "entrar", label: "Entrar" }, { value: "criar", label: "Criar conta" }]} />}
+      />
+      <form
+        className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setMsg(null);
+          try {
+            if (mode === "entrar") await login({ data: { email, senha } });
+            else await register({ data: { email, senha, nome } });
+            setSenha("");
+            await refreshAll();
+          } catch (err) {
+            setMsg(err instanceof Error ? err.message : "Falha");
+          } finally {
+            setBusy(false);
+          }
         }}
       >
-        Prefere um link mágico? Enviar por e-mail
-      </button>
-      {msg && <Alert tone="info">{msg}</Alert>}
+        {mode === "criar" && <input className="input sm:col-span-3" placeholder="nome no app" value={nome} maxLength={40} onChange={(e) => setNome(e.target.value)} aria-label="Nome" />}
+        <input className="input" type="email" placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="E-mail" autoComplete="email" required />
+        <input className="input" type="password" placeholder="senha (8+ caracteres)" value={senha} onChange={(e) => setSenha(e.target.value)} aria-label="Senha" autoComplete={mode === "entrar" ? "current-password" : "new-password"} required />
+        <button className="btn btn-primary" type="submit" disabled={busy}>
+          {mode === "entrar" ? "Entrar" : "Criar"}
+        </button>
+      </form>
+      {msg && <Alert tone="critical">{msg}</Alert>}
     </Card>
   );
 }
 
 function SavedLineups() {
-  const [list, setList] = useLocal<SavedLineup[]>(KEYS.lineups, []);
+  const auth = useAuth();
+  const qc = useQueryClient();
+  const [local, setLocal] = useLocal<SavedLineup[]>(KEYS.lineups, []);
+  const remote = useQuery({ queryKey: ["lineups", auth.user?.id ?? "anon"], queryFn: () => listLineups(), enabled: Boolean(auth.user) });
+  const list: SavedLineup[] = auth.user ? ((remote.data ?? []) as SavedLineup[]) : local;
   const an = useQuery(analysisQuery);
   const byId = new Map((an.data?.analysis.players ?? []).map((p) => [p.atletaId, p] as const));
   const rodada = an.data?.analysis.rodada;
+  const remove = async (id: string) => {
+    if (auth.user) {
+      await deleteLineupFn({ data: { id } });
+      await qc.invalidateQueries({ queryKey: ["lineups"] });
+    } else setLocal(local.filter((x) => x.id !== id));
+  };
   return (
     <Card className="p-4">
-      <SectionTitle title="Tropas salvas" subtitle="Histórico das escalações geradas para consulta e auditoria" />
+      <SectionTitle title="Tropas salvas" subtitle={auth.user ? "Na sua conta — disponíveis em qualquer aparelho" : "Neste navegador"} />
       {!list.length && (
         <p className="text-sm text-[var(--color-ink-3)]">
-          Nenhuma tropa salva. Monte uma no <Link to="/escalacao" className="text-[var(--color-brand)] underline">Montador</Link> e toque em “Salvar tropa”.
+          Nenhuma tropa salva. Monte uma no{" "}
+          <Link to="/escalacao" className="text-[var(--color-brand)] underline">
+            Montador
+          </Link>{" "}
+          e toque em “Salvar tropa”.
         </p>
       )}
       <ul className="space-y-2">
@@ -163,15 +239,11 @@ function SavedLineups() {
               </div>
               <div className="flex shrink-0 gap-1">
                 {l.rodada === rodada && (
-                  <Link
-                    to="/ao-vivo"
-                    className="btn btn-ghost px-2 py-1 text-[11px]"
-                    onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas })}
-                  >
+                  <Link to="/ao-vivo" className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas })}>
                     <Radio size={13} /> Ao vivo
                   </Link>
                 )}
-                <button className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => setList(list.filter((x) => x.id !== l.id))} aria-label="Excluir tropa">
+                <button className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => remove(l.id)} aria-label="Excluir tropa">
                   <Trash2 size={13} />
                 </button>
               </div>

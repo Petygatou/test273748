@@ -10,6 +10,7 @@ import { roundBrief, topBy } from "../lib/derive";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
 import { useAlerts } from "../lib/alerts";
 import { analysisQuery, backtestQuery } from "../lib/queries";
+import { posRodadaFn } from "../server/fnsCartola";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -19,6 +20,7 @@ function Home() {
   const { data, isLoading, error, refetch } = useQuery(analysisQuery);
   const bt = useQuery({ ...backtestQuery, enabled: Boolean(data) });
   const { alerts: oficiais } = useAlerts();
+  const pos = useQuery({ queryKey: ["pos-rodada"], queryFn: () => posRodadaFn(), staleTime: 15 * 60_000, enabled: data?.analysis.source === "cartola" });
   if (isLoading) return <PageSkeleton />;
   if (error || !data) return <ErrorBox error={error} retry={() => refetch()} />;
   const a = data.analysis;
@@ -183,6 +185,21 @@ function Home() {
           </div>
         </Card>
       </div>
+
+      {pos.data?.mito && (
+        <Card className="flex flex-wrap items-center gap-4 p-4">
+          {pos.data.mito.escudo && <img src={pos.data.mito.escudo} alt="" width={48} height={48} className="rounded-lg" />}
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold tracking-widest text-[var(--color-gold)] uppercase">Mito da rodada passada</div>
+            <div className="font-display truncate text-lg font-bold">{pos.data.mito.nome}</div>
+            <div className="text-sm text-[var(--color-ink-3)]">{pos.data.mito.cartoleiro}</div>
+          </div>
+          <div className="text-right">
+            <div className="font-display tabular text-2xl font-extrabold text-[var(--color-gold)]">{fmt2(pos.data.mito.pontos)}</div>
+            {pos.data.mediaPontos != null && <div className="text-xs text-[var(--color-ink-3)]">média geral {fmt2(pos.data.mediaPontos)}</div>}
+          </div>
+        </Card>
+      )}
 
       {a.source === "demo" && (
         <p className="flex items-center gap-2 text-xs text-[var(--color-ink-3)]">

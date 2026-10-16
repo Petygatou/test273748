@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BadgeCheck, Heart, MessageCircle, Volume2, VolumeX } from "lucide-react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { BadgeCheck, Heart, MessageCircle, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "../components/avatars";
 import { Composer } from "../components/Composer";
@@ -8,6 +8,7 @@ import { Alert, Card } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { getCommunity, type Author, type Post, type Story } from "../lib/community";
 import { timeAgo } from "../lib/format";
+import { useRealtime } from "../lib/realtime";
 
 export const Route = createFileRoute("/comunidade")({
   component: CommunityPage,
@@ -22,25 +23,23 @@ function CommunityPage() {
   const [composeStory, setComposeStory] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
 
-  const canWrite = !auth.cloud || Boolean(auth.session);
+  const canWrite = Boolean(auth.user);
 
   const load = useCallback(async () => {
     try {
-      const [p, s] = await Promise.all([backend.listPosts(auth.me), backend.listStories()]);
-      setPosts(p);
-      setStories(s);
-      setErro(null);
+      const r = await backend.load();
+      setPosts(r.posts);
+      setStories(r.stories);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao carregar a comunidade");
-      setPosts([]);
+      setPosts((p) => p ?? []);
     }
-  }, [backend, auth.me.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [backend]);
 
   useEffect(() => {
-    if (!auth.ready) return;
-    void load();
-    return backend.subscribe(() => void load());
-  }, [auth.ready, load, backend]);
+    if (auth.ready) void load();
+  }, [auth.ready, auth.user?.id, load]);
+  useRealtime(["community", "users"], () => void load());
 
   const act = async (fn: () => Promise<void>) => {
     if (!canWrite) {
@@ -48,6 +47,7 @@ function CommunityPage() {
       return;
     }
     try {
+      setErro(null);
       await fn();
       await load();
     } catch (e) {
@@ -60,14 +60,19 @@ function CommunityPage() {
       <div>
         <h1 className="font-display text-2xl font-extrabold">Comunidade</h1>
         <p className="text-sm text-[var(--color-ink-3)]">
-          A arena dos cartoleiros. {backend.kind === "local" ? "Modo local: publicações ficam salvas neste navegador." : "Sincronizado em tempo real."}
+          A arena dos cartoleiros, sincronizada em tempo real.{" "}
+          {!auth.user && (
+            <Link to="/conta" className="font-semibold text-[var(--color-brand)] underline">
+              Entre para publicar
+            </Link>
+          )}
         </p>
       </div>
       <Card className="p-3">
         <StoriesBar stories={stories} me={auth.me} onCreate={() => (canWrite ? setComposeStory(true) : setErro("Entre na sua conta para publicar stories."))} onOpen={setViewing} />
       </Card>
       {erro && <Alert tone="warning">{erro}</Alert>}
-      <Composer me={auth.me} onPublish={(p) => act(() => backend.createPost(p, auth.me))} />
+      {canWrite && <Composer me={auth.me} onPublish={(p) => act(() => backend.createPost(p, auth.me))} />}
       {posts == null ? (
         <div className="space-y-3">
           {[0, 1].map((i) => (
@@ -80,16 +85,22 @@ function CommunityPage() {
             key={p.id}
             p={p}
             me={auth.me}
-            onLike={() => act(() => backend.toggleLike(p.id, auth.me))}
-            onVote={(i) => act(() => backend.vote(p.id, i, auth.me))}
-            onComment={(t) => act(() => backend.addComment(p.id, t, auth.me))}
+            onLike={() => act(() => backend.toggleLike(p.id))}
+            onVote={(i) => act(() => backend.vote(p.id, i))}
+            onComment={(t) => act(() => backend.addComment(p.id, t))}
+            onDelete={() => act(() => backend.deletePost(p.id))}
           />
         ))
       )}
-      {composeStory && <StoryComposer onClose={() => setComposeStory(false)} onPublish={async (s) => {
-        await backend.createStory(s, auth.me);
-        await load();
-      }} />}
+      {composeStory && (
+        <StoryComposer
+          onClose={() => setComposeStory(false)}
+          onPublish={async (s) => {
+            await backend.createStory(s, auth.me);
+            await load();
+          }}
+        />
+      )}
       {viewing && <StoryViewer stories={stories} startAuthor={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
@@ -141,7 +152,7 @@ function FeedVideo({ src }: { src: string }) {
   );
 }
 
-function PostCard({ p, me, onLike, onVote, onComment }: { p: Post; me: Author; onLike: () => void; onVote: (i: number) => void; onComment: (t: string) => void }) {
+function PostCard({ p, me, onLike, onVote, onComment, onDelete }: { p: Post; me: Author; onLike: () => void; onVote: (i: number) => void; onComment: (t: string) => void; onDelete: () => void }) {
   const [comment, setComment] = useState("");
   const [showAll, setShowAll] = useState(false);
   const totalVotes = p.poll ? p.poll.votos.reduce((a, b) => a + b, 0) : 0;
@@ -157,6 +168,11 @@ function PostCard({ p, me, onLike, onVote, onComment }: { p: Post; me: Author; o
           </div>
           <div className="text-[11px] text-[var(--color-ink-3)]">{timeAgo(p.criadoEm)}</div>
         </div>
+        {p.podeApagar && (
+          <button className="ml-auto text-[var(--color-ink-3)] hover:text-[var(--color-critical-ink)]" onClick={() => confirm("Apagar esta publicação?") && onDelete()} aria-label="Apagar publicação">
+            <Trash2 size={16} />
+          </button>
+        )}
       </header>
       {p.texto && <p className="px-3 pb-3 text-sm whitespace-pre-wrap text-[var(--color-ink-2)]">{p.texto}</p>}
       {p.media && (p.media.kind === "image" ? <img src={p.media.url} alt="" className="max-h-[70dvh] w-full object-cover" loading="lazy" /> : <FeedVideo src={p.media.url} />)}

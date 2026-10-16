@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Crown, Radio, RefreshCw } from "lucide-react";
 import { AskButton } from "../components/AskButton";
+import { FollowedTeams } from "../components/FollowedTeams";
 import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, StatTile } from "../components/ui";
 import { CAPTAIN_MULTIPLIER } from "../engine/rules";
 import type { PlayerProjection } from "../engine/types";
@@ -197,6 +198,7 @@ function LivePage() {
           </ul>
         </Card>
       </div>
+      <FollowedTeams />
     </div>
   );
 }

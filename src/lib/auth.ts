@@ -1,87 +1,47 @@
 /**
- * Identidade do cartoleiro.
- * - Lovable Cloud configurado: sessão Supabase (e-mail + senha ou link mágico),
- *   papel de administrador lido de `user_roles` (protegido por RLS).
- * - Sem nuvem: identidade local (id aleatório no navegador). O Painel ADM em
- *   modo local exige o ADMIN_TOKEN do servidor para alterar prováveis.
+ * Identidade do cartoleiro (cliente). A sessão é um cookie HttpOnly do
+ * próprio servidor; aqui só lemos "quem sou eu" e mantemos o perfil local
+ * (nome/avatar no cabeçalho) sincronizado com a conta.
  */
-import type { Session } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { fetchMe } from "../server/fnsConta";
 import type { Author } from "./community";
-import { DEFAULT_PROFILE, KEYS, readLocal, useLocal, writeLocal, type UserProfile } from "./storage";
-import { cloudEnabled, getSupabase } from "./supabase";
+import { DEFAULT_PROFILE, KEYS, readLocal, useLocal, writeLocal, type AvatarKey, type UserProfile } from "./storage";
 
-function localId(): string {
-  let id = readLocal<string | null>("cfc:local-id", null);
-  if (!id) {
-    id = `local-${Math.random().toString(36).slice(2, 10)}`;
-    writeLocal("cfc:local-id", id);
-  }
-  return id;
-}
+export const meQuery = queryOptions({ queryKey: ["me"], queryFn: () => fetchMe(), staleTime: 5 * 60_000 });
 
 export interface AuthState {
-  cloud: boolean;
-  session: Session | null;
-  userId: string;
+  user: Awaited<ReturnType<typeof fetchMe>>;
   isAdmin: boolean;
   me: Author;
   profile: UserProfile;
   ready: boolean;
+  refresh: () => Promise<void>;
 }
 
 export function useAuth(): AuthState {
+  const q = useQuery(meQuery);
+  const qc = useQueryClient();
   const [profile] = useLocal<UserProfile>(KEYS.profile, DEFAULT_PROFILE);
-  const [adminToken] = useLocal<string>(KEYS.adminToken, "");
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAdminCloud, setIsAdminCloud] = useState(false);
-  const [ready, setReady] = useState(!cloudEnabled);
-  const [lid, setLid] = useState("local");
+  const user = q.data ?? null;
 
   useEffect(() => {
-    setLid(localId());
-    const sb = getSupabase();
-    if (!sb) return;
-    sb.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const sb = getSupabase();
-    if (!sb || !session) {
-      setIsAdminCloud(false);
-      return;
+    if (!user) return;
+    const cur = readLocal<UserProfile>(KEYS.profile, DEFAULT_PROFILE);
+    if (cur.nome !== user.nome || cur.avatar !== user.avatar || cur.bio !== user.bio) {
+      writeLocal(KEYS.profile, { ...cur, nome: user.nome, bio: user.bio, avatar: user.avatar as AvatarKey });
     }
-    sb.from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setIsAdminCloud(Boolean(data)));
-  }, [session]);
+  }, [user]);
 
-  const userId = session?.user.id ?? lid;
-  const isAdmin = cloudEnabled ? isAdminCloud : Boolean(adminToken) || import.meta.env.DEV;
   return {
-    cloud: cloudEnabled,
-    session,
-    userId,
-    isAdmin,
-    me: { id: userId, nome: profile.nome || "Cartoleiro", avatar: profile.avatar },
+    user,
+    isAdmin: Boolean(user?.admin),
+    me: user ? { id: user.id, nome: user.nome, avatar: user.avatar as AvatarKey } : { id: "anon", nome: profile.nome || "Cartoleiro", avatar: profile.avatar },
     profile,
-    ready,
+    ready: !q.isLoading,
+    refresh: async () => {
+      await qc.invalidateQueries({ queryKey: meQuery.queryKey });
+    },
   };
-}
-
-/** Sincroniza o perfil local com a tabela `profiles` quando logado. */
-export async function syncProfile(p: UserProfile) {
-  const sb = getSupabase();
-  if (!sb) return;
-  const { data } = await sb.auth.getUser();
-  if (!data.user) return;
-  await sb.from("profiles").upsert({ id: data.user.id, nome: p.nome, bio: p.bio, avatar: p.avatar, updated_at: new Date().toISOString() });
 }

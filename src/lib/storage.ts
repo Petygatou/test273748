@@ -92,5 +92,6 @@ export const KEYS = {
   builder: "cfc:builder",
   lastLineup: "cfc:last-lineup",
   chat: "cfc:chat",
-  adminToken: "cfc:admin-token",
+  cartolaToken: "cfc:cartola-token",
+  followed: "cfc:followed-teams",
 } as const;

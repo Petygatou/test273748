@@ -44,25 +44,19 @@ export const fetchNews = createServerFn({ method: "GET" })
   });
 
 export const saveLineupOverride = createServerFn({ method: "POST" })
-  .validator((d: { atletaId: number; status: LineupOverride | null; adminToken?: string; accessToken?: string }) => {
+  .validator((d: { atletaId: number; status: LineupOverride | null }) => {
     if (!Number.isInteger(d.atletaId)) throw new Error("atletaId inválido");
     if (d.status != null && !["titular", "reserva", "duvida", "fora"].includes(d.status)) throw new Error("status inválido");
     return d;
   })
   .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
     const { loadSeason } = await import("./season");
     const { saveOverride } = await import("./store");
     const { invalidate } = await import("./cache");
-    const { cloudEnabled } = await import("../lib/supabase");
-    if (!cloudEnabled) {
-      // sem Lovable Cloud: exige ADMIN_TOKEN (ou ambiente de desenvolvimento)
-      const expected = process.env.ADMIN_TOKEN;
-      if (expected ? data.adminToken !== expected : !import.meta.env.DEV) throw new Error("Acesso restrito ao administrador.");
-    } else if (!data.accessToken) {
-      throw new Error("Faça login como administrador.");
-    }
+    const admin = requireAdmin();
     const { meta } = await loadSeason();
-    await saveOverride(meta.temporada, meta.rodada, data.atletaId, data.status, data.accessToken);
+    await saveOverride(meta.temporada, meta.rodada, data.atletaId, data.status, admin.id);
     invalidate("analysis:");
     return { ok: true };
   });
