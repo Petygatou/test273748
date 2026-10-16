@@ -441,6 +441,23 @@ export function estimatePlayers(
     });
   }
 
+  // goleiro: só um entra em campo. Normaliza a soma das chances por clube para ≤ 1,
+  // preservando quem tem override editorial de titular.
+  const gkByClub = new Map<number, PlayerDetail[]>();
+  for (const d of details.values()) {
+    if (d.athlete.posicaoId !== 1 || d.pJogar <= 0) continue;
+    if (!gkByClub.has(d.athlete.clubeId)) gkByClub.set(d.athlete.clubeId, []);
+    gkByClub.get(d.athlete.clubeId)!.push(d);
+  }
+  for (const list of gkByClub.values()) {
+    const locked = list.filter((d) => d.override === "titular");
+    const free = list.filter((d) => d.override !== "titular");
+    const lockedSum = locked.reduce((s, d) => s + d.pJogar, 0);
+    const freeSum = free.reduce((s, d) => s + d.pJogar, 0);
+    const room = Math.max(0, 1 - lockedSum);
+    if (freeSum > room && freeSum > 0) for (const d of free) d.pJogar *= room / freeSum;
+  }
+
   // técnico: média dos atletas do clube que entram + bônus de vitória
   const byClub = new Map<number, PlayerDetail[]>();
   for (const d of details.values()) {

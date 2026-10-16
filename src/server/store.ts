@@ -1,51 +1,32 @@
-/**
- * Persistência do servidor: overrides de prováveis escalações (painel ADM).
- * Usa o Lovable Cloud quando configurado; senão, memória do processo.
- */
+/** Prováveis escalações (Painel ADM) e alertas de mercado, no banco próprio. */
 import type { LineupOverride } from "../engine/types";
-import { getSupabase } from "../lib/supabase";
-
-const memory = new Map<string, Record<number, LineupOverride>>();
-const k = (temporada: number, rodada: number) => `${temporada}:${rodada}`;
+import { db, newId, type AlertRow } from "./db";
 
 export async function loadOverrides(temporada: number, rodada: number): Promise<Record<number, LineupOverride>> {
-  const sb = getSupabase();
-  if (sb) {
-    const { data, error } = await sb
-      .from("lineup_overrides")
-      .select("atleta_id,status")
-      .eq("temporada", temporada)
-      .eq("rodada", rodada);
-    if (!error && data) {
-      const out: Record<number, LineupOverride> = {};
-      for (const row of data as Array<{ atleta_id: number; status: LineupOverride }>) out[row.atleta_id] = row.status;
-      return out;
-    }
-  }
-  return memory.get(k(temporada, rodada)) ?? {};
+  const out: Record<number, LineupOverride> = {};
+  for (const o of db.overrides.filter((x) => x.temporada === temporada && x.rodada === rodada)) out[o.atletaId] = o.status;
+  return out;
 }
 
-export async function saveOverride(temporada: number, rodada: number, atletaId: number, status: LineupOverride | null, accessToken?: string) {
-  const sb = getSupabase();
-  if (sb && accessToken) {
-    const { createClient } = await import("@supabase/supabase-js");
-    const authed = createClient(import.meta.env.VITE_SUPABASE_URL as string, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string, {
-      global: { headers: { Authorization: `Bearer ${accessToken}` } },
-      auth: { persistSession: false },
-    });
-    if (status == null) {
-      const { error } = await authed.from("lineup_overrides").delete().match({ temporada, rodada, atleta_id: atletaId });
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await authed
-        .from("lineup_overrides")
-        .upsert({ temporada, rodada, atleta_id: atletaId, status }, { onConflict: "temporada,rodada,atleta_id" });
-      if (error) throw new Error(error.message);
-    }
-    return;
-  }
-  const cur = { ...(memory.get(k(temporada, rodada)) ?? {}) };
-  if (status == null) delete cur[atletaId];
-  else cur[atletaId] = status;
-  memory.set(k(temporada, rodada), cur);
+export async function saveOverride(temporada: number, rodada: number, atletaId: number, status: LineupOverride | null, userId: string) {
+  const id = `${temporada}:${rodada}:${atletaId}`;
+  if (status == null) db.overrides.remove(id);
+  else db.overrides.put({ id, temporada, rodada, atletaId, status, userId, atualizadoEm: new Date().toISOString() });
+}
+
+export function listAlerts(): AlertRow[] {
+  const since = Date.now() - 72 * 3600_000;
+  return db.alerts.filter((a) => new Date(a.criadoEm).getTime() > since).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)).slice(0, 10);
+}
+
+export function createAlert(userId: string, a: { tipo: string; titulo: string; mensagem: string }) {
+  const tipo = (["fechamento", "lesao", "desfalque", "geral"].includes(a.tipo) ? a.tipo : "geral") as AlertRow["tipo"];
+  const titulo = a.titulo.trim().slice(0, 90);
+  const mensagem = a.mensagem.trim().slice(0, 600);
+  if (!titulo || !mensagem) throw new Error("Preencha título e mensagem.");
+  return db.alerts.put({ id: newId(), tipo, titulo, mensagem, userId, criadoEm: new Date().toISOString() });
+}
+
+export function deleteAlert(id: string) {
+  db.alerts.remove(id);
 }

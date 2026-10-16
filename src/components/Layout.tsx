@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, Ellipsis, FlaskConical, House, Newspaper, Radio, Shield, Swords, User, Users, X } from "lucide-react";
+import { Activity, BarChart3, Bot, Ellipsis, FlaskConical, House, Newspaper, Radio, Shield, Shirt, Swords, Trophy, User, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { analysisQuery } from "../lib/queries";
 import { countdown, timeAgo } from "../lib/format";
@@ -16,6 +16,8 @@ const PRIMARY = [
 ] as const;
 
 const SECONDARY = [
+  { to: "/meu-time", label: "Meu Time", Icon: Shirt },
+  { to: "/ligas", label: "Ligas", Icon: Trophy },
   { to: "/noticias", label: "Notícias", Icon: Newspaper },
   { to: "/comunidade", label: "Comunidade", Icon: Users },
   { to: "/modelo", label: "Precisão do modelo", Icon: FlaskConical },
@@ -97,8 +99,12 @@ function NavLink({ to, label, Icon, onClick }: { to: string; label: string; Icon
 export function Layout({ children }: { children: ReactNode }) {
   const [profile] = useLocal<UserProfile>(KEYS.profile, DEFAULT_PROFILE);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [deskMore, setDeskMore] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
-  useEffect(() => setMoreOpen(false), [path]);
+  useEffect(() => {
+    setMoreOpen(false);
+    setDeskMore(false);
+  }, [path]);
 
   return (
     <div className="min-h-dvh pb-24 lg:pb-8">
@@ -109,9 +115,27 @@ export function Layout({ children }: { children: ReactNode }) {
             {PRIMARY.map((n) => (
               <NavLink key={n.to} {...n} />
             ))}
-            {SECONDARY.slice(0, 3).map((n) => (
+            {SECONDARY.slice(0, 1).map((n) => (
               <NavLink key={n.to} {...n} />
             ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDeskMore((v) => !v)}
+                aria-expanded={deskMore}
+                aria-haspopup="menu"
+                className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
+              >
+                <Ellipsis size={16} aria-hidden /> Mais
+              </button>
+              {deskMore && (
+                <div className="card absolute top-full left-0 z-50 mt-1 grid w-60 gap-1 p-2" role="menu">
+                  {SECONDARY.slice(1).map((n) => (
+                    <NavLink key={n.to} {...n} onClick={() => setDeskMore(false)} />
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
           <div className="flex-1 lg:hidden" />
           <Link to="/admin" className="hidden text-[var(--color-ink-3)] hover:text-[var(--color-ink)] lg:block" aria-label="Painel ADM">
