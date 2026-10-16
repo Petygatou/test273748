@@ -30,3 +30,42 @@ export function validateScoring(history: PlayerRound[]): RulesCheck {
   });
   return { acerto: ok / rows.length, amostras: rows.length, pesosEstimados, divergencias };
 }
+
+/**
+ * Salvaguarda de formato: se os scouts por rodada vierem ACUMULADOS (soma da
+ * temporada) em vez de por jogo, os pontos recalculados não batem. Nesse caso
+ * converte por diferença entre rodadas consecutivas de cada atleta e confere
+ * de novo — fica com a versão que melhor reproduz a pontuação oficial.
+ */
+export function normalizeHistoryScouts(history: PlayerRound[]): { history: PlayerRound[]; convertido: boolean } {
+  const rows = history.filter((h) => h.posicaoId !== 6);
+  if (rows.length < 50) return { history, convertido: false };
+  const rate = (hs: PlayerRound[]) => {
+    const r = hs.filter((h) => h.posicaoId !== 6);
+    let ok = 0;
+    for (const h of r) if (Math.abs(pointsFromScouts(h.scout) - h.pontos) < 0.051) ok++;
+    return ok / Math.max(1, r.length);
+  };
+  const original = rate(history);
+  if (original >= 0.6) return { history, convertido: false };
+  const byAthlete = new Map<number, PlayerRound[]>();
+  for (const h of history) {
+    if (!byAthlete.has(h.atletaId)) byAthlete.set(h.atletaId, []);
+    byAthlete.get(h.atletaId)!.push(h);
+  }
+  const diffed: PlayerRound[] = [];
+  for (const list of byAthlete.values()) {
+    list.sort((a, b) => a.rodada - b.rodada);
+    let prev: Partial<Record<ScoutKey, number>> = {};
+    for (const h of list) {
+      const scout: Partial<Record<ScoutKey, number>> = {};
+      for (const k of SCOUT_KEYS) {
+        const v = (h.scout[k] ?? 0) - (prev[k] ?? 0);
+        if (v > 0) scout[k] = v;
+      }
+      prev = h.scout;
+      diffed.push({ ...h, scout });
+    }
+  }
+  return rate(diffed) > original ? { history: diffed, convertido: true } : { history, convertido: false };
+}

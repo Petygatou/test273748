@@ -46,7 +46,10 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
 /* ------------------------------ visualizador ------------------------------ */
 
 export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[]; startAuthor: string; onClose: () => void }) {
-  const ordered = [...stories].sort((a, b) => (a.author.id === b.author.id ? a.criadoEm.localeCompare(b.criadoEm) : 0));
+  // agrupa por autor (na ordem em que aparecem na barra) e, dentro do grupo, por horário
+  const authorOrder: string[] = [];
+  for (const s of stories) if (!authorOrder.includes(s.author.id)) authorOrder.push(s.author.id);
+  const ordered = authorOrder.flatMap((id) => stories.filter((s) => s.author.id === id).sort((a, b) => a.criadoEm.localeCompare(b.criadoEm)));
   const firstIdx = Math.max(0, ordered.findIndex((s) => s.author.id === startAuthor));
   const [idx, setIdx] = useState(firstIdx);
   const [progress, setProgress] = useState(0);

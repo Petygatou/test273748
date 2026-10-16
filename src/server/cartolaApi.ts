@@ -11,6 +11,7 @@
  * Rodadas encerradas não mudam → cache longo. Mercado e status → cache curto.
  */
 import type { PositionId, Scouts } from "../engine/rules";
+import { normalizeHistoryScouts } from "../engine/rulesCheck";
 import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/types";
 import { cached, pool } from "./cache";
 
@@ -223,7 +224,8 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
       return [] as PlayerRound[];
     }
   });
-  const history = pontuados.flat();
+  // salvaguarda: converte scouts acumulados em scouts por rodada, se for o caso
+  const { history } = normalizeHistoryScouts(pontuados.flat());
 
   const destaques = await getDestaques();
   const ownership: Record<number, number> = {};

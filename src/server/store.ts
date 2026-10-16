@@ -3,7 +3,7 @@
  * Usa o Lovable Cloud quando configurado; senão, memória do processo.
  */
 import type { LineupOverride } from "../engine/types";
-import { getSupabase } from "../lib/supabase";
+import { getSupabase, supabaseKey, supabaseUrl } from "../lib/supabase";
 
 const memory = new Map<string, Record<number, LineupOverride>>();
 const k = (temporada: number, rodada: number) => `${temporada}:${rodada}`;
@@ -29,7 +29,7 @@ export async function saveOverride(temporada: number, rodada: number, atletaId: 
   const sb = getSupabase();
   if (sb && accessToken) {
     const { createClient } = await import("@supabase/supabase-js");
-    const authed = createClient(import.meta.env.VITE_SUPABASE_URL as string, import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string, {
+    const authed = createClient(supabaseUrl!, supabaseKey!, {
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
       auth: { persistSession: false },
     });
