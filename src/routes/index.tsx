@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, ChevronRight, Coins, Crown, FlaskConical, Gem, Swords, Target } from "lucide-react";
+import { AlertTriangle, Bell, ChevronRight, Coins, Crown, FlaskConical, Gem, Swords, Target } from "lucide-react";
 import { AskButton } from "../components/AskButton";
 import { FixtureCard } from "../components/FixtureCard";
 import { PlayerRow } from "../components/PlayerRow";
@@ -8,6 +8,7 @@ import { Card, ErrorBox, PageSkeleton, PosBadge, SectionTitle, StatTile } from "
 import { PLAYER_POSITIONS, POSITIONS } from "../engine/rules";
 import { roundBrief, topBy } from "../lib/derive";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
+import { useAlerts } from "../lib/alerts";
 import { analysisQuery, backtestQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/")({
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/")({
 function Home() {
   const { data, isLoading, error, refetch } = useQuery(analysisQuery);
   const bt = useQuery({ ...backtestQuery, enabled: Boolean(data) });
+  const { alerts: oficiais } = useAlerts();
   if (isLoading) return <PageSkeleton />;
   if (error || !data) return <ErrorBox error={error} retry={() => refetch()} />;
   const a = data.analysis;
@@ -33,6 +35,19 @@ function Home() {
 
   return (
     <div className="space-y-6">
+      {oficiais.length > 0 && (
+        <div className="space-y-2" role="region" aria-label="Alertas oficiais">
+          {oficiais.slice(0, 3).map((al) => (
+            <div key={al.id} className="flex items-start gap-3 rounded-xl border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/5 px-4 py-3">
+              <Bell size={18} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold">{al.titulo}</div>
+                <div className="text-sm text-[var(--color-ink-2)]">{al.mensagem}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {/* hero */}
       <section className="card relative overflow-hidden p-5 md:p-6">
         <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[var(--color-brand)]/15 blur-3xl" aria-hidden />

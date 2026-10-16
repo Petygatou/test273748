@@ -172,7 +172,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         {/* ----------------------------- controles ----------------------------- */}
-        <div className="min-w-0 space-y-4">
+        <div className="order-2 min-w-0 space-y-4 lg:order-1">
           <Card className="space-y-4 p-4">
             <div>
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Perfil estratégico</div>
@@ -227,7 +227,18 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         </div>
 
         {/* ----------------------------- resultado ----------------------------- */}
-        <div className="min-w-0 space-y-4">
+        <div className="order-1 min-w-0 space-y-4 lg:order-2">
+          {/* atalhos no celular: perfil e orçamento sem rolar até os ajustes */}
+          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+            <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
+            <div className="seg" role="group" aria-label="Orçamento">
+              {[100, 120, 140].map((b) => (
+                <button key={b} aria-pressed={settings.budget === b} onClick={() => update({ budget: b })}>
+                  C$ {b}
+                </button>
+              ))}
+            </div>
+          </div>
           {!lineup ? (
             <Alert tone="critical">{result.erro ?? "Não foi possível montar a tropa com essas condições."}</Alert>
           ) : (

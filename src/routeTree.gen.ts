@@ -19,6 +19,7 @@ import { Route as EscalacaoRouteImport } from './routes/escalacao'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
 import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
+import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +72,11 @@ const NoticiasRoute = NoticiasRouteImport.update({
   path: '/noticias',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiComandanteRoute = ApiComandanteRouteImport.update({
+  id: '/api/comandante',
+  path: '/api/comandante',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
   id: '/jogador/$id',
   path: '/jogador/$id',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/estatisticas': typeof EstatisticasRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
   '/jogador/$id': typeof JogadorIdRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/estatisticas': typeof EstatisticasRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
   '/jogador/$id': typeof JogadorIdRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/estatisticas': typeof EstatisticasRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
   '/jogador/$id': typeof JogadorIdRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/estatisticas'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
     | '/jogador/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/estatisticas'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
     | '/jogador/$id'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/estatisticas'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
     | '/jogador/$id'
   fileRoutesById: FileRoutesById
 }
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   EstatisticasRoute: typeof EstatisticasRoute
   ModeloRoute: typeof ModeloRoute
   NoticiasRoute: typeof NoticiasRoute
+  ApiComandanteRoute: typeof ApiComandanteRoute
   JogadorIdRoute: typeof JogadorIdRoute
 }
 
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NoticiasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/comandante': {
+      id: '/api/comandante'
+      path: '/api/comandante'
+      fullPath: '/api/comandante'
+      preLoaderRoute: typeof ApiComandanteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jogador/$id': {
       id: '/jogador/$id'
       path: '/jogador/$id'
@@ -266,6 +286,7 @@ const rootRouteChildren: RootRouteChildren = {
   EstatisticasRoute: EstatisticasRoute,
   ModeloRoute: ModeloRoute,
   NoticiasRoute: NoticiasRoute,
+  ApiComandanteRoute: ApiComandanteRoute,
   JogadorIdRoute: JogadorIdRoute,
 }
 export const routeTree = rootRouteImport
