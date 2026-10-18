@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AI_ENABLED } from "../../lib/features";
 
 /**
  * POST /api/comandante — conversa com o Comandante em streaming (NDJSON).
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/api/comandante")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (!AI_ENABLED) return Response.json({ error: "Recurso desativado" }, { status: 404 });
         const { runComandante, allowRequest } = await import("../../server/comandante");
         const { loadAnalysis, loadBacktest } = await import("../../server/season");
         const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";

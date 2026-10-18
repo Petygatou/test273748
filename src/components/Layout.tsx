@@ -2,18 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Activity, BarChart3, Bot, Ellipsis, FlaskConical, House, Newspaper, Radio, Shield, Shirt, Swords, Trophy, User, Users, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { AI_ENABLED } from "../lib/features";
 import { analysisQuery } from "../lib/queries";
 import { countdown, timeAgo } from "../lib/format";
 import { DEFAULT_PROFILE, KEYS, useLocal, type UserProfile } from "../lib/storage";
 import { Avatar } from "./avatars";
 
-const PRIMARY = [
+const PRIMARY = ([
   { to: "/", label: "Início", Icon: House },
   { to: "/escalacao", label: "Escalar", Icon: Swords },
   { to: "/estatisticas", label: "Stats", Icon: BarChart3 },
   { to: "/ao-vivo", label: "Ao Vivo", Icon: Radio },
   { to: "/assistente", label: "Comandante", Icon: Bot },
-] as const;
+] as const).filter((n) => AI_ENABLED || n.to !== "/assistente");
 
 const SECONDARY = [
   { to: "/meu-time", label: "Meu Time", Icon: Shirt },
@@ -157,7 +158,7 @@ export function Layout({ children }: { children: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
         aria-label="Navegação inferior"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-6">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
           {PRIMARY.map(({ to, label, Icon }) => {
             const active = to === "/" ? path === "/" : path.startsWith(to);
             return (

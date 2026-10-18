@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { AI_ENABLED } from "../lib/features";
 import { Bot, Loader2, Send, Sparkles, Trash2, Wrench } from "lucide-react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "../components/avatars";
@@ -7,6 +8,9 @@ import { takeAsk } from "../lib/ask";
 import { DEFAULT_PROFILE, KEYS, readLocal, useLocal, writeLocal, type UserProfile } from "../lib/storage";
 
 export const Route = createFileRoute("/assistente")({
+  beforeLoad: () => {
+    if (!AI_ENABLED) throw redirect({ to: "/" });
+  },
   component: AssistantPage,
 });
 

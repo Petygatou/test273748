@@ -103,4 +103,4 @@ Leia também: [`docs/MOTOR.md`](docs/MOTOR.md) (como o motor funciona e como foi
 
 ## Hospedagem
 
-O app é um servidor Node com banco em arquivo, upload e SSE, então precisa de disco persistente: **não use a Vercel/Netlify** (funções serverless, sem disco, dão 404). Use Render, Railway ou Fly.io. O repositório traz `Dockerfile` e `render.yaml` (Render: *New → Blueprint*, aponte para o repositório e preencha `ANTHROPIC_API_KEY` e `ADMIN_EMAILS`). Em qualquer host Docker, monte um volume em `/data`.
+O app é um servidor Node com banco em arquivo, upload e SSE, então precisa de disco persistente: **não use a Vercel/Netlify** (funções serverless, sem disco, dão 404). Use Render, Railway ou Fly.io. O repositório traz `Dockerfile` e `render.yaml` (Render: *New → Blueprint*, aponte para o repositório e o `ADMIN_EMAILS` já vem preenchido no `render.yaml`). Em qualquer host Docker, monte um volume em `/data`.

@@ -58,7 +58,7 @@ function Home() {
             <div className="text-xs font-semibold tracking-widest text-[var(--color-brand)] uppercase">Rodada {a.rodada} · {a.temporada}</div>
             <h1 className="font-display mt-1 text-2xl font-extrabold md:text-3xl">A matemática já leu a rodada.</h1>
             <p className="mt-1 max-w-xl text-sm text-[var(--color-ink-2)]">
-              {a.fixtures.length} jogos, {a.diagnostics.atletasModelados} atletas projetados scout a scout e {sims.toLocaleString("pt-BR")} simulações de Monte Carlo por atleta. A IA só interpreta — os números vêm do motor.
+              {a.fixtures.length} jogos, {a.diagnostics.atletasModelados} atletas projetados scout a scout e {sims.toLocaleString("pt-BR")} simulações de Monte Carlo por atleta.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

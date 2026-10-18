@@ -10,7 +10,5 @@ services:
     envVars:
       - key: DATA_DIR
         value: /data
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: ADMIN_EMAILS
-        sync: false
+        value: admin.k7x2q9@comandantefc.app

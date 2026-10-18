@@ -1,3 +1,4 @@
+import { AI_ENABLED } from "../lib/features";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Check, KeyRound, Link2, LogIn, LogOut, Radio, Save, Trash2, UserRound } from "lucide-react";
@@ -77,7 +78,7 @@ function AccountPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Seg label="Tom do Comandante" value={draft.tom} onChange={(v) => setDraft({ ...draft, tom: v })} options={[{ value: "conservador", label: "Conservador" }, { value: "agressivo", label: "Agressivo" }]} />
+            {AI_ENABLED && (<Seg label="Tom do Comandante" value={draft.tom} onChange={(v) => setDraft({ ...draft, tom: v })} options={[{ value: "conservador", label: "Conservador" }, { value: "agressivo", label: "Agressivo" }]} />)}
             <Seg label="Foco" value={draft.foco} onChange={(v) => setDraft({ ...draft, foco: v })} options={[{ value: "pontos", label: "Pontos" }, { value: "cartoletas", label: "Cartoletas" }]} />
           </div>
           {erro && <Alert tone="critical">{erro}</Alert>}

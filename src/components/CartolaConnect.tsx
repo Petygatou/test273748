@@ -23,7 +23,7 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
   }
   return (
     <Card className="space-y-3 p-4">
-      <SectionTitle title="Conectar sua conta do Cartola" subtitle="Para ver seu time, suas ligas e escalar direto pelo Comandante" icon={<KeyRound size={18} className="text-[var(--color-gold)]" />} />
+      <SectionTitle title="Conectar sua conta do Cartola" subtitle="Para ver seu time, suas ligas e escalar direto pelo site" icon={<KeyRound size={18} className="text-[var(--color-gold)]" />} />
       <ol className="list-decimal space-y-1 pl-5 text-sm text-[var(--color-ink-2)]">
         <li>
           Entre em{" "}
