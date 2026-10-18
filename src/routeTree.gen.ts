@@ -28,6 +28,7 @@ import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFotoRouteImport } from './routes/api/foto'
 import { Route as ApiImportarRouteImport } from './routes/api/importar'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
+import { Route as ApiSaudeRouteImport } from './routes/api/saude'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 import { Route as MediaFileRouteImport } from './routes/media/$file'
 
@@ -126,6 +127,11 @@ const ApiMediaRoute = ApiMediaRouteImport.update({
   path: '/api/media',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSaudeRoute = ApiSaudeRouteImport.update({
+  id: '/api/saude',
+  path: '/api/saude',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
   id: '/jogador/$id',
   path: '/jogador/$id',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/api/foto': typeof ApiFotoRoute
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/api/foto': typeof ApiFotoRoute
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/api/foto': typeof ApiFotoRoute
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/api/foto'
     | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesByTo: FileRoutesByTo
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/api/foto'
     | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   id:
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/api/foto'
     | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesById: FileRoutesById
@@ -299,6 +311,7 @@ export interface RootRouteChildren {
   ApiFotoRoute: typeof ApiFotoRoute
   ApiImportarRoute: typeof ApiImportarRoute
   ApiMediaRoute: typeof ApiMediaRoute
+  ApiSaudeRoute: typeof ApiSaudeRoute
   JogadorIdRoute: typeof JogadorIdRoute
   MediaFileRoute: typeof MediaFileRoute
 }
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMediaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/saude': {
+      id: '/api/saude'
+      path: '/api/saude'
+      fullPath: '/api/saude'
+      preLoaderRoute: typeof ApiSaudeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jogador/$id': {
       id: '/jogador/$id'
       path: '/jogador/$id'
@@ -475,6 +495,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFotoRoute: ApiFotoRoute,
   ApiImportarRoute: ApiImportarRoute,
   ApiMediaRoute: ApiMediaRoute,
+  ApiSaudeRoute: ApiSaudeRoute,
   JogadorIdRoute: JogadorIdRoute,
   MediaFileRoute: MediaFileRoute,
 }

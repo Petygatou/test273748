@@ -19,7 +19,10 @@ export function dataDir(): string {
 export const events = new EventEmitter();
 events.setMaxListeners(1000);
 
-export type Topic = "community" | "alerts" | "overrides" | "users";
+export type Topic = "community" | "alerts" | "overrides" | "users" | "dados";
+
+/** Avisa os navegadores abertos (SSE) que um tópico mudou. */
+export const emit = (topic: Topic) => events.emit("change", topic);
 
 export class Collection<T extends { id: string }> {
   private rows = new Map<string, T>();

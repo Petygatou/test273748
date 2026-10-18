@@ -1,11 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Activity, BarChart3, Bot, ClipboardList, FlaskConical, House, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
 import { countdown, timeAgo } from "../lib/format";
-import { analysisQuery } from "../lib/queries";
+import { analysisQuery, liveQuery, mudancasQuery } from "../lib/queries";
+import { useRealtime } from "../lib/realtime";
 import { Avatar } from "./avatars";
 import { GlobalSearch, type PageEntry } from "./GlobalSearch";
 
@@ -113,6 +114,12 @@ function isActive(path: string, to: string) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const qc = useQueryClient();
+  // o servidor avisa quando algo mudou (status de atleta, mercado, notícia): atualiza tudo sem recarregar
+  useRealtime(["dados"], () => {
+    for (const q of [analysisQuery, liveQuery, mudancasQuery]) void qc.invalidateQueries({ queryKey: q.queryKey });
+    void qc.invalidateQueries({ queryKey: ["backtest"] });
+  });
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [searchOpen, setSearchOpen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);

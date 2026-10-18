@@ -83,6 +83,8 @@ export interface SeasonData {
   semStatus?: boolean;
   /** Status de cada atleta antes de cada rodada (snapshots do mercado): rodada → atleta → status. */
   statusHistory?: Record<number, Record<number, number>>;
+  /** Sinais de notícias recentes: atleta → deslocamento (log-chance) na chance de jogar. */
+  sinais?: Record<number, number>;
   source: "cartola" | "demo";
   updatedAt: string;
 }

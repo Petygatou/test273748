@@ -1,16 +1,15 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, ClipboardList, Info } from "lucide-react";
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { OutcomeBar } from "../components/FixtureCard";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, Seg } from "../components/ui";
-import type { FixtureOdds, LineupOverride, PlayerProjection, RoundAnalysis } from "../engine/types";
-import { useAuth } from "../lib/auth";
-import { saveLineupBatch, saveLineupOverride } from "../server/fns";
+import type { FixtureOdds, PlayerProjection, RoundAnalysis } from "../engine/types";
 import type { LiveData, LiveMatch } from "../server/live";
+import type { Mudanca } from "../server/watcher";
 import { dateTime, fmt1, pct } from "../lib/format";
 import { probTag, probableXI, type ProbTag, type ProbableXI } from "../lib/provaveis";
-import { analysisQuery, backtestQuery, liveQuery } from "../lib/queries";
+import { analysisQuery, backtestQuery, liveQuery, mudancasQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/provaveis")({
   component: ProvaveisPage,
@@ -29,17 +28,7 @@ function PointsChip({ v }: { v: number }) {
   return <span className={`tabular rounded-full px-1.5 py-px text-[10px] leading-tight font-bold ${cls}`}>{fmt1(v)}</span>;
 }
 
-/** Admin: tocar no atleta abre o ajuste rápido em vez da ficha. */
-const EditCtx = createContext<((p: PlayerProjection) => void) | null>(null);
-
 function PlayerLink({ p, className, label, children }: { p: PlayerProjection; className: string; label?: string; children: ReactNode }) {
-  const edit = useContext(EditCtx);
-  if (edit)
-    return (
-      <button type="button" onClick={() => edit(p)} className={className} aria-label={label ? `Ajustar ${label}` : `Ajustar ${p.apelido}`}>
-        {children}
-      </button>
-    );
   return (
     <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className={className} aria-label={label}>
       {children}
@@ -96,45 +85,7 @@ function PitchLines() {
   );
 }
 
-function ConfirmBar({ a, xi }: { a: RoundAnalysis; xi: ProbableXI }) {
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const titulares = [...xi.lines.gol, ...xi.lines.def, ...xi.lines.mei, ...xi.lines.ata];
-  const ids = new Set(titulares.map((p) => p.atletaId));
-  const confirmed = titulares.every((p) => p.override === "titular");
-  const anyOverride = a.players.some((p) => p.clubeId === xi.clubeId && p.override);
-  const run = async (limpar: boolean) => {
-    setBusy(true);
-    setErro(null);
-    try {
-      const resto = a.players.filter((p) => p.clubeId === xi.clubeId && p.posicaoId !== 6 && !ids.has(p.atletaId) && (limpar ? p.override : p.statusId !== 5 && p.statusId !== 3)).map((p) => p.atletaId);
-      await saveLineupBatch({ data: { titulares: titulares.map((p) => p.atletaId), reservas: resto, limpar } });
-      await qc.invalidateQueries({ queryKey: analysisQuery.queryKey });
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Falha");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-brand)]/30 bg-[var(--color-brand)]/5 px-2.5 py-2 text-xs">
-      <button className="btn btn-primary px-3 py-1.5 text-xs" disabled={busy || confirmed} onClick={() => run(false)}>
-        {confirmed ? "✓ Time confirmado" : "Confirmar estes 11"}
-      </button>
-      {anyOverride && (
-        <button className="font-semibold text-[var(--color-ink-3)] underline" disabled={busy} onClick={() => run(true)}>
-          limpar ajustes do time
-        </button>
-      )}
-      <span className="text-[var(--color-ink-3)]">Troque quem estiver errado antes (toque no atleta), depois confirme.</span>
-      {erro && <span className="text-[var(--color-critical-ink)]">{erro}</span>}
-    </div>
-  );
-}
-
 function TeamPitch({ a, xi, live, started, total }: { a: RoundAnalysis; xi: ProbableXI; live?: LiveData; started: boolean; total?: number }) {
-  const editing = useContext(EditCtx) != null;
   const row = (ps: PlayerProjection[]) => (
     <div className="flex items-start justify-around gap-0.5 px-1">
       {ps.map((p) => (
@@ -169,7 +120,6 @@ function TeamPitch({ a, xi, live, started, total }: { a: RoundAnalysis; xi: Prob
           </div>
         )}
       </div>
-      {editing && !started && <ConfirmBar a={a} xi={xi} />}
       {xi.banco.length > 0 && (
         <div className="mt-2 rounded-xl bg-[var(--color-surface-1)] p-2">
           <div className="mb-1.5 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">{started ? "Banco" : "Opções no banco"}</div>
@@ -235,71 +185,46 @@ function MatchBlock({ a, f, live, match }: { a: RoundAnalysis; f: FixtureOdds; l
   );
 }
 
-const AJUSTES: Array<{ value: LineupOverride; label: string; hint: string }> = [
-  { value: "titular", label: "Titular", hint: "confirmado no time" },
-  { value: "duvida", label: "Dúvida", hint: "pode não jogar" },
-  { value: "reserva", label: "Reserva", hint: "começa no banco" },
-  { value: "fora", label: "Fora", hint: "não joga" },
-];
-
-function AdminSheet({ p, a, onClose }: { p: PlayerProjection; a: RoundAnalysis; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [saving, setSaving] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const save = async (status: LineupOverride | null) => {
-    setSaving(true);
-    setErro(null);
-    try {
-      await saveLineupOverride({ data: { atletaId: p.atletaId, status } });
-      await qc.invalidateQueries({ queryKey: analysisQuery.queryKey });
-      onClose();
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : "Falha ao salvar");
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Ajustar ${p.apelido}`}>
-      <button className="absolute inset-0 bg-black/60" aria-label="Fechar" onClick={onClose} />
-      <div className="card relative w-full max-w-sm p-4">
-        <div className="flex items-center gap-3">
-          <PlayerPhoto p={p} size={48} />
-          <div className="min-w-0 flex-1">
-            <div className="font-display truncate text-lg font-bold">{p.apelido}</div>
-            <div className="flex items-center gap-1.5 text-xs text-[var(--color-ink-3)]">
-              <ClubBadge club={a.clubs[p.clubeId]} size={14} /> chance atual {pct(p.pJogar)}
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {AJUSTES.map((o) => (
-            <button
-              key={o.value}
-              disabled={saving}
-              onClick={() => save(o.value)}
-              className={`rounded-xl border p-2.5 text-left ${p.override === o.value ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10" : "border-[var(--color-line)] hover:border-[var(--color-ink-3)]"}`}
-            >
-              <div className="text-sm font-bold">{o.label}</div>
-              <div className="text-[11px] text-[var(--color-ink-3)]">{o.hint}</div>
-            </button>
-          ))}
-        </div>
-        {erro && <p className="mt-2 text-xs text-[var(--color-critical-ink)]">{erro}</p>}
-        <div className="mt-3 flex items-center justify-between text-xs">
-          {p.override ? (
-            <button className="font-semibold text-[var(--color-ink-3)] underline" disabled={saving} onClick={() => save(null)}>
-              Voltar ao automático
-            </button>
-          ) : (
-            <span className="text-[var(--color-ink-3)]">Automático (modelo + status do Cartola)</span>
-          )}
-          <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className="font-semibold text-[var(--color-brand)]">
-            Ver ficha
-          </Link>
-        </div>
+/** Mudanças detectadas pelo servidor em tempo real: status do Cartola, mercado e notícias de desfalque. */
+function Novidades({ items, a }: { items: Mudanca[]; a: RoundAnalysis }) {
+  const [open, setOpen] = useState(true);
+  if (!items.length)
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-[var(--color-line)] px-3 py-2 text-xs text-[var(--color-ink-3)]">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-good)]" aria-hidden /> Acompanhando o Cartola e as notícias ao vivo. Qualquer mudança aparece aqui e nas escalações sozinha.
       </div>
-    </div>
+    );
+  return (
+    <Card className="p-3">
+      <button type="button" className="flex w-full items-center gap-2 text-left" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-good)]" aria-hidden />
+        <span className="flex-1 text-sm font-bold">Últimas mudanças · ao vivo</span>
+        <span className="text-xs text-[var(--color-ink-3)]">{items.length}</span>
+      </button>
+      {open && (
+        <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto text-sm">
+          {items.slice(0, 12).map((m) => {
+            const p = m.atletaId != null ? a.players.find((x) => x.atletaId === m.atletaId) : undefined;
+            return (
+              <li key={m.id} className="flex items-start gap-2">
+                <span className="tabular mt-0.5 w-12 shrink-0 text-[11px] text-[var(--color-ink-3)]">{new Date(m.em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="chip shrink-0 text-[10px]">{m.tipo === "status" ? "Cartola" : m.tipo === "noticia" ? "Notícia" : "Mercado"}</span>
+                <span className="min-w-0 flex-1">
+                  {m.link ? (
+                    <a href={m.link} target="_blank" rel="noopener noreferrer" className="underline decoration-[var(--color-ink-3)]/50">
+                      {m.texto}
+                    </a>
+                  ) : (
+                    m.texto
+                  )}
+                  {p && <span className="ml-1 text-[11px] text-[var(--color-ink-3)]">(joga {pct(p.pJogar)})</span>}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -308,8 +233,7 @@ function ProvaveisPage() {
   const lv = useQuery(liveQuery);
   const bt = useQuery({ ...backtestQuery, enabled: Boolean(an.data) });
   const [filtro, setFiltro] = useState<"todos" | "aovivo">("todos");
-  const { isAdmin } = useAuth();
-  const [editing, setEditing] = useState<PlayerProjection | null>(null);
+  const mud = useQuery(mudancasQuery);
   if (an.isLoading) return <PageSkeleton />;
   if (an.error || !an.data) return <ErrorBox error={an.error} retry={() => an.refetch()} />;
   const a = an.data.analysis;
@@ -353,20 +277,13 @@ function ProvaveisPage() {
         ))}
       </nav>
 
-      {isAdmin && (
-        <div className="rounded-xl border border-[var(--color-brand)]/40 bg-[var(--color-brand)]/5 px-3 py-2 text-xs text-[var(--color-ink-2)]">
-          <b className="text-[var(--color-brand)]">Modo editor:</b> toque em qualquer atleta para marcar titular, dúvida, reserva ou fora. A escalação e todas as projeções se recalculam na hora.
-        </div>
-      )}
+      <Novidades items={mud.data?.mudancas ?? []} a={a} />
 
-      <EditCtx.Provider value={isAdmin ? setEditing : null}>
-        <div className="grid gap-4 xl:grid-cols-2">
-          {fixtures.map((f) => (
-            <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} />
-          ))}
-        </div>
-      </EditCtx.Provider>
-      {editing && <AdminSheet p={a.players.find((x) => x.atletaId === editing.atletaId) ?? editing} a={a} onClose={() => setEditing(null)} />}
+      <div className="grid gap-4 xl:grid-cols-2">
+        {fixtures.map((f) => (
+          <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} />
+        ))}
+      </div>
       {!fixtures.length && <Card className="p-6 text-center text-sm text-[var(--color-ink-3)]">Nenhum jogo em andamento agora.</Card>}
     </div>
   );

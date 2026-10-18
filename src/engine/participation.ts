@@ -301,13 +301,13 @@ export const STATUS_SHIFT: Record<number, number> = {
  * (histórico de snapshots), ele já está no logit; senão usamos deslocamentos
  * fixos conservadores. statusId −1 = sem informação (recorte de backtest).
  */
-export function finalPlayProbability(model: ParticipationModel, baseFeatures: number[], a: Athlete, override?: LineupOverride): number {
+export function finalPlayProbability(model: ParticipationModel, baseFeatures: number[], a: Athlete, override?: LineupOverride, sinal = 0): number {
   if (override === "fora") return 0;
   if (a.statusId === STATUS.CONTUNDIDO || a.statusId === STATUS.SUSPENSO) return override === "titular" ? 0.97 : 0;
   const status = a.statusId === -1 ? undefined : a.statusId;
   let z = predictLogit(model, withStatus(baseFeatures, model.statusAprendido ? status : undefined));
   if (!model.statusAprendido && status != null) z += STATUS_SHIFT[status] ?? -1.5;
-  const p = sigmoid(z);
+  const p = sigmoid(z + sinal);
   if (override === "titular") return Math.max(0.97, p);
   if (override === "reserva") return Math.min(p, 0.3);
   if (override === "duvida") return Math.min(0.55, Math.max(0.35, p * 0.6));

@@ -176,3 +176,55 @@ describe("dados reais importados", () => {
     expect(back?.data.athletes).toHaveLength(60);
   });
 });
+
+describe("admin por variável de ambiente", () => {
+  it("cria a conta do admin e redefine a senha pela variável", () => {
+    process.env.ADMIN_EMAILS = "dono@tropa.com";
+    process.env.ADMIN_PASSWORD = "senhadodono1";
+    const u = auth.verifyUser("dono@tropa.com", "senhadodono1");
+    expect(auth.isAdmin(u)).toBe(true);
+    expect(() => auth.createUser("dono@tropa.com", "outrasenha99", "")).toThrow(/Já existe/); // ninguém toma o e-mail
+    process.env.ADMIN_PASSWORD = "novasenha123";
+    expect(() => auth.verifyUser("dono@tropa.com", "senhadodono1")).toThrow();
+    expect(auth.verifyUser("dono@tropa.com", "novasenha123").id).toBe(u.id);
+    delete process.env.ADMIN_EMAILS;
+    delete process.env.ADMIN_PASSWORD;
+  });
+});
+
+describe("vigia dos dados", () => {
+  const base = { id: 1, apelido: "Fulano", clubeId: 1, posicaoId: 5 as const, statusId: 7, preco: 10, variacao: 0, media: 5, jogos: 10, pontosUltima: 0 };
+
+  it("a impressão digital muda com status, preço, rodada e notícia, e não com o relógio", async () => {
+    const { fingerprint } = await import("../src/server/watcher");
+    const d = { rodadaAtual: 10, mercadoStatus: 1, athletes: [base] };
+    const f0 = fingerprint(d);
+    expect(fingerprint({ ...d })).toBe(f0);
+    expect(fingerprint({ ...d, athletes: [{ ...base, statusId: 2 }] })).not.toBe(f0);
+    expect(fingerprint({ ...d, athletes: [{ ...base, preco: 10.5 }] })).not.toBe(f0);
+    expect(fingerprint({ ...d, rodadaAtual: 11 })).not.toBe(f0);
+    expect(fingerprint({ ...d, mercadoStatus: 2 })).not.toBe(f0);
+    expect(fingerprint(d, { 1: -1.6 })).not.toBe(f0);
+  });
+
+  it("descreve as mudanças de status entre duas leituras", async () => {
+    const { diffMarket } = await import("../src/server/watcher");
+    const prev = new Map([[1, { status: 7, preco: 10, nome: "Fulano" }]]);
+    const out = diffMarket(prev, [{ ...base, statusId: 2 }], () => "FLA");
+    expect(out).toHaveLength(1);
+    expect(out[0].texto).toMatch(/Fulano \(FLA\).*Dúvida/);
+    expect(diffMarket(prev, [base], () => "FLA")).toHaveLength(0);
+  });
+
+  it("só aceita notícia que cita o atleta no título e traz palavra de ausência", async () => {
+    const { signalsFromNews } = await import("../src/server/watcher");
+    const now = Date.now();
+    const mk = (titulo: string, extra: Partial<{ categoria: string; publicadoEm: string }> = {}) =>
+      ({ id: titulo, titulo, resumo: "", link: "https://x", fonte: "x", publicadoEm: new Date(now - 3600_000).toISOString(), categoria: "Desfalques", atletas: [{ id: 1, apelido: "Fulano", clubeId: 1, impacto: null }], clubes: [], ...extra }) as never;
+    expect(signalsFromNews([mk("Fulano é desfalque do Flamengo contra o Vasco")], now)[1].shift).toBeLessThan(-1);
+    expect(signalsFromNews([mk("Fulano é dúvida para o jogo")], now)[1].shift).toBeGreaterThan(-1.2);
+    expect(signalsFromNews([mk("Flamengo vence e Fulano brilha")], now)).toEqual({});
+    expect(signalsFromNews([mk("Sicrano é desfalque do Flamengo")], now)).toEqual({});
+    expect(signalsFromNews([mk("Fulano é desfalque", { publicadoEm: new Date(now - 72 * 3600_000).toISOString() })], now)).toEqual({});
+  });
+});

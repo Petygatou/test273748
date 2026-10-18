@@ -416,7 +416,7 @@ export function estimatePlayers(
     const pJogar = !fixture
       ? 0
       : partModel && feats && a.posicaoId !== 6
-        ? finalPlayProbability(partModel, feats, data.semStatus ? { ...a, statusId: -1 } : a, override)
+        ? finalPlayProbability(partModel, feats, data.semStatus ? { ...a, statusId: -1 } : a, override, data.sinais?.[a.id] ?? 0)
         : playProbability(a, rows, clubRs, R, override);
 
     const alertas: string[] = [];

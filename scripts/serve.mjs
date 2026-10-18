@@ -57,4 +57,8 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Erro interno");
   }
-}).listen(port, () => console.log(`Comandante FC em http://localhost:${port}`));
+}).listen(port, () => {
+  console.log(`Tropa em http://localhost:${port}`);
+  // liga o vigia dos dados mesmo sem nenhum visitante
+  setTimeout(() => fetch(`http://127.0.0.1:${port}/api/saude`).catch(() => {}), 500);
+});

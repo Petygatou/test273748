@@ -80,3 +80,10 @@ export const saveLineupBatch = createServerFn({ method: "POST" })
     invalidate("analysis:");
     return { ok: true };
   });
+
+/** Últimas mudanças detectadas pelo vigia (status de atletas, mercado, notícias). */
+export const fetchMudancas = createServerFn({ method: "GET" }).handler(async () => {
+  const { ensureWatcher, recentChanges, watcherStatus } = await import("./watcher");
+  ensureWatcher();
+  return { mudancas: recentChanges(30), status: watcherStatus() };
+});

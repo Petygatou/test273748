@@ -56,3 +56,15 @@ Se preferir não depender de relay nem de envio manual, rode o site num servidor
 ## Snapshots
 
 A cada leitura com o mercado aberto o servidor guarda o status de cada atleta em `DATA_DIR/snapshots`. É isso que ensina o modelo de chance de jogar a usar o status do Cartola. Com disco temporário (Vercel) esse histórico se perde; use disco persistente (Render, VPS) para o acerto das prováveis melhorar com o tempo.
+
+## Atualização automática
+
+Um vigia no servidor relê o mercado do Cartola e as notícias **a cada 60 segundos** (`WATCH_INTERVAL_MS`). Se algo mudou (status de um atleta, preço, rodada, mercado abrindo/fechando, notícia de desfalque), ele limpa os caches, guarda o status (snapshot) e avisa todos os navegadores abertos por SSE: as telas se atualizam sozinhas, sem recarregar. As mudanças aparecem em "Últimas mudanças" na página Prováveis.
+
+- Notícias de desfalque (últimas 36 h) só valem se citam o atleta pelo nome **no título** e trazem palavra de ausência (desfalque, lesão, suspenso, cortado, dúvida, poupado…). O efeito é um deslocamento pequeno na chance de jogar, e cada notícia fica visível com o link.
+- O vigia precisa de um servidor ligado o tempo todo (Render, VPS). Em funções serverless (Vercel) ele só roda enquanto há visitas.
+- `npx tsx scripts/fake-cartola.ts` sobe uma "Globo falsa" para testar isso localmente.
+
+## Conta de administrador
+
+Defina `ADMIN_EMAILS` (o primeiro e-mail vira o admin) e `ADMIN_PASSWORD` (8+ caracteres). A conta é criada e a senha redefinida automaticamente na próxima tentativa de entrar. Para trocar a senha, mude a variável e reinicie. Ninguém consegue cadastrar o e-mail do admin antes de você.

@@ -9,6 +9,7 @@ import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/b
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
 import { loadImported } from "./importada";
+import { ensureWatcher, fingerprint, newsSignals } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
 
@@ -50,12 +51,20 @@ export function invalidateSeason() {
   invalidate("season:");
 }
 
+/** Relê o mercado agora, ignorando o cache (usado pelo vigia a cada minuto). */
+export async function refreshSeason() {
+  invalidate("season:");
+  invalidate("cartola:status");
+  invalidate("cartola:mercado");
+  return loadRawSeason();
+}
+
 async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; importadoEm?: string }> {
   const mode = dataMode();
   if (mode === "demo") return { data: demo(), motivo: "DATA_MODE=demo" };
   let erroApi = "API do Cartola indisponível";
   try {
-    const data = await cached("season:cartola", 5 * 60_000, fetchCartolaSeason);
+    const data = await cached("season:cartola", 50_000, fetchCartolaSeason, { staleOnError: true });
     if (data.athletes.length < 50) throw new Error("mercado vazio (pré-temporada?)");
     if (data.rodadaAtual > 2 && data.history.length === 0) throw new Error("histórico indisponível");
     return { data };
@@ -71,9 +80,10 @@ async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; imp
 }
 
 export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta }> {
+  ensureWatcher();
   const { data, motivo, importadoEm } = await loadRawSeason();
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...overrides } };
+  const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {
@@ -100,7 +110,8 @@ function overridesKey(o: Record<number, LineupOverride> | undefined) {
 
 export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta }> {
   const { data, meta } = await loadSeason();
-  const key = `analysis:${data.source}:${data.temporada}:${data.rodadaAtual}:${data.updatedAt}:${overridesKey(data.overrides)}`;
+  // chave pelo CONTEÚDO (status, preço, rodada, ajustes, notícias), não pelo horário da leitura
+  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:${overridesKey(data.overrides)}`;
   const analysis = await cached(key, 10 * 60_000, async () => buildRoundAnalysis(data, { simulations: Number(env("SIMULATIONS") ?? 3000) }));
   return { analysis, meta };
 }

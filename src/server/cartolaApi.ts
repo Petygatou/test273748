@@ -108,10 +108,10 @@ interface RawDestaque {
 
 /* --------------------------- endpoints --------------------------- */
 
-export const getStatus = () => cached("cartola:status", 60_000, () => getJson<RawStatus>("/mercado/status"));
-const getMercado = () => cached("cartola:mercado", 5 * 60_000, () => getJson<RawMercado>("/atletas/mercado"));
+export const getStatus = () => cached("cartola:status", 25_000, () => getJson<RawStatus>("/mercado/status"));
+const getMercado = () => cached("cartola:mercado", 40_000, () => getJson<RawMercado>("/atletas/mercado"));
 const getPartidas = (r: number, current: boolean) =>
-  cached(`cartola:partidas:${r}`, current ? 2 * 60_000 : 12 * 3600_000, () => getJson<RawPartidas>(`/partidas/${r}`));
+  cached(`cartola:partidas:${r}`, current ? 45_000 : 12 * 3600_000, () => getJson<RawPartidas>(`/partidas/${r}`));
 const getPontuados = (r: number, recent: boolean) =>
   cached(`cartola:pontuados:${r}`, recent ? 10 * 60_000 : 24 * 3600_000, () => getJson<RawPontuados>(`/atletas/pontuados/${r}`));
 const getDestaques = () =>
