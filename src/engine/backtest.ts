@@ -14,6 +14,7 @@
  * REAIS de cada uma.
  */
 import { buildRoundAnalysis } from "./analysis";
+import { lineupAccuracy, probableXI, type LineupAccuracy } from "./lineup";
 import { mean, spearman } from "./math";
 import { optimizeLineup } from "./optimizer";
 import { CAPTAIN_MULTIPLIER, STATUS, type PositionId } from "./rules";
@@ -73,11 +74,13 @@ export function sliceSeason(data: SeasonData, r: number): SeasonData {
     if (!st.last || h.rodada > st.last.rodada) st.last = h;
     stats.set(h.atletaId, st);
   }
+  // status daquela rodada, se o histórico de snapshots tiver (era conhecido antes do jogo)
+  const known = data.statusHistory?.[r];
   const athletes = data.athletes.map((a) => {
     const st = stats.get(a.id);
     const last = recent.get(a.id) ?? 0;
     // status "honesto": provável se jogou em alguma das 3 últimas rodadas
-    const statusId = a.posicaoId === 6 ? STATUS.PROVAVEL : last >= r - 3 ? STATUS.PROVAVEL : STATUS.NULO;
+    const statusId = known?.[a.id] ?? (a.posicaoId === 6 ? STATUS.PROVAVEL : last >= r - 3 ? STATUS.PROVAVEL : STATUS.NULO);
     const lastRow = st?.last;
     const preco = lastRow?.preco != null ? Math.max(1, lastRow.preco + (lastRow.variacao ?? 0)) : a.preco;
     return {
@@ -99,6 +102,8 @@ export function sliceSeason(data: SeasonData, r: number): SeasonData {
     matches: data.matches.map((m) => (m.rodada >= r ? { ...m, golsCasa: null, golsFora: null } : m)),
     ownership: undefined,
     overrides: {},
+    semStatus: !known,
+    statusHistory: data.statusHistory ? Object.fromEntries(Object.entries(data.statusHistory).filter(([k]) => Number(k) <= r)) : undefined,
   };
 }
 
@@ -270,4 +275,41 @@ export function tuneModel(
       }
   // RMSE é a regra de pontuação própria para valor esperado (MAE premia quem subestima gols)
   return out.sort((a, b) => a.rmse - b.rmse);
+}
+
+/* ------------------------------------------------------------------------- */
+/*                Acerto das prováveis escalações (walk-forward)             */
+/* ------------------------------------------------------------------------- */
+
+/** Mede o acerto das prováveis nas últimas rodadas encerradas, sem vazar o futuro. */
+export function runLineupBacktest(data: SeasonData, opts: { fromRound?: number; toRound?: number; config?: Partial<ModelConfig> } = {}): LineupAccuracy {
+  const last = data.rodadaAtual - 1;
+  const from = Math.max(6, opts.fromRound ?? last - 9);
+  const to = Math.min(last, opts.toRound ?? last);
+  const rounds: Parameters<typeof lineupAccuracy>[0] = [];
+  for (let r = from; r <= to; r++) {
+    const sliced = sliceSeason(data, r);
+    const a = buildRoundAnalysis(sliced, { simulations: 60, ...opts.config });
+    const rows = data.history.filter((h) => h.rodada === r);
+    const entered = new Set(rows.map((h) => h.atletaId));
+    const clubsPlayed = new Set(rows.map((h) => h.clubeId));
+    // baseline: repetir a escalação mais recente (participação no último jogo, depois nos últimos 5)
+    const prev = sliced.history;
+    const lastRound = new Map<number, number>();
+    for (const h of prev) lastRound.set(h.clubeId, Math.max(lastRound.get(h.clubeId) ?? 0, h.rodada));
+    const score = new Map<number, number>();
+    for (const h of prev) {
+      const lr = lastRound.get(h.clubeId)!;
+      if (h.rodada === lr) score.set(h.atletaId, (score.get(h.atletaId) ?? 0) + 10);
+      else if (h.rodada >= lr - 5) score.set(h.atletaId, (score.get(h.atletaId) ?? 0) + 1);
+    }
+    const pseudo = a.players.map((p) => ({ ...p, pJogar: (score.get(p.atletaId) ?? 0) / 16 }));
+    const lastEntered = new Map<number, number[]>();
+    for (const c of clubsPlayed) {
+      const xi = probableXI(pseudo, c);
+      lastEntered.set(c, [...xi.lines.gol, ...xi.lines.def, ...xi.lines.mei, ...xi.lines.ata].map((p) => p.atletaId));
+    }
+    rounds.push({ rodada: r, players: a.players, entered, clubsPlayed, lastEntered });
+  }
+  return lineupAccuracy(rounds);
 }

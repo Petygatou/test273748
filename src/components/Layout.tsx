@@ -73,6 +73,35 @@ export function SyncBar() {
   );
 }
 
+/** Explica, em linguagem simples, por que o site está em demonstração. */
+function DemoNotice() {
+  const { data } = useQuery(analysisQuery);
+  const [open, setOpen] = useState(false);
+  if (data?.meta.source !== "demo") return null;
+  const motivo = data.meta.motivoDemo;
+  return (
+    <div className="mt-2 rounded-xl border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/5 px-3 py-2 text-xs text-[var(--color-ink-2)]">
+      <button type="button" className="flex w-full items-center gap-2 text-left" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <FlaskConical size={14} className="shrink-0 text-[var(--color-gold)]" aria-hidden />
+        <span className="flex-1">
+          <b className="text-[var(--color-gold)]">Modo Demonstração:</b> atletas e números fictícios porque o servidor não conseguiu acessar a API do Cartola.
+        </span>
+        <span className="font-semibold text-[var(--color-gold)] underline">{open ? "fechar" : "por quê?"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-1 border-t border-[var(--color-gold)]/20 pt-2">
+          <p>
+            Motivo informado pelo servidor: <code className="rounded bg-black/30 px-1 py-0.5 break-all">{motivo ?? "não informado"}</code>
+          </p>
+          <p>
+            O site sai sozinho deste modo assim que o servidor conseguir falar com <b>api.cartolafc.globo.com</b>. Se aparecer <code>DATA_MODE=demo</code>, apague essa variável do servidor.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function isActive(path: string, to: string) {
   return to === "/" ? path === "/" : path.startsWith(to);
 }
@@ -176,6 +205,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="mx-auto w-full max-w-7xl px-4 pt-3">
         <SyncBar />
+        <DemoNotice />
       </div>
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-3">{children}</main>
 

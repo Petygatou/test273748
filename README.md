@@ -14,7 +14,7 @@ Stack: **TanStack Start v1** (React 19, SSR) · **Tailwind CSS v4** · **Vite 7*
 |---|---|---|
 | Início | `/` | Leitura da rodada: capitães, melhores por posição, jogos com probabilidades 1X2 e SG, valorização, diferenciais (pouco escalados), pendurados/dúvidas, alertas oficiais, precisão comprovada do modelo |
 | Escalação | `/escalacao` | Otimizador exato (fronteira de Pareto) nos 7 esquemas, 3 perfis (Mitada, Equilibrada, Valorização), fixar/banir, capitão forçado, capitão justificado, banco + reserva de luxo, campinho com troca manual, distribuição simulada da tropa (P10–P90, chance de 60/70/80/90+), comparativo de esquemas, salvar tropa e **escalar direto no Cartola** |
-| Prováveis | `/provaveis` | Os 11 mais prováveis de cada time em campinhos (esquema escolhido automaticamente), chance de jogar, banco, e parciais/cartões/gols ao vivo durante a rodada |
+| Prováveis | `/provaveis` | Taxa de acerto medida rodada a rodada; admin ajusta titular/dúvida/reserva/fora tocando no atleta. Os 11 mais prováveis de cada time em campinhos (esquema escolhido automaticamente), chance de jogar, banco, e parciais/cartões/gols ao vivo durante a rodada |
 | Estatísticas | `/estatisticas` | Mercado com busca por nome/clube/posição e faixa piso–teto · Duelo X1 com veredito, duelos prontos e troca por busca · Matriz de confrontos com próximos 4 jogos · Matriz de cedência posicional (geral/casa/fora/últimos 5) · Força dos times · Glossário + tabela de pontuação |
 | Jogador | `/jogador/:id` | De onde vêm os pontos (scout a scout), distribuição, fatores do confronto, cedência do adversário à posição, últimas rodadas, próximos jogos, MPV e valorização |
 | Precisão do modelo | `/modelo` | Backtest walk-forward vs. escalar pela média, calibração do intervalo, auditoria da tabela de pontos, calibração do MPV, metodologia |
@@ -36,7 +36,7 @@ Também: busca global com preenchimento automático (atalho `/` ou Ctrl+K), rost
 ```bash
 npm install          # .npmrc usa legacy-peer-deps
 npm run dev          # http://localhost:3000
-npm test             # 37 testes (motor, otimizador vs. força bruta, backtest, IA, contas, comunidade, API do Cartola)
+npm test             # 42 testes (motor, otimizador vs. força bruta, backtest, IA, contas, comunidade, API do Cartola)
 npm run typecheck
 npm run build && npm start   # servidor Node de produção (scripts/serve.mjs)
 ```
@@ -48,6 +48,7 @@ npm run smoke                 # roda a análise completa e imprime diagnósticos
 npm run backtest              # backtest walk-forward (temporada de demonstração)
 npm run backtest -- --live    # backtest com a temporada REAL da API do Cartola
 npm run tune -- --live        # busca em grade dos hiperparâmetros (RMSE)
+npm run lineup                # acerto das prováveis (dos 11 apontados, quantos entraram); -- --live para dados reais
 ```
 
 Sem acesso à API do Cartola (pré-temporada, rede bloqueada) o app entra em **Modo Demonstração**: uma temporada sintética completa, com atletas fictícios, gerada a partir de uma "verdade latente" conhecida — útil para desenvolver e para provar que o modelo recupera o que gerou os dados.

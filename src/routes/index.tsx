@@ -33,7 +33,6 @@ function Home() {
   const alertas = topBy(a.players, (p) => p.xP, 60, (p) => p.alertas.length > 0 && p.pJogar > 0.3 && p.posicaoId !== 6)
     .filter((p) => p.alertas.some((x) => x.startsWith("Pendurado") || x.startsWith("Status")))
     .slice(0, 6);
-  const r = bt.data?.resumo;
 
   return (
     <div className="space-y-6">
@@ -114,9 +113,9 @@ function Home() {
           <StatTile label="Vantagem do mando" value={`+${((a.homeAdvantage - 1) * 100).toFixed(0)}%`} hint="gols a mais jogando em casa (estimado)" />
           <Link to="/modelo" className="block">
             <StatTile
-              label="Precisão comprovada"
-              value={r?.tropaModelo != null && r.tropaMedia ? `${signed(((r.tropaModelo - r.tropaMedia) / r.tropaMedia) * 100, 0)}%` : bt.isLoading ? "…" : "—"}
-              hint={r ? `pontos reais da tropa vs. escalar pela média (${r.rodadas} rodadas)` : "backtest walk-forward"}
+              label="Acerto das prováveis"
+              value={bt.data?.provaveis ? pct(bt.data.provaveis.acerto, 1) : bt.isLoading ? "…" : "—"}
+              hint={bt.data?.provaveis ? `nas últimas ${bt.data.provaveis.rodadas.length} rodadas, sem olhar o futuro` : "teste rodada a rodada"}
               accent="good"
             />
           </Link>

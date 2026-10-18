@@ -40,7 +40,8 @@ taxa_i = (Σ w_g · s_ig / M_g  +  m · prior_pos · q_i · minutos_i) / (Σ w_g
 - **Gols e assistências**: participação do atleta nos gols do time × gols esperados do time **neste** confronto. G, A, SG e GS ficam coerentes com o placar.
 - **SG**: chance de não sofrer gol × **elegibilidade individual** (fração das chances de SG que o atleta de fato recebeu — quem entra no fim raramente leva).
 - **Técnico**: média esperada dos atletas do clube que entram (ponderada pela chance de jogar) + 1 × chance de vitória.
-- **Chance de jogar**: status oficial + participação recente com decaimento + prováveis do Painel ADM; para goleiros, a soma por clube é normalizada (só um joga).
+- **Chance de jogar** (`participation.ts`): regressão logística treinada a cada rodada na própria temporada (walk-forward). Variáveis: jogou o último/penúltimo/antepenúltimo jogo, participação nos últimos 5 e na temporada, sequência jogando e fora, ordem na disputa pela posição e se está dentro das vagas típicas, suspensão por cartões (vermelho ou 3º amarelo), goleiro, estreante e média recente. O **status do Cartola antes de cada rodada** (snapshots do mercado) entra como variável com peso aprendido quando há pelo menos 300 linhas com status; antes disso, deslocamentos fixos conservadores. Lesionado/suspenso = 0; ajustes do Painel ADM têm a palavra final. Para goleiros, a soma por clube é normalizada (só um joga).
+- **Prováveis** (`lineup.ts`): os 11 mais prováveis no esquema que melhor acomoda as chances de cada clube.
 - **Alertas**: pendurado (2 amarelos), dúvida, sem jogo, sem entrar em campo nos últimos jogos, confronto ofensivo difícil, boa chance de SG.
 
 ## 4. Monte Carlo (`simulate.ts`)
@@ -87,6 +88,21 @@ Observações honestas:
 - Pontos de fantasy são muito ruidosos; nenhum modelo "acerta" a pontuação de um atleta. O ganho aparece onde importa: **ordenar** melhor e **montar tropas** que pontuam mais.
 - O MAE favorece quem subestima gols (a distribuição é assimétrica), por isso o critério do auto-ajuste é o RMSE.
 - Esses números são da temporada sintética. Rode `npm run backtest -- --live` com a API do Cartola acessível para medir na temporada real e `npm run tune -- --live` para recalibrar meia-vida, shrinkage e peso do contexto.
+
+### Acerto das prováveis (`runLineupBacktest`, `npm run lineup`)
+
+Para cada uma das últimas 10 rodadas, recorta a temporada antes dela, gera as prováveis de cada clube e conta quantos dos 11 apontados entraram em campo (a API não diz quem foi titular, só quem entrou). Também mostra a calibração da chance de jogar por faixa e compara com "repetir o último jogo".
+
+Temporada de demonstração (rodadas 21–30, 200 escalações):
+
+| Versão | Acerto | Brier |
+|---|---|---|
+| Repetir o último jogo | 75,2% | — |
+| Regra fixa anterior | 77,4% | 0,206 |
+| Modelo aprendido, sem status | 81,4% | 0,165 |
+| Modelo aprendido + status antes da rodada | **87,2%** | 0,141 |
+
+Na demonstração o teto é baixo de propósito: o simulador sorteia rodízio a cada jogo e nem quem conhece a qualidade real de cada atleta passa de ~80% sem o status. Com dados reais, `npm run lineup -- --live` refaz a conta; os ajustes do Painel ADM (treino, coletiva) não entram na medição e só aumentam o acerto.
 
 ## Configuração (`ModelConfig`)
 

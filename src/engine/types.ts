@@ -79,6 +79,10 @@ export interface SeasonData {
   /** Nº de escalações por atleta (mais escalados), quando disponível. */
   ownership?: Record<number, number>;
   overrides?: Record<number, LineupOverride>;
+  /** Recorte de backtest: o status do Cartola daquela rodada não é conhecido. */
+  semStatus?: boolean;
+  /** Status de cada atleta antes de cada rodada (snapshots do mercado): rodada → atleta → status. */
+  statusHistory?: Record<number, Record<number, number>>;
   source: "cartola" | "demo";
   updatedAt: string;
 }

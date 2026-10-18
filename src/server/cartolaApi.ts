@@ -210,7 +210,14 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
   // salvaguarda: converte scouts acumulados em scouts por rodada, se for o caso
   const { history: rawHistory } = normalizeHistoryScouts(pontuados.flat());
   if (status.status_mercado === 1) await saveSnapshot(status.temporada, R, athletes);
-  const history = enrichHistory(rawHistory, await loadSnapshots(status.temporada));
+  const snaps = await loadSnapshots(status.temporada);
+  const history = enrichHistory(rawHistory, snaps);
+  // status antes de cada rodada (último retrato com o mercado aberto) → ensina a chance de jogar
+  const statusHistory: Record<number, Record<number, number>> = {};
+  for (const [rodada, snap] of snaps) {
+    if (rodada > R) continue;
+    statusHistory[rodada] = Object.fromEntries(Object.entries(snap.atletas).map(([id, v]) => [Number(id), v[1]]));
+  }
 
   const destaques = await getDestaques();
   const ownership: Record<number, number> = {};
@@ -228,6 +235,7 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
     history,
     ownership,
     overrides: {},
+    statusHistory,
     source: "cartola",
     updatedAt: new Date().toISOString(),
   };

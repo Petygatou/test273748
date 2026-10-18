@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ClipboardList, Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CheckCircle2, ClipboardList, Info } from "lucide-react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { OutcomeBar } from "../components/FixtureCard";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, Seg } from "../components/ui";
-import type { FixtureOdds, PlayerProjection, RoundAnalysis } from "../engine/types";
+import type { FixtureOdds, LineupOverride, PlayerProjection, RoundAnalysis } from "../engine/types";
+import { useAuth } from "../lib/auth";
+import { saveLineupOverride } from "../server/fns";
 import type { LiveData, LiveMatch } from "../server/live";
 import { dateTime, fmt1, pct } from "../lib/format";
 import { probTag, probableXI, type ProbTag, type ProbableXI } from "../lib/provaveis";
-import { analysisQuery, liveQuery } from "../lib/queries";
+import { analysisQuery, backtestQuery, liveQuery } from "../lib/queries";
 
 export const Route = createFileRoute("/provaveis")({
   component: ProvaveisPage,
@@ -27,17 +29,40 @@ function PointsChip({ v }: { v: number }) {
   return <span className={`tabular rounded-full px-1.5 py-px text-[10px] leading-tight font-bold ${cls}`}>{fmt1(v)}</span>;
 }
 
+/** Admin: tocar no atleta abre o ajuste rápido em vez da ficha. */
+const EditCtx = createContext<((p: PlayerProjection) => void) | null>(null);
+
+function PlayerLink({ p, className, label, children }: { p: PlayerProjection; className: string; label?: string; children: ReactNode }) {
+  const edit = useContext(EditCtx);
+  if (edit)
+    return (
+      <button type="button" onClick={() => edit(p)} className={className} aria-label={label ? `Ajustar ${label}` : `Ajustar ${p.apelido}`}>
+        {children}
+      </button>
+    );
+  return (
+    <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className={className} aria-label={label}>
+      {children}
+    </Link>
+  );
+}
+
 function Token({ p, live, started }: { p: PlayerProjection; live: Live; started: boolean }) {
   const tag = probTag(p);
   const ca = live?.scout?.CA ?? 0;
   const cv = live?.scout?.CV ?? 0;
   const gols = live?.scout?.G ?? 0;
   return (
-    <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className="group flex max-w-[84px] min-w-0 flex-1 flex-col items-center" aria-label={`${p.apelido}: ${tag === "provavel" ? "provável" : tag === "duvida" ? "dúvida" : "improvável"}, ${pct(p.pJogar)} de chance de jogar`}>
+    <PlayerLink p={p} className="group flex max-w-[84px] min-w-0 flex-1 flex-col items-center" label={`${p.apelido}: ${tag === "provavel" ? "provável" : tag === "duvida" ? "dúvida" : "improvável"}, ${pct(p.pJogar)} de chance de jogar`}>
       <span className="relative">
         <span className={`block rounded-full ring-2 ${TAG_RING[tag]} transition-transform group-hover:-translate-y-0.5`}>
           <PlayerPhoto p={p} size={44} />
         </span>
+        {p.override && (
+          <span className="absolute -bottom-0.5 -left-1 rounded-full bg-[var(--color-brand)] px-1 text-[8px] font-extrabold text-[#1a0a00]" title="Confirmado pela equipe Tropa">
+            ✓
+          </span>
+        )}
         {(ca > 0 || cv > 0) && <span className={`absolute -top-0.5 -left-1 h-3.5 w-2.5 rounded-[2px] ring-1 ring-black/40 ${cv > 0 ? "bg-[#e23b2e]" : "bg-[#f5c518]"}`} aria-label={cv > 0 ? "cartão vermelho" : "cartão amarelo"} />}
         {gols > 0 && (
           <span className="absolute -top-1 -right-1.5 rounded-full bg-white px-1 text-[9px] font-extrabold text-[#111]" aria-label={`${gols} gol(s)`}>
@@ -47,7 +72,8 @@ function Token({ p, live, started }: { p: PlayerProjection; live: Live; started:
       </span>
       <span className="mt-1">{started ? live?.entrou ? <PointsChip v={live.pontos} /> : <span className="rounded-full bg-black/55 px-1.5 py-px text-[10px] font-bold text-white/60" title="não entrou em campo">—</span> : <span className="tabular rounded-full bg-black/55 px-1.5 py-px text-[10px] font-bold text-white">{pct(p.pJogar)}</span>}</span>
       <span className="mt-0.5 w-full truncate text-center text-[10px] leading-tight font-semibold text-white drop-shadow sm:text-[11px]">{p.apelido}</span>
-    </Link>
+      {p.override && <span className="sr-only">ajustado pela equipe</span>}
+    </PlayerLink>
   );
 }
 
@@ -112,11 +138,11 @@ function TeamPitch({ a, xi, live, started, total }: { a: RoundAnalysis; xi: Prob
             {xi.banco.map((p) => {
               const l = live?.atletas[p.atletaId];
               return (
-                <Link key={p.atletaId} to="/jogador/$id" params={{ id: String(p.atletaId) }} className="flex items-center gap-1 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-2)] py-0.5 pr-1 pl-0.5 text-[11px] hover:border-[var(--color-brand)]">
+                <PlayerLink key={p.atletaId} p={p} className="flex items-center gap-1 rounded-full border border-[var(--color-line)] bg-[var(--color-surface-2)] py-0.5 pr-1 pl-0.5 text-[11px] hover:border-[var(--color-brand)]">
                   <PlayerPhoto p={p} size={20} />
                   <span className="max-w-[90px] truncate font-semibold">{p.apelido}</span>
                   {started && l?.entrou ? <PointsChip v={l.pontos} /> : <span className="tabular text-[10px] text-[var(--color-ink-3)]">{pct(p.pJogar)}</span>}
-                </Link>
+                </PlayerLink>
               );
             })}
           </div>
@@ -170,10 +196,81 @@ function MatchBlock({ a, f, live, match }: { a: RoundAnalysis; f: FixtureOdds; l
   );
 }
 
+const AJUSTES: Array<{ value: LineupOverride; label: string; hint: string }> = [
+  { value: "titular", label: "Titular", hint: "confirmado no time" },
+  { value: "duvida", label: "Dúvida", hint: "pode não jogar" },
+  { value: "reserva", label: "Reserva", hint: "começa no banco" },
+  { value: "fora", label: "Fora", hint: "não joga" },
+];
+
+function AdminSheet({ p, a, onClose }: { p: PlayerProjection; a: RoundAnalysis; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const save = async (status: LineupOverride | null) => {
+    setSaving(true);
+    setErro(null);
+    try {
+      await saveLineupOverride({ data: { atletaId: p.atletaId, status } });
+      await qc.invalidateQueries({ queryKey: analysisQuery.queryKey });
+      onClose();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Ajustar ${p.apelido}`}>
+      <button className="absolute inset-0 bg-black/60" aria-label="Fechar" onClick={onClose} />
+      <div className="card relative w-full max-w-sm p-4">
+        <div className="flex items-center gap-3">
+          <PlayerPhoto p={p} size={48} />
+          <div className="min-w-0 flex-1">
+            <div className="font-display truncate text-lg font-bold">{p.apelido}</div>
+            <div className="flex items-center gap-1.5 text-xs text-[var(--color-ink-3)]">
+              <ClubBadge club={a.clubs[p.clubeId]} size={14} /> chance atual {pct(p.pJogar)}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {AJUSTES.map((o) => (
+            <button
+              key={o.value}
+              disabled={saving}
+              onClick={() => save(o.value)}
+              className={`rounded-xl border p-2.5 text-left ${p.override === o.value ? "border-[var(--color-brand)] bg-[var(--color-brand)]/10" : "border-[var(--color-line)] hover:border-[var(--color-ink-3)]"}`}
+            >
+              <div className="text-sm font-bold">{o.label}</div>
+              <div className="text-[11px] text-[var(--color-ink-3)]">{o.hint}</div>
+            </button>
+          ))}
+        </div>
+        {erro && <p className="mt-2 text-xs text-[var(--color-critical-ink)]">{erro}</p>}
+        <div className="mt-3 flex items-center justify-between text-xs">
+          {p.override ? (
+            <button className="font-semibold text-[var(--color-ink-3)] underline" disabled={saving} onClick={() => save(null)}>
+              Voltar ao automático
+            </button>
+          ) : (
+            <span className="text-[var(--color-ink-3)]">Automático (modelo + status do Cartola)</span>
+          )}
+          <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className="font-semibold text-[var(--color-brand)]">
+            Ver ficha
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProvaveisPage() {
   const an = useQuery(analysisQuery);
   const lv = useQuery(liveQuery);
+  const bt = useQuery({ ...backtestQuery, enabled: Boolean(an.data) });
   const [filtro, setFiltro] = useState<"todos" | "aovivo">("todos");
+  const { isAdmin } = useAuth();
+  const [editing, setEditing] = useState<PlayerProjection | null>(null);
   if (an.isLoading) return <PageSkeleton />;
   if (an.error || !an.data) return <ErrorBox error={an.error} retry={() => an.refetch()} />;
   const a = an.data.analysis;
@@ -192,7 +289,14 @@ function ProvaveisPage() {
           </h1>
           <p className="text-sm text-[var(--color-ink-3)]">Rodada {a.rodada}: os 11 mais prováveis de cada time, com a chance de jogar. Durante os jogos, as parciais aparecem no lugar da porcentagem.</p>
         </div>
-        <Seg label="Filtro" value={filtro} onChange={setFiltro} options={[{ value: "todos", label: "Todos os jogos" }, { value: "aovivo", label: "Ao vivo" }]} />
+        <div className="flex flex-wrap items-center gap-2">
+          {bt.data?.provaveis && (
+            <Link to="/modelo" className="chip border-[var(--color-good)]/40 text-[var(--color-good-ink)]" title="Dos 11 apontados, quantos entraram em campo (teste sem olhar o futuro)">
+              <CheckCircle2 size={13} aria-hidden /> {pct(bt.data.provaveis.acerto, 1)} de acerto nas últimas {bt.data.provaveis.rodadas.length} rodadas
+            </Link>
+          )}
+                <Seg label="Filtro" value={filtro} onChange={setFiltro} options={[{ value: "todos", label: "Todos os jogos" }, { value: "aovivo", label: "Ao vivo" }]} />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--color-ink-3)]">
@@ -210,11 +314,20 @@ function ProvaveisPage() {
         ))}
       </nav>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        {fixtures.map((f) => (
-          <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} />
-        ))}
-      </div>
+      {isAdmin && (
+        <div className="rounded-xl border border-[var(--color-brand)]/40 bg-[var(--color-brand)]/5 px-3 py-2 text-xs text-[var(--color-ink-2)]">
+          <b className="text-[var(--color-brand)]">Modo editor:</b> toque em qualquer atleta para marcar titular, dúvida, reserva ou fora. A escalação e todas as projeções se recalculam na hora.
+        </div>
+      )}
+
+      <EditCtx.Provider value={isAdmin ? setEditing : null}>
+        <div className="grid gap-4 xl:grid-cols-2">
+          {fixtures.map((f) => (
+            <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} />
+          ))}
+        </div>
+      </EditCtx.Provider>
+      {editing && <AdminSheet p={a.players.find((x) => x.atletaId === editing.atletaId) ?? editing} a={a} onClose={() => setEditing(null)} />}
       {!fixtures.length && <Card className="p-6 text-center text-sm text-[var(--color-ink-3)]">Nenhum jogo em andamento agora.</Card>}
     </div>
   );

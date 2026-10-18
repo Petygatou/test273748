@@ -19,6 +19,7 @@
  * probabilidade de jogar é estimada à parte (status + participação recente +
  * overrides editoriais).
  */
+import { buildIndex, finalPlayProbability, fitParticipation, squadFeatures } from "./participation";
 import { buildContextIndex, type CedenciaResult } from "./cedencia";
 import { clamp, decayWeight, mean, quantileSorted, ridgeRegression } from "./math";
 import { POSITION_SCOUTS, SCORING, SG_POSITIONS, STATUS, type PositionId, type ScoutKey } from "./rules";
@@ -294,6 +295,11 @@ export function estimatePlayers(
     return clamp(f, 0.3, 1.6);
   };
 
+  /* ---------- chance de jogar: modelo aprendido na temporada ---------- */
+  const histBefore = data.history.filter((h) => h.rodada < R);
+  const partModel = fitParticipation(data.athletes, histBefore, R, data.statusHistory);
+  const partFeats = partModel ? squadFeatures(data.athletes, buildIndex(histBefore), R) : null;
+
   /* ---------- atleta a atleta ---------- */
   const details = new Map<number, PlayerDetail>();
   for (const a of data.athletes) {
@@ -406,7 +412,12 @@ export function estimatePlayers(
     const ultimas = lastClubRounds.map((r) => ({ rodada: r, pontos: byRound.has(r) ? byRound.get(r)! : null }));
 
     const override = data.overrides?.[a.id];
-    const pJogar = fixture ? playProbability(a, rows, clubRs, R, override) : 0;
+    const feats = partFeats?.get(a.id);
+    const pJogar = !fixture
+      ? 0
+      : partModel && feats && a.posicaoId !== 6
+        ? finalPlayProbability(partModel, feats, data.semStatus ? { ...a, statusId: -1 } : a, override)
+        : playProbability(a, rows, clubRs, R, override);
 
     const alertas: string[] = [];
     if (pos !== 6 && amarelos % 3 === 2) alertas.push("Pendurado: o próximo amarelo tira o atleta da rodada seguinte");

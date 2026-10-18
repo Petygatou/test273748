@@ -2,9 +2,10 @@
  * Fonte única de dados da temporada para o servidor:
  * API oficial do Cartola quando disponível, senão Modo Demonstração.
  */
+import type { LineupAccuracy } from "../engine/lineup";
 import { generateDemoSeason } from "../data/demoSeason";
 import { buildRoundAnalysis } from "../engine/analysis";
-import { runBacktest, type BacktestResult } from "../engine/backtest";
+import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/backtest";
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached } from "./cache";
 import { fetchCartolaSeason } from "./cartolaApi";
@@ -81,11 +82,14 @@ export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: S
   return { analysis, meta };
 }
 
-export async function loadBacktest(): Promise<BacktestResult & { meta: SeasonMeta }> {
+export async function loadBacktest(): Promise<BacktestResult & { meta: SeasonMeta; provaveis: LineupAccuracy | null }> {
   const { data, meta } = await loadSeason();
   const key = `backtest:${data.source}:${data.temporada}:${data.rodadaAtual}`;
   const res = await cached(key, 12 * 3600_000, async () =>
     runBacktest(data, { fromRound: Math.max(5, data.rodadaAtual - 10), config: { simulations: 400 } }),
   );
-  return { ...res, meta };
+  const provaveis = await cached(`provaveis-acerto:${data.source}:${data.temporada}:${data.rodadaAtual}`, 12 * 3600_000, async () =>
+    data.rodadaAtual >= 8 ? runLineupBacktest(data) : null,
+  );
+  return { ...res, meta, provaveis };
 }

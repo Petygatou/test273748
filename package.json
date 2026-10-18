@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "backtest": "tsx scripts/backtest.ts",
+    "lineup": "tsx scripts/lineup-backtest.ts",
     "tune": "tsx scripts/backtest.ts --tune",
     "smoke": "tsx scripts/smoke.ts"
   },
