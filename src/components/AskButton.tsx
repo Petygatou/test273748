@@ -1,10 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
+import { AI_ENABLED } from "../lib/features";
 import { queueAsk, type AskPayload } from "../lib/ask";
 
 /** Botão de análise rápida: transfere o contexto da tela para o Comandante. */
 export function AskButton({ label, payload, className = "" }: { label: string; payload: AskPayload | (() => AskPayload); className?: string }) {
   const navigate = useNavigate();
+  if (!AI_ENABLED) return null;
   return (
     <button
       type="button"

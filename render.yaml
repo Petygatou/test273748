@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: comandante-fc
+    runtime: docker
+    plan: starter
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: ADMIN_EMAILS
+        value: admin.k7x2q9@comandantefc.app

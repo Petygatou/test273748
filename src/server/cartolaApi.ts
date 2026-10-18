@@ -9,33 +9,18 @@
  *  - /mercado/destaques         mais escalados (efeito manada)
  *
  * Rodadas encerradas não mudam → cache longo. Mercado e status → cache curto.
+ * A cada leitura do mercado gravamos um snapshot (preço/variação/status por
+ * rodada): com o tempo isso calibra o MPV e a chance de jogar com dados reais.
  */
 import type { PositionId, Scouts } from "../engine/rules";
+import { normalizeHistoryScouts } from "../engine/rulesCheck";
 import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/types";
 import { cached, pool } from "./cache";
-
-const BASE = (typeof process !== "undefined" && process.env.CARTOLA_API_BASE) || "https://api.cartola.globo.com";
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; ComandanteFC/1.0; +https://comandante.app)",
-  Accept: "application/json",
-};
+import { cartola } from "./cartolaHttp";
+import { enrichHistory, loadSnapshots, saveSnapshot } from "./snapshots";
 
 async function getJson<T>(path: string, timeoutMs = 10_000): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(`${BASE}${path}`, { headers: HEADERS, signal: ctrl.signal });
-      if (!res.ok) throw new Error(`Cartola API ${path}: HTTP ${res.status}`);
-      return (await res.json()) as T;
-    } catch (err) {
-      lastErr = err;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  throw lastErr;
+  return cartola<T>(path, { timeoutMs });
 }
 
 /* --------------------------- formatos crus --------------------------- */
@@ -223,7 +208,10 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
       return [] as PlayerRound[];
     }
   });
-  const history = pontuados.flat();
+  // salvaguarda: converte scouts acumulados em scouts por rodada, se for o caso
+  const { history: rawHistory } = normalizeHistoryScouts(pontuados.flat());
+  if (status.status_mercado === 1) await saveSnapshot(status.temporada, R, athletes);
+  const history = enrichHistory(rawHistory, await loadSnapshots(status.temporada));
 
   const destaques = await getDestaques();
   const ownership: Record<number, number> = {};

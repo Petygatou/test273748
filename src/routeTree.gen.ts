@@ -17,9 +17,15 @@ import { Route as ComunidadeRouteImport } from './routes/comunidade'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as EscalacaoRouteImport } from './routes/escalacao'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
+import { Route as LigasRouteImport } from './routes/ligas'
+import { Route as MeuTimeRouteImport } from './routes/meu-time'
 import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
+import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
+import { Route as MediaFileRouteImport } from './routes/media/$file'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -61,6 +67,16 @@ const EstatisticasRoute = EstatisticasRouteImport.update({
   path: '/estatisticas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LigasRoute = LigasRouteImport.update({
+  id: '/ligas',
+  path: '/ligas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeuTimeRoute = MeuTimeRouteImport.update({
+  id: '/meu-time',
+  path: '/meu-time',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ModeloRoute = ModeloRouteImport.update({
   id: '/modelo',
   path: '/modelo',
@@ -71,9 +87,29 @@ const NoticiasRoute = NoticiasRouteImport.update({
   path: '/noticias',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiComandanteRoute = ApiComandanteRouteImport.update({
+  id: '/api/comandante',
+  path: '/api/comandante',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMediaRoute = ApiMediaRouteImport.update({
+  id: '/api/media',
+  path: '/api/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
   id: '/jogador/$id',
   path: '/jogador/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MediaFileRoute = MediaFileRouteImport.update({
+  id: '/media/$file',
+  path: '/media/$file',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -86,9 +122,15 @@ export interface FileRoutesByFullPath {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/ligas': typeof LigasRoute
+  '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
+  '/api/events': typeof ApiEventsRoute
+  '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
+  '/media/$file': typeof MediaFileRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -99,9 +141,15 @@ export interface FileRoutesByTo {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/ligas': typeof LigasRoute
+  '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
+  '/api/events': typeof ApiEventsRoute
+  '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
+  '/media/$file': typeof MediaFileRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,9 +161,15 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/ligas': typeof LigasRoute
+  '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/api/comandante': typeof ApiComandanteRoute
+  '/api/events': typeof ApiEventsRoute
+  '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
+  '/media/$file': typeof MediaFileRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -128,9 +182,15 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/ligas'
+    | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
+    | '/api/events'
+    | '/api/media'
     | '/jogador/$id'
+    | '/media/$file'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -141,9 +201,15 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/ligas'
+    | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
+    | '/api/events'
+    | '/api/media'
     | '/jogador/$id'
+    | '/media/$file'
   id:
     | '__root__'
     | '/'
@@ -154,9 +220,15 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/ligas'
+    | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/api/comandante'
+    | '/api/events'
+    | '/api/media'
     | '/jogador/$id'
+    | '/media/$file'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -168,9 +240,15 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   EscalacaoRoute: typeof EscalacaoRoute
   EstatisticasRoute: typeof EstatisticasRoute
+  LigasRoute: typeof LigasRoute
+  MeuTimeRoute: typeof MeuTimeRoute
   ModeloRoute: typeof ModeloRoute
   NoticiasRoute: typeof NoticiasRoute
+  ApiComandanteRoute: typeof ApiComandanteRoute
+  ApiEventsRoute: typeof ApiEventsRoute
+  ApiMediaRoute: typeof ApiMediaRoute
   JogadorIdRoute: typeof JogadorIdRoute
+  MediaFileRoute: typeof MediaFileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -231,6 +309,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstatisticasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ligas': {
+      id: '/ligas'
+      path: '/ligas'
+      fullPath: '/ligas'
+      preLoaderRoute: typeof LigasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meu-time': {
+      id: '/meu-time'
+      path: '/meu-time'
+      fullPath: '/meu-time'
+      preLoaderRoute: typeof MeuTimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/modelo': {
       id: '/modelo'
       path: '/modelo'
@@ -245,11 +337,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NoticiasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/comandante': {
+      id: '/api/comandante'
+      path: '/api/comandante'
+      fullPath: '/api/comandante'
+      preLoaderRoute: typeof ApiComandanteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media': {
+      id: '/api/media'
+      path: '/api/media'
+      fullPath: '/api/media'
+      preLoaderRoute: typeof ApiMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jogador/$id': {
       id: '/jogador/$id'
       path: '/jogador/$id'
       fullPath: '/jogador/$id'
       preLoaderRoute: typeof JogadorIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/media/$file': {
+      id: '/media/$file'
+      path: '/media/$file'
+      fullPath: '/media/$file'
+      preLoaderRoute: typeof MediaFileRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -264,9 +384,15 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   EscalacaoRoute: EscalacaoRoute,
   EstatisticasRoute: EstatisticasRoute,
+  LigasRoute: LigasRoute,
+  MeuTimeRoute: MeuTimeRoute,
   ModeloRoute: ModeloRoute,
   NoticiasRoute: NoticiasRoute,
+  ApiComandanteRoute: ApiComandanteRoute,
+  ApiEventsRoute: ApiEventsRoute,
+  ApiMediaRoute: ApiMediaRoute,
   JogadorIdRoute: JogadorIdRoute,
+  MediaFileRoute: MediaFileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

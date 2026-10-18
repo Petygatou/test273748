@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Ban, Crown, Lock, RefreshCw, Save, Search, Shuffle, Swords, Unlock, X } from "lucide-react";
+import { Ban, Crown, Lock, RefreshCw, Save, Search, Shuffle, Swords, Unlock, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AskButton } from "../components/AskButton";
 import { Pitch } from "../components/Pitch";
@@ -11,7 +11,10 @@ import { simulateLineup, type LineupSimResult } from "../engine/simulate";
 import type { OptimizedLineup, PlayerProjection, ProfileKey, RoundAnalysis } from "../engine/types";
 import { compactPlayer } from "../lib/derive";
 import { cs, fmt1, fmt2, pct, signed } from "../lib/format";
+import { useAuth } from "../lib/auth";
 import { analysisQuery } from "../lib/queries";
+import { saveLineupFn } from "../server/fnsConta";
+import { saveToCartolaFn } from "../server/fnsCartola";
 import { KEYS, readLocal, useLocal, writeLocal, type SavedLineup } from "../lib/storage";
 
 export const Route = createFileRoute("/escalacao")({
@@ -49,6 +52,8 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [sim, setSim] = useState<LineupSimResult | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const auth = useAuth();
 
   const byId = useMemo(() => new Map(analysis.players.map((p) => [p.atletaId, p] as const)), [analysis]);
   const validIds = (ids: number[]) => ids.filter((id) => byId.has(id));
@@ -134,9 +139,44 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
       xP: lineup.xPComCapitao,
       criadoEm: new Date().toISOString(),
     };
-    writeLocal(KEYS.lineups, [item, ...list].slice(0, 50));
-    setSavedMsg("Tropa salva em Minha conta → Tropas salvas.");
-    setTimeout(() => setSavedMsg(null), 3500);
+    const done = (m: string) => {
+      setSavedMsg(m);
+      setTimeout(() => setSavedMsg(null), 4000);
+    };
+    if (auth.user) {
+      saveLineupFn({ data: item })
+        .then(() => done("Tropa salva na sua conta (Minha conta → Tropas salvas)."))
+        .catch((e) => done(e instanceof Error ? e.message : "Falha ao salvar"));
+    } else {
+      writeLocal(KEYS.lineups, [item, ...list].slice(0, 50));
+      done("Tropa salva neste navegador. Entre na sua conta para guardar em qualquer aparelho.");
+    }
+  };
+
+  const sendToCartola = async () => {
+    if (!lineup) return;
+    const token = readLocal<string>(KEYS.cartolaToken, "");
+    if (!token) {
+      setSavedMsg("Conecte sua conta do Cartola em Meu Time para enviar a tropa.");
+      return;
+    }
+    setSending(true);
+    try {
+      const r = await saveToCartolaFn({
+        data: {
+          token,
+          formation: lineup.formation,
+          titulares: lineup.slots.map((s) => s.atletaId),
+          captainId: lineup.captainId,
+          reservas: lineup.banco.map((b) => ({ atletaId: b.atletaId, posicaoId: b.posicaoId, luxo: b.luxo })),
+        },
+      });
+      setSavedMsg(`Cartola: ${r.mensagem}`);
+    } catch (e) {
+      setSavedMsg(e instanceof Error ? e.message : "Falha ao enviar ao Cartola");
+    } finally {
+      setSending(false);
+    }
   };
 
   const auditPayload = () => ({
@@ -172,7 +212,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         {/* ----------------------------- controles ----------------------------- */}
-        <div className="min-w-0 space-y-4">
+        <div className="order-2 min-w-0 space-y-4 lg:order-1">
           <Card className="space-y-4 p-4">
             <div>
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Perfil estratégico</div>
@@ -227,7 +267,18 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         </div>
 
         {/* ----------------------------- resultado ----------------------------- */}
-        <div className="min-w-0 space-y-4">
+        <div className="order-1 min-w-0 space-y-4 lg:order-2">
+          {/* atalhos no celular: perfil e orçamento sem rolar até os ajustes */}
+          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+            <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
+            <div className="seg" role="group" aria-label="Orçamento">
+              {[100, 120, 140].map((b) => (
+                <button key={b} aria-pressed={settings.budget === b} onClick={() => update({ budget: b })}>
+                  C$ {b}
+                </button>
+              ))}
+            </div>
+          </div>
           {!lineup ? (
             <Alert tone="critical">{result.erro ?? "Não foi possível montar a tropa com essas condições."}</Alert>
           ) : (
@@ -257,9 +308,14 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                         <RefreshCw size={14} /> Voltar ao ótimo
                       </button>
                     )}
-                    <button className="btn btn-primary px-3 py-1.5 text-xs" onClick={save}>
-                      <Save size={14} /> Salvar tropa
+                    <button className="btn btn-ghost px-3 py-1.5 text-xs" onClick={save}>
+                      <Save size={14} /> Salvar
                     </button>
+                    {analysis.source === "cartola" && (
+                      <button className="btn btn-primary px-3 py-1.5 text-xs" onClick={sendToCartola} disabled={sending}>
+                        <Upload size={14} /> {sending ? "Enviando…" : "Escalar no Cartola"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <Pitch slots={lineup.slots} byId={byId} clubs={clubs} captainId={lineup.captainId} fixed={fixedSet} bench={lineup.banco} onSelect={setSelected} />

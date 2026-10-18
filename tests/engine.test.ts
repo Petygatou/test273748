@@ -5,6 +5,7 @@ import { runBacktest } from "../src/engine/backtest";
 import { Rng, pearson, poissonPmf, quantileSorted } from "../src/engine/math";
 import { optimizeLineup, profileValue } from "../src/engine/optimizer";
 import { CAPTAIN_MULTIPLIER, FORMATIONS, SCORING, pointsFromScouts } from "../src/engine/rules";
+import { normalizeHistoryScouts } from "../src/engine/rulesCheck";
 import { scoreMatrix } from "../src/engine/teamModel";
 import type { PlayerProjection, RoundAnalysis } from "../src/engine/types";
 
@@ -51,6 +52,24 @@ describe("math", () => {
 describe("regras", () => {
   it("calcula pontos a partir dos scouts", () => {
     expect(pointsFromScouts({ G: 1, A: 1, DS: 2, CA: 1 })).toBeCloseTo(8 + 5 + 2.4 - 1, 5);
+  });
+
+  it("detecta scouts acumulados e converte para scouts por rodada", () => {
+    const sample = data.history.filter((h) => h.rodada <= 12);
+    const acc = new Map<number, Record<string, number>>();
+    const cumulative = [...sample]
+      .sort((a, b) => a.rodada - b.rodada)
+      .map((h) => {
+        const cur = { ...(acc.get(h.atletaId) ?? {}) };
+        for (const [k, v] of Object.entries(h.scout)) cur[k] = (cur[k] ?? 0) + (v ?? 0);
+        acc.set(h.atletaId, cur);
+        return { ...h, scout: { ...cur } };
+      });
+    const fixed = normalizeHistoryScouts(cumulative);
+    expect(fixed.convertido).toBe(true);
+    const byKey = new Map(sample.map((h) => [`${h.atletaId}:${h.rodada}`, h]));
+    for (const h of fixed.history.slice(0, 200)) expect(h.scout).toEqual(Object.fromEntries(Object.entries(byKey.get(`${h.atletaId}:${h.rodada}`)!.scout).filter(([, v]) => (v ?? 0) > 0)));
+    expect(normalizeHistoryScouts(sample).convertido).toBe(false);
   });
 
   it("a auditoria confere a tabela contra o histórico", () => {

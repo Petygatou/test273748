@@ -11,7 +11,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "Comandante FC — inteligência para o Cartola" },
-      { name: "description", content: "Projeções scout a scout, simulação de Monte Carlo, otimizador exato de tropas e o Comandante, seu assistente tático para o Cartola FC." },
+      { name: "description", content: "Projeções scout a scout, simulação de Monte Carlo, otimizador exato de tropas e backtest público da precisão do modelo para o Cartola FC." },
       { name: "theme-color", content: "#0b0c0f" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
