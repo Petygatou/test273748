@@ -104,3 +104,7 @@ Leia também: [`docs/MOTOR.md`](docs/MOTOR.md) (como o motor funciona e como foi
 ## Hospedagem
 
 O app é um servidor Node com banco em arquivo, upload e SSE, então precisa de disco persistente: **não use a Vercel/Netlify** (funções serverless, sem disco, dão 404). Use Render, Railway ou Fly.io. O repositório traz `Dockerfile` e `render.yaml` (Render: *New → Blueprint*, aponte para o repositório e o `ADMIN_EMAILS` já vem preenchido no `render.yaml`). Em qualquer host Docker, monte um volume em `/data`.
+
+### Vercel (somente demonstração)
+
+Com `VERCEL=1` o build usa o preset do Nitro e roda na Vercel, mas lá o disco é temporário (`/tmp`): contas, posts e fotos somem a cada reinício da função e o tempo real (SSE) não é confiável. Serve para ver as análises; para uso real, prefira o host com disco persistente acima.

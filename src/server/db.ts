@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { join } from "node:path";
 
 export function dataDir(): string {
-  return process.env.DATA_DIR ?? join(process.cwd(), "data");
+  return process.env.DATA_DIR ?? (process.env.VERCEL ? "/tmp/cfc-data" : join(process.cwd(), "data"));
 }
 
 export const events = new EventEmitter();
