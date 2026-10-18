@@ -24,12 +24,14 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "provaveis" | "conteudo" | "alertas";
+type Tab = "provaveis" | "conteudo" | "alertas" | "dados";
 
 function AdminPage() {
   const auth = useAuth();
-  const [tab, setTab] = useState<Tab>("provaveis");
   const an = useQuery(analysisQuery);
+  const [tab, setTab] = useState<Tab>("provaveis");
+  // sem dados reais, a única coisa útil no painel é descobrir por quê
+  const tabEff: Tab = an.isError && tab === "provaveis" ? "dados" : tab;
 
   if (!auth.ready) return <PageSkeleton />;
   if (!auth.isAdmin) return null;
@@ -45,18 +47,20 @@ function AdminPage() {
         </div>
         <Seg
           label="Seção"
-          value={tab}
+          value={tabEff}
           onChange={setTab}
           options={[
             { value: "provaveis", label: "Prováveis" },
             { value: "conteudo", label: "Conteúdo" },
             { value: "alertas", label: "Alertas" },
+            { value: "dados", label: "Dados reais" },
           ]}
         />
       </div>
-      {tab === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
-      {tab === "conteudo" && <Conteudo />}
-      {tab === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
+      {tabEff === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
+      {tabEff === "conteudo" && <Conteudo />}
+      {tabEff === "dados" && <Dados meta={an.data?.meta} />}
+      {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
   );
 }
@@ -262,6 +266,75 @@ function Alertas({ a, fechamento }: { a?: RoundAnalysis; fechamento?: string }) 
           {!alerts.length && <li className="text-sm text-[var(--color-ink-3)]">Nenhum alerta ativo.</li>}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+interface Probe {
+  hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
+  proxy: boolean;
+  variaveis: Record<string, string | null>;
+}
+
+function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada: number } }) {
+  const [probe, setProbe] = useState<Probe | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const run = async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const res = await fetch("/api/diagnostico");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+      setProbe(await res.json());
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <SectionTitle title="De onde vêm os dados" subtitle="O site só usa dados reais do Cartola" icon={<Shield size={18} className="text-[var(--color-brand)]" />} />
+        <p className="text-sm text-[var(--color-ink-2)]">
+          {meta?.source === "cartola"
+            ? meta.importadoEm
+              ? `Dados reais da rodada ${meta.rodada}, enviados de outro computador ${timeAgo(meta.importadoEm)}.`
+              : `Dados reais da rodada ${meta.rodada}, direto da API do Cartola.`
+            : "Sem dados reais no momento. Teste a conexão abaixo."}
+        </p>
+        <button className="btn btn-primary mt-3" onClick={run} disabled={loading}>
+          {loading ? "Testando…" : "Testar conexão com a Globo"}
+        </button>
+        {erro && <p className="mt-2 text-sm text-[var(--color-critical-ink)]">{erro}</p>}
+      </Card>
+      {probe && (
+        <Card className="space-y-3 p-4">
+          {probe.hosts.map((h) => (
+            <div key={h.host} className={`rounded-xl border p-3 ${h.ok ? "border-[var(--color-good)]/40" : "border-[var(--color-critical)]/40"}`}>
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                <span className={h.ok ? "text-[var(--color-good-ink)]" : "text-[var(--color-critical-ink)]"}>{h.ok ? "● conectou" : "● falhou"}</span>
+                <code className="break-all text-xs">{h.host}</code>
+                <span className="tabular text-xs text-[var(--color-ink-3)]">
+                  {h.status ? `HTTP ${h.status} · ` : ""}
+                  {h.ms} ms
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--color-ink-2)]">{h.leitura}</p>
+              {h.trecho && <code className="mt-1 block max-h-16 overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{h.trecho}</code>}
+            </div>
+          ))}
+          <p className="text-xs text-[var(--color-ink-3)]">
+            Variáveis: DATA_MODE={probe.variaveis.DATA_MODE ?? "(padrão)"} · CARTOLA_API_HOSTS={probe.variaveis.CARTOLA_API_HOSTS ?? "(padrão)"} · relay: {probe.proxy ? "sim" : "não"}.
+          </p>
+          {!probe.hosts.some((h) => h.ok) && (
+            <Alert tone="warning">
+              O servidor do site não alcança a API. As três saídas (relay gratuito, envio a partir do seu computador ou hospedagem que a Globo aceita) estão em <b>docs/CARTOLA.md</b>.
+            </Alert>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

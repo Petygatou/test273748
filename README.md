@@ -53,13 +53,17 @@ npm run lineup                # acerto das prováveis (dos 11 apontados, quantos
 
 Sem acesso à API do Cartola (pré-temporada, rede bloqueada) o app entra em **Modo Demonstração**: uma temporada sintética completa, com atletas fictícios, gerada a partir de uma "verdade latente" conhecida — útil para desenvolver e para provar que o modelo recupera o que gerou os dados.
 
+## Dados reais
+
+Em produção o site **só mostra dados reais do Cartola** (nunca inventa números). Se o servidor for barrado pela Globo, o Painel ADM tem um teste de conexão e há três saídas prontas (relay gratuito na Cloudflare, envio a partir do seu computador com `npm run enviar`, ou outra hospedagem): veja [`docs/CARTOLA.md`](docs/CARTOLA.md).
+
 ## Configuração
 
 Copie `.env.example` para `.env`:
 
 | Variável | Para quê |
 |---|---|
-| `DATA_MODE` | `auto` (padrão: API oficial, cai para demonstração), `live` ou `demo` |
+| `DATA_MODE` | `live` (padrão em produção: só dados reais), `auto` (padrão no desenvolvimento: cai para demonstração) ou `demo` |
 | `CARTOLA_API_HOSTS` | Hosts da API, em ordem de preferência (padrão: `https://api.cartolafc.globo.com,https://api.cartola.globo.com`) |
 | `SIMULATIONS` | Simulações de Monte Carlo por rodada (padrão 3000; reduza em hosts com pouca CPU) |
 | `DATA_DIR` | Pasta do banco, das mídias e dos snapshots (padrão `./data`) — faça backup dela |

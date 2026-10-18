@@ -6,6 +6,7 @@ import { extname, join, normalize } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
+process.env.NODE_ENV ??= "production";
 const root = fileURLToPath(new URL("../dist/client/", import.meta.url));
 const { default: app } = await import(new URL("../dist/server/server.js", import.meta.url).href);
 const port = Number(process.env.PORT ?? 3000);

@@ -12,6 +12,7 @@
     "test": "vitest run",
     "backtest": "tsx scripts/backtest.ts",
     "lineup": "tsx scripts/lineup-backtest.ts",
+    "enviar": "tsx scripts/enviar-temporada.ts",
     "tune": "tsx scripts/backtest.ts --tune",
     "smoke": "tsx scripts/smoke.ts"
   },

@@ -63,6 +63,11 @@ export function SyncBar() {
       <span className="chip">
         <Activity size={12} aria-hidden /> Rodada {m.rodada}
       </span>
+      {!demo && (
+        <span className="chip border-[var(--color-good)]/40 text-[var(--color-good-ink)]" title={m.importadoEm ? `Dados reais enviados ${timeAgo(m.importadoEm)}` : "Direto da API do Cartola"}>
+          Dados reais
+        </span>
+      )}
       {demo ? (
         <span className="chip border-[var(--color-gold)]/40 text-[var(--color-gold)]" title={m.motivoDemo ? `Motivo: ${m.motivoDemo}` : undefined}>
           <FlaskConical size={12} aria-hidden /> Demonstração

@@ -198,10 +198,16 @@ export function PageSkeleton() {
 }
 
 export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void }) {
+  const msg = error instanceof Error ? error.message : String(error);
+  const semDados = /Dados reais do Cartola indisponíveis/i.test(msg);
   return (
-    <Alert tone="critical">
-      <div className="font-semibold">Não foi possível carregar os dados.</div>
-      <div className="text-xs">{error instanceof Error ? error.message : String(error)}</div>
+    <Alert tone={semDados ? "warning" : "critical"}>
+      <div className="font-semibold">{semDados ? "Os dados reais do Cartola ainda não chegaram." : "Não foi possível carregar os dados."}</div>
+      <div className="text-xs">
+        {semDados
+          ? "O site só mostra dados verdadeiros e, por enquanto, o servidor não conseguiu falar com a API da Globo. A equipe já pode resolver pelo Painel ADM, em “Dados reais”."
+          : msg}
+      </div>
       {retry && (
         <button className="btn btn-ghost mt-2 px-3 py-1 text-xs" onClick={retry}>
           Tentar de novo

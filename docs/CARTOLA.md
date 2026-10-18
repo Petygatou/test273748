@@ -1,0 +1,58 @@
+# Dados reais do Cartola
+
+O Tropa **só mostra dados reais**. Em produção (`NODE_ENV=production`) o padrão é `DATA_MODE=live`: se não houver dado real, a tela avisa em vez de inventar números. A demonstração fica só para desenvolvimento (`npm run dev`).
+
+## Por que o servidor às vezes não consegue
+
+A API (`api.cartolafc.globo.com`) é pública, mas a Globo costuma **barrar IPs de provedores de nuvem** (Vercel, Render, AWS…) e responde 403 ou derruba a conexão. IPs residenciais e os da Cloudflare em geral passam.
+
+**Primeiro passo, sempre:** entre como administrador → **Painel ADM → Dados reais → Testar conexão com a Globo**. O teste mostra, por endereço, o código HTTP e uma leitura em português (403 = bloqueio de IP, sem resposta = rede do provedor, 429 = limite, 5xx = Cartola fora do ar).
+
+Se aparecer "conectou", não há nada a fazer: o site já está com dados reais. Se falhar, use uma das saídas abaixo.
+
+## Saída 1 — Relay gratuito na Cloudflare (recomendada, 100% automática)
+
+O site passa a falar com um Worker seu, e o Worker fala com a Globo.
+
+1. Crie conta grátis em cloudflare.com → **Workers & Pages → Create → Create Worker**.
+2. Cole o conteúdo de `deploy/cartola-relay-worker.js` e publique. Você ganha um endereço como `https://cartola-relay.seunome.workers.dev`.
+3. (Opcional, recomendado) No Worker, *Settings → Variables* → crie `RELAY_KEY` com uma senha longa.
+4. No servidor do site (Render/Vercel), defina:
+   - `CARTOLA_API_HOSTS=https://cartola-relay.seunome.workers.dev`
+   - `CARTOLA_RELAY_KEY=<a mesma senha>` (se usou o passo 3)
+5. Reinicie o site e repita o teste no Painel ADM.
+
+Observação: a Globo também pode barrar a Cloudflare em algumas rotas; o teste do passo 5 diz na hora. Se barrar, vá para a saída 2.
+
+## Saída 2 — Enviar os dados do seu computador (sempre funciona se o seu PC acessa o Cartola)
+
+Seu computador de casa tem IP residencial. Ele baixa a temporada real e envia para o site.
+
+1. No servidor do site defina `IMPORT_KEY=<uma senha longa>` e reinicie.
+2. No seu computador (Node 22, dentro da pasta do projeto, depois de `npm install`):
+
+   ```bash
+   SITE_URL=https://seu-site.com IMPORT_KEY=<a mesma senha> npm run enviar
+   ```
+
+3. O site passa a usar esses dados (selo **Dados reais** no topo). Eles valem por 48 horas.
+4. Para manter atualizado, agende o comando: a cada 30 minutos em dias de jogo e uma vez por dia nos demais (Agendador de Tarefas no Windows, `cron` no Linux/Mac, ou o GitHub Actions num repositório seu).
+
+O servidor recusa qualquer arquivo que não venha da API do Cartola (`source=cartola`) e exige a chave.
+
+## Saída 3 — Hospedagem que a Globo aceita
+
+Se preferir não depender de relay nem de envio manual, rode o site num servidor com IP não barrado (por exemplo uma VPS brasileira pequena com o `Dockerfile` do projeto). Cada provedor se comporta de um jeito: o teste do Painel ADM diz se o IP dele passa antes de você migrar.
+
+## Variáveis
+
+| Variável | Uso |
+|---|---|
+| `DATA_MODE` | `live` (padrão em produção): só dados reais · `auto`: cai para demonstração · `demo` |
+| `CARTOLA_API_HOSTS` | Endereços da API, em ordem (use o do relay aqui) |
+| `CARTOLA_RELAY_KEY` | Senha enviada ao relay no cabeçalho `x-relay-key` |
+| `IMPORT_KEY` | Habilita `POST /api/importar` e é a senha do `npm run enviar` |
+
+## Snapshots
+
+A cada leitura com o mercado aberto o servidor guarda o status de cada atleta em `DATA_DIR/snapshots`. É isso que ensina o modelo de chance de jogar a usar o status do Cartola. Com disco temporário (Vercel) esse histórico se perde; use disco persistente (Render, VPS) para o acerto das prováveis melhorar com o tempo.

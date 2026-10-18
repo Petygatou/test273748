@@ -7,7 +7,8 @@ import { generateDemoSeason } from "../data/demoSeason";
 import { buildRoundAnalysis } from "../engine/analysis";
 import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/backtest";
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
-import { cached } from "./cache";
+import { cached, invalidate } from "./cache";
+import { loadImported } from "./importada";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
 
@@ -32,24 +33,45 @@ export interface SeasonMeta {
   timesEscalados?: number;
   updatedAt: string;
   motivoDemo?: string;
+  /** dados reais enviados de outro computador (quando o servidor não alcança a API) */
+  importadoEm?: string;
 }
 
-async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string }> {
-  const mode = env("DATA_MODE") ?? "auto";
+/**
+ * Ordem: API oficial → temporada real importada (fresca) → demonstração.
+ * Em produção o padrão é DATA_MODE=live: nunca inventa dados; se não houver
+ * dado real, a tela explica o problema em vez de mostrar números fictícios.
+ */
+function dataMode() {
+  return env("DATA_MODE") ?? (env("NODE_ENV") === "production" ? "live" : "auto");
+}
+
+export function invalidateSeason() {
+  invalidate("season:");
+}
+
+async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; importadoEm?: string }> {
+  const mode = dataMode();
   if (mode === "demo") return { data: demo(), motivo: "DATA_MODE=demo" };
+  let erroApi = "API do Cartola indisponível";
   try {
     const data = await cached("season:cartola", 5 * 60_000, fetchCartolaSeason);
     if (data.athletes.length < 50) throw new Error("mercado vazio (pré-temporada?)");
     if (data.rodadaAtual > 2 && data.history.length === 0) throw new Error("histórico indisponível");
     return { data };
   } catch (err) {
-    if (mode === "live") throw err;
-    return { data: demo(), motivo: err instanceof Error ? err.message : "API do Cartola indisponível" };
+    erroApi = err instanceof Error ? err.message : erroApi;
   }
+  const imp = await loadImported();
+  if (imp) return { data: imp.data, importadoEm: imp.importadoEm };
+  if (mode === "live") {
+    throw new Error(`Dados reais do Cartola indisponíveis: ${erroApi}. O servidor não alcançou a API da Globo e não há temporada importada recente. Veja docs/CARTOLA.md.`);
+  }
+  return { data: demo(), motivo: erroApi };
 }
 
 export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta }> {
-  const { data, motivo } = await loadRawSeason();
+  const { data, motivo, importadoEm } = await loadRawSeason();
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
   const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...overrides } };
   return {
@@ -63,6 +85,7 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
       timesEscalados: data.timesEscalados,
       updatedAt: data.updatedAt,
       motivoDemo: data.source === "demo" ? motivo : undefined,
+      importadoEm,
     },
   };
 }

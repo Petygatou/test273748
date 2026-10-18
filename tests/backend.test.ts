@@ -162,3 +162,17 @@ describe("fotos oficiais", () => {
     expect((await proxyFoto(null)).status).toBe(400);
   });
 });
+
+describe("dados reais importados", () => {
+  it("só aceita temporada real, completa", async () => {
+    const { validateSeason, saveImported, loadImported } = await import("../src/server/importada");
+    const fake = { source: "demo", athletes: [], matches: [], history: [], clubs: {}, rodadaAtual: 5 };
+    expect(() => validateSeason(fake)).toThrow(/reais/);
+    expect(() => validateSeason({ ...fake, source: "cartola" })).toThrow(/poucos atletas/);
+    const ok = { source: "cartola", athletes: Array.from({ length: 60 }, (_, i) => ({ id: i })), matches: [], history: [], clubs: {}, rodadaAtual: 5 };
+    expect(validateSeason(ok).rodadaAtual).toBe(5);
+    await saveImported(validateSeason(ok));
+    const back = await loadImported();
+    expect(back?.data.athletes).toHaveLength(60);
+  });
+});
