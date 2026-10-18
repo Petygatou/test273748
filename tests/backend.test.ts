@@ -134,3 +134,31 @@ describe("API do Cartola", () => {
     expect(n).toBe(1);
   });
 });
+
+describe("fotos oficiais", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("normaliza a URL da API e só aceita hosts da Globo", async () => {
+    const { normalizeFoto, isAllowedFoto } = await import("../src/server/foto");
+    expect(normalizeFoto("http://s.sde.globo.com/media/organizations/2026/04/01/FORMATO/x.png")).toBe("https://s.sde.globo.com/media/organizations/2026/04/01/220x220/x.png");
+    expect(normalizeFoto(null)).toBeUndefined();
+    expect(normalizeFoto("javascript:alert(1)")).toBeUndefined();
+    expect(isAllowedFoto("https://s.sde.globo.com/a.png")).not.toBeNull();
+    expect(isAllowedFoto("https://s2.glbimg.com/a.png")).not.toBeNull();
+    expect(isAllowedFoto("https://evil.com/a.png")).toBeNull();
+    expect(isAllowedFoto("https://globo.com.evil.com/a.png")).toBeNull();
+    expect(isAllowedFoto("http://s.sde.globo.com/a.png")).toBeNull();
+    expect(isAllowedFoto("http://127.0.0.1/a.png")).toBeNull();
+  });
+
+  it("repassa a imagem e recusa o que não é imagem", async () => {
+    const { proxyFoto } = await import("../src/server/foto");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.endsWith("ok.png") ? new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }) : new Response("<html>", { headers: { "content-type": "text/html" } }))));
+    const ok = await proxyFoto("https://s.sde.globo.com/ok.png");
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toBe("image/png");
+    expect((await proxyFoto("https://s.sde.globo.com/pagina.html")).status).toBe(404);
+    expect((await proxyFoto("https://evil.com/ok.png")).status).toBe(400);
+    expect((await proxyFoto(null)).status).toBe(400);
+  });
+});

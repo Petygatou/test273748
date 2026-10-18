@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Cross, Info, ShieldOff } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { kitFor } from "../lib/kits";
 import { Face } from "./Face";
 import type { Club, PlayerProjection } from "../engine/types";
@@ -65,19 +65,29 @@ export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
   );
 }
 
+/**
+ * Foto oficial do atleta: tenta o CDN da Globo direto, depois pelo nosso
+ * servidor (/api/foto) e, só se as duas falharem, usa o rosto ilustrado.
+ */
 export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId"> & { atletaId?: number; clubeId?: number }; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  if (p.foto && !failed)
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => setAttempt(0), [p.foto]);
+  const sources = p.foto ? [p.foto, `/api/foto?u=${encodeURIComponent(p.foto)}`] : [];
+  const src = sources[attempt];
+  if (src)
     return (
       <img
-        src={p.foto}
+        key={src}
+        src={src}
         alt={p.apelido}
         width={size}
         height={size}
-        className="shrink-0 rounded-full bg-[var(--color-surface-3)] object-cover object-top"
+        className="shrink-0 rounded-full bg-gradient-to-b from-[var(--color-surface-3)] to-[var(--color-surface-1)] object-cover object-top"
         style={{ width: size, height: size }}
         loading="lazy"
-        onError={() => setFailed(true)}
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setAttempt((n) => n + 1)}
       />
     );
   return <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;

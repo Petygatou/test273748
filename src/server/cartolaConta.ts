@@ -6,6 +6,7 @@
  * Autenticados (token do próprio cartoleiro): meu time, minhas ligas, liga
  * por slug e salvar a escalação direto no Cartola.
  */
+import { normalizeFoto } from "./foto";
 import { FORMATIONS, type FormationKey } from "../engine/rules";
 import { cached } from "./cache";
 import { cartola } from "./cartolaHttp";
@@ -62,7 +63,7 @@ export interface LeagueDetail {
 type Raw = Record<string, unknown>;
 const num = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && !Number.isNaN(Number(x)) ? Number(x) : null);
 const str = (x: unknown): string => (typeof x === "string" ? x : x == null ? "" : String(x));
-const foto = (u: unknown) => (typeof u === "string" && u ? u.replace("FORMATO", "220x220") : undefined);
+const foto = (u: unknown) => normalizeFoto(typeof u === "string" ? u : undefined);
 
 export function parseTeamSummary(r: Raw): TeamSummary {
   return {

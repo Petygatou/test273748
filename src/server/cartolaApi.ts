@@ -12,6 +12,7 @@
  * A cada leitura do mercado gravamos um snapshot (preço/variação/status por
  * rodada): com o tempo isso calibra o MPV e a chance de jogar com dados reais.
  */
+import { normalizeFoto } from "./foto";
 import type { PositionId, Scouts } from "../engine/rules";
 import { normalizeHistoryScouts } from "../engine/rulesCheck";
 import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/types";
@@ -123,9 +124,7 @@ export const getLivePartidas = () => cached("cartola:partidas:live", 45_000, () 
 
 /* --------------------------- normalização --------------------------- */
 
-function foto(url?: string | null): string | undefined {
-  return url ? url.replace("FORMATO", "220x220") : undefined;
-}
+const foto = normalizeFoto;
 
 function toMatch(p: RawPartida, rodada: number): Match {
   const data = p.timestamp ? new Date(p.timestamp * 1000).toISOString() : p.partida_data ? new Date(p.partida_data.replace(" ", "T") + "-03:00").toISOString() : undefined;

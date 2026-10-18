@@ -24,6 +24,7 @@ import { Route as NoticiasRouteImport } from './routes/noticias'
 import { Route as ProvaveisRouteImport } from './routes/provaveis'
 import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiFotoRouteImport } from './routes/api/foto'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 import { Route as MediaFileRouteImport } from './routes/media/$file'
@@ -103,6 +104,11 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
   path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFotoRoute = ApiFotoRouteImport.update({
+  id: '/api/foto',
+  path: '/api/foto',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaRoute = ApiMediaRouteImport.update({
   id: '/api/media',
   path: '/api/media',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
   '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
   '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
   '/api/media': typeof ApiMediaRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/provaveis'
     | '/api/comandante'
     | '/api/events'
+    | '/api/foto'
     | '/api/media'
     | '/jogador/$id'
     | '/media/$file'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/provaveis'
     | '/api/comandante'
     | '/api/events'
+    | '/api/foto'
     | '/api/media'
     | '/jogador/$id'
     | '/media/$file'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/provaveis'
     | '/api/comandante'
     | '/api/events'
+    | '/api/foto'
     | '/api/media'
     | '/jogador/$id'
     | '/media/$file'
@@ -259,6 +271,7 @@ export interface RootRouteChildren {
   ProvaveisRoute: typeof ProvaveisRoute
   ApiComandanteRoute: typeof ApiComandanteRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiFotoRoute: typeof ApiFotoRoute
   ApiMediaRoute: typeof ApiMediaRoute
   JogadorIdRoute: typeof JogadorIdRoute
   MediaFileRoute: typeof MediaFileRoute
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/foto': {
+      id: '/api/foto'
+      path: '/api/foto'
+      fullPath: '/api/foto'
+      preLoaderRoute: typeof ApiFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media': {
       id: '/api/media'
       path: '/api/media'
@@ -411,6 +431,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProvaveisRoute: ProvaveisRoute,
   ApiComandanteRoute: ApiComandanteRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiFotoRoute: ApiFotoRoute,
   ApiMediaRoute: ApiMediaRoute,
   JogadorIdRoute: JogadorIdRoute,
   MediaFileRoute: MediaFileRoute,
