@@ -1,9 +1,10 @@
-/** npm run lineup  (ou: npm run lineup -- --live) — acerto das prováveis, walk-forward. */
+/** npm run lineup  (ou: npm run lineup -- --live [--sem-status]) — acerto das prováveis, walk-forward. */
 import { generateDemoSeason } from "../src/data/demoSeason";
 import { runLineupBacktest } from "../src/engine/backtest";
 
 const live = process.argv.includes("--live");
 const data = live ? await (await import("../src/server/cartolaApi")).fetchCartolaSeason() : generateDemoSeason();
+if (process.argv.includes("--sem-status")) data.statusHistory = undefined; // situação real enquanto os snapshots ainda não existem
 const t0 = Date.now();
 const r = runLineupBacktest(data);
 console.log(`Fonte: ${data.source} · rodadas ${r.rodadas[0]?.rodada}–${r.rodadas.at(-1)?.rodada} · ${r.timesAvaliados} escalações`);

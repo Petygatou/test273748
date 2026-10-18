@@ -247,7 +247,13 @@ function ProvaveisAccuracy({ acc, demo }: { acc: LineupAccuracy; demo: boolean }
         </div>
       </div>
       <p className="mt-3 text-xs text-[var(--color-ink-3)]">
-        Teste sem olhar o futuro: para cada rodada o modelo só sabe o que aconteceu antes dela e o status que o Cartola mostrava. Ajustes feitos no Painel ADM (informação de treino e coletiva) não entram nesta conta e só aumentam o acerto.
+        Teste sem olhar o futuro: para cada rodada o modelo só sabe o que aconteceu antes dela.{" "}
+        {acc.coberturaStatus >= 0.8
+          ? "Inclui o status que o Cartola mostrava antes de cada rodada."
+          : acc.coberturaStatus > 0
+            ? `O status do Cartola de antes de cada rodada só existe em ${Math.round(acc.coberturaStatus * 100)}% das rodadas medidas (o site começou a guardá-lo há pouco), então esta conta ainda subestima o acerto atual.`
+            : "Esta conta ainda não usa o status do Cartola de antes de cada rodada (o site começou a guardá-lo agora e o número melhora a cada rodada). Na previsão de hoje o status e os ajustes da equipe já são usados, então o acerto atual tende a ser maior que o medido."}{" "}
+        Ajustes feitos no Painel ADM (coletiva e treino) nunca entram nesta conta.
         {demo && " No Modo Demonstração a conta é feita sobre a temporada simulada; com a API do Cartola ela é refeita com os jogos reais."}
       </p>
     </Card>

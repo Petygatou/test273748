@@ -6,7 +6,7 @@ import { OutcomeBar } from "../components/FixtureCard";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, Seg } from "../components/ui";
 import type { FixtureOdds, LineupOverride, PlayerProjection, RoundAnalysis } from "../engine/types";
 import { useAuth } from "../lib/auth";
-import { saveLineupOverride } from "../server/fns";
+import { saveLineupBatch, saveLineupOverride } from "../server/fns";
 import type { LiveData, LiveMatch } from "../server/live";
 import { dateTime, fmt1, pct } from "../lib/format";
 import { probTag, probableXI, type ProbTag, type ProbableXI } from "../lib/provaveis";
@@ -96,7 +96,45 @@ function PitchLines() {
   );
 }
 
+function ConfirmBar({ a, xi }: { a: RoundAnalysis; xi: ProbableXI }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const titulares = [...xi.lines.gol, ...xi.lines.def, ...xi.lines.mei, ...xi.lines.ata];
+  const ids = new Set(titulares.map((p) => p.atletaId));
+  const confirmed = titulares.every((p) => p.override === "titular");
+  const anyOverride = a.players.some((p) => p.clubeId === xi.clubeId && p.override);
+  const run = async (limpar: boolean) => {
+    setBusy(true);
+    setErro(null);
+    try {
+      const resto = a.players.filter((p) => p.clubeId === xi.clubeId && p.posicaoId !== 6 && !ids.has(p.atletaId) && (limpar ? p.override : p.statusId !== 5 && p.statusId !== 3)).map((p) => p.atletaId);
+      await saveLineupBatch({ data: { titulares: titulares.map((p) => p.atletaId), reservas: resto, limpar } });
+      await qc.invalidateQueries({ queryKey: analysisQuery.queryKey });
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-brand)]/30 bg-[var(--color-brand)]/5 px-2.5 py-2 text-xs">
+      <button className="btn btn-primary px-3 py-1.5 text-xs" disabled={busy || confirmed} onClick={() => run(false)}>
+        {confirmed ? "✓ Time confirmado" : "Confirmar estes 11"}
+      </button>
+      {anyOverride && (
+        <button className="font-semibold text-[var(--color-ink-3)] underline" disabled={busy} onClick={() => run(true)}>
+          limpar ajustes do time
+        </button>
+      )}
+      <span className="text-[var(--color-ink-3)]">Troque quem estiver errado antes (toque no atleta), depois confirme.</span>
+      {erro && <span className="text-[var(--color-critical-ink)]">{erro}</span>}
+    </div>
+  );
+}
+
 function TeamPitch({ a, xi, live, started, total }: { a: RoundAnalysis; xi: ProbableXI; live?: LiveData; started: boolean; total?: number }) {
+  const editing = useContext(EditCtx) != null;
   const row = (ps: PlayerProjection[]) => (
     <div className="flex items-start justify-around gap-0.5 px-1">
       {ps.map((p) => (
@@ -131,6 +169,7 @@ function TeamPitch({ a, xi, live, started, total }: { a: RoundAnalysis; xi: Prob
           </div>
         )}
       </div>
+      {editing && !started && <ConfirmBar a={a} xi={xi} />}
       {xi.banco.length > 0 && (
         <div className="mt-2 rounded-xl bg-[var(--color-surface-1)] p-2">
           <div className="mb-1.5 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">{started ? "Banco" : "Opções no banco"}</div>

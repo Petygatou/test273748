@@ -86,6 +86,8 @@ export interface LineupAccuracy {
   /** calibração da chance de jogar: [faixa, previsto médio, observado, n] */
   calibracao: Array<{ faixa: string; previsto: number; observado: number; n: number }>;
   brier: number;
+  /** fração das rodadas medidas em que o status do Cartola daquela rodada era conhecido */
+  coberturaStatus: number;
 }
 
 /**
@@ -146,5 +148,6 @@ export function lineupAccuracy(
     timesAvaliados: out.reduce((s, r) => s + r.times, 0),
     calibracao: bins.map((b, i) => ({ faixa: `${i * 20}–${(i + 1) * 20}%`, previsto: b.n ? b.p / b.n : 0, observado: b.n ? b.o / b.n : 0, n: b.n })),
     brier: nb ? brier / nb : 0,
+    coberturaStatus: 0,
   };
 }

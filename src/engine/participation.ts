@@ -27,6 +27,8 @@ export const FEATURE_NAMES = [
   "goleiro",
   "sem jogos pelo clube",
   "média de pontos recente",
+  "volume de scouts (proxy de minutos)",
+  "rodízio do clube",
   "status conhecido",
   "status: provável",
   "status: dúvida",
@@ -114,6 +116,19 @@ export function squadFeatures(squad: Athlete[], idx: Index, t: number): Map<numb
     const perMatch = last5.length ? entering / last5.length : pos === 1 ? 1 : 2;
     const slots = pos === 1 ? 1 : Math.max(1, Math.round(perMatch * (pos === 3 ? 0.92 : 0.75)));
 
+    // rodízio do clube: quanto o elenco que entra muda de um jogo para o outro (últimos 4 jogos)
+    let changed = 0;
+    let seen = 0;
+    for (let i = Math.max(1, rounds.length - 4); i < rounds.length; i++) {
+      const cur = group.filter((x) => idx.byAth.get(x.id)?.has(rounds[i]));
+      const prev = new Set(group.filter((x) => idx.byAth.get(x.id)?.has(rounds[i - 1])).map((x) => x.id));
+      for (const x of cur) {
+        seen++;
+        if (!prev.has(x.id)) changed++;
+      }
+    }
+    const rotation = seen ? changed / seen : 0.3;
+
     ranked.forEach(({ a }, rank) => {
       const rows = idx.byAth.get(a.id);
       const played = (r: number | undefined) => (r != null && rows?.has(r) ? 1 : 0);
@@ -142,6 +157,9 @@ export function squadFeatures(squad: Athlete[], idx: Index, t: number): Map<numb
       }
       const recentPts = last5.map((r) => rows?.get(r)?.pontos).filter((x): x is number => x != null);
       const avgPts = recentPts.length ? recentPts.reduce((s, x) => s + x, 0) / recentPts.length : 0;
+      // volume de scouts nas últimas 3 participações: quem joga pouco acumula pouco scout
+      const lastApps = rounds.slice(-6).map((r) => rows?.get(r)).filter((x): x is PlayerRound => !!x).slice(-3);
+      const vol = lastApps.length ? lastApps.reduce((sum, row) => sum + Object.values(row.scout).reduce((q, v) => q + Math.abs(v ?? 0), 0), 0) / lastApps.length : 0;
       out.set(a.id, [
         1,
         l1,
@@ -158,6 +176,8 @@ export function squadFeatures(squad: Athlete[], idx: Index, t: number): Map<numb
         pos === 1 ? 1 : 0,
         rows && [...rows.keys()].some((r) => r < t) ? 0 : 1,
         Math.max(-0.5, Math.min(1.5, avgPts / 8)),
+        Math.min(vol, 12) / 12,
+        rotation,
       ]);
     });
   }

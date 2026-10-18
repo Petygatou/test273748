@@ -311,5 +311,7 @@ export function runLineupBacktest(data: SeasonData, opts: { fromRound?: number; 
     }
     rounds.push({ rodada: r, players: a.players, entered, clubsPlayed, lastEntered });
   }
-  return lineupAccuracy(rounds);
+  const out = lineupAccuracy(rounds);
+  const comStatus = rounds.filter((r) => data.statusHistory?.[r.rodada]).length;
+  return { ...out, coberturaStatus: rounds.length ? comStatus / rounds.length : 0 };
 }

@@ -102,6 +102,8 @@ Temporada de demonstração (rodadas 21–30, 200 escalações):
 | Modelo aprendido, sem status | 81,4% | 0,165 |
 | Modelo aprendido + status antes da rodada | **87,2%** | 0,141 |
 
+Sinais novos (v2): volume de scouts nas últimas participações (proxy de minutos) e rodízio do clube. `--sem-status` mede sem o histórico de status, que é a situação real nas primeiras rodadas depois de ligar os dados reais (demo: 81,7% sem status, 87,4% com).
+
 Na demonstração o teto é baixo de propósito: o simulador sorteia rodízio a cada jogo e nem quem conhece a qualidade real de cada atleta passa de ~80% sem o status. Com dados reais, `npm run lineup -- --live` refaz a conta; os ajustes do Painel ADM (treino, coletiva) não entram na medição e só aumentam o acerto.
 
 ## Configuração (`ModelConfig`)
