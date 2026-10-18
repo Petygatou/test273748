@@ -100,3 +100,7 @@ docs/             metodologia do motor e análise de concorrentes
 ```
 
 Leia também: [`docs/MOTOR.md`](docs/MOTOR.md) (como o motor funciona e como foi validado) e [`docs/CONCORRENTES.md`](docs/CONCORRENTES.md) (o que os concorrentes fazem e onde o Comandante vai além).
+
+## Hospedagem
+
+O app é um servidor Node com banco em arquivo, upload e SSE, então precisa de disco persistente: **não use a Vercel/Netlify** (funções serverless, sem disco, dão 404). Use Render, Railway ou Fly.io. O repositório traz `Dockerfile` e `render.yaml` (Render: *New → Blueprint*, aponte para o repositório e preencha `ANTHROPIC_API_KEY` e `ADMIN_EMAILS`). Em qualquer host Docker, monte um volume em `/data`.
