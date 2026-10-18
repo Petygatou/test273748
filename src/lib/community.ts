@@ -155,4 +155,4 @@ export function getCommunity(): CommunityBackend {
   return serverBackend;
 }
 
-export const OFFICIAL_AUTHOR: Author = { id: "oficial", nome: "Comandante FC", avatar: "estrategista", oficial: true };
+export const OFFICIAL_AUTHOR: Author = { id: "oficial", nome: "Tropa", avatar: "estrategista", oficial: true };

@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { Bell, ClipboardList, Lock, Megaphone, Shield, Trash2 } from "lucide-react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Bell, ClipboardList, Megaphone, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AskButton } from "../components/AskButton";
+import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
 import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import type { LineupOverride, RoundAnalysis } from "../engine/types";
 import { createAlert, deleteAlert, useAlerts, type AlertKind } from "../lib/alerts";
-import { useAuth } from "../lib/auth";
+import { meQuery, useAuth } from "../lib/auth";
 import { OFFICIAL_AUTHOR, getCommunity } from "../lib/community";
 import { countdown, fmt1, pct, timeAgo } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
@@ -15,6 +16,11 @@ import { saveLineupOverride } from "../server/fns";
 import { Composer } from "../components/Composer";
 
 export const Route = createFileRoute("/admin")({
+  // o painel não existe para quem não é administrador
+  beforeLoad: async ({ context }) => {
+    const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
+    if (!me?.admin) throw redirect({ to: "/" });
+  },
   component: AdminPage,
 });
 
@@ -26,24 +32,7 @@ function AdminPage() {
   const an = useQuery(analysisQuery);
 
   if (!auth.ready) return <PageSkeleton />;
-  if (!auth.isAdmin) {
-    return (
-      <Card className="mx-auto max-w-md p-6 text-center">
-        <Lock size={28} className="mx-auto text-[var(--color-brand)]" aria-hidden />
-        <h1 className="font-display mt-2 text-xl font-bold">Acesso restrito</h1>
-        <p className="mt-1 text-sm text-[var(--color-ink-3)]">
-          Apenas contas de administrador.{" "}
-          {auth.user ? (
-            "Sua conta não tem esse papel (defina ADMIN_EMAILS no servidor)."
-          ) : (
-            <Link to="/conta" className="text-[var(--color-brand)] underline">
-              Entre na sua conta
-            </Link>
-          )}
-        </p>
-      </Card>
-    );
-  }
+  if (!auth.isAdmin) return null;
 
   return (
     <div className="space-y-5">
@@ -116,6 +105,17 @@ function Provaveis({ a }: { a: RoundAnalysis }) {
           </select>
         }
       />
+      <PlayerSearch
+        className="mb-3"
+        players={a.players.filter((p) => p.posicaoId !== 6)}
+        clubs={a.clubs}
+        placeholder="Ir direto para um atleta ou clube"
+        label="Buscar atleta"
+        onSelect={(p) => {
+          setClub(p.clubeId);
+          setTimeout(() => document.getElementById(`ov-${p.atletaId}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
+        }}
+      />
       {erro && (
         <div className="mb-3">
           <Alert tone="critical">{erro}</Alert>
@@ -123,7 +123,7 @@ function Provaveis({ a }: { a: RoundAnalysis }) {
       )}
       <ul className="divide-y divide-[var(--color-line)]">
         {players.map((p) => (
-          <li key={p.atletaId} className="flex flex-wrap items-center gap-2 py-2">
+          <li key={p.atletaId} id={`ov-${p.atletaId}`} className="flex scroll-mt-32 flex-wrap items-center gap-2 py-2">
             <PosBadge pos={p.posicaoId} />
             <PlayerPhoto p={p} size={28} />
             <div className="min-w-[140px] flex-1">
@@ -154,7 +154,7 @@ function Conteudo() {
   const [msg, setMsg] = useState<string | null>(null);
   return (
     <div className="space-y-4">
-      <SectionTitle title="Publicar novidade oficial" subtitle="Aparece no feed com o selo do Comandante FC" icon={<Megaphone size={18} className="text-[var(--color-gold)]" />} right={<button className="btn btn-ghost" onClick={() => setStory(true)}>Story institucional</button>} />
+      <SectionTitle title="Publicar novidade oficial" subtitle="Aparece no feed com o selo oficial do Tropa" icon={<Megaphone size={18} className="text-[var(--color-gold)]" />} right={<button className="btn btn-ghost" onClick={() => setStory(true)}>Story institucional</button>} />
       {msg && <Alert tone="info">{msg}</Alert>}
       <Composer
         me={OFFICIAL_AUTHOR}

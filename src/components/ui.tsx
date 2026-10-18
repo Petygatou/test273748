@@ -1,5 +1,7 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Cross, Info, ShieldOff } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { kitFor } from "../lib/kits";
+import { Face } from "./Face";
 import type { Club, PlayerProjection } from "../engine/types";
 import { factorPct, fmt1, posAbbr, statusLabel } from "../lib/format";
 
@@ -50,37 +52,35 @@ export function PosBadge({ pos }: { pos: number }) {
 export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
   if (!club) return <span className="inline-block rounded-full bg-[var(--color-surface-4)]" style={{ width: size, height: size }} />;
   if (club.escudo) return <img src={club.escudo} alt={club.nome} width={size} height={size} className="inline-block object-contain" loading="lazy" />;
-  // escudo sintético: iniciais do clube
-  let h = 0;
-  for (const ch of club.abreviacao) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  // escudo sintético: iniciais do clube nas cores do uniforme
+  const kit = kitFor(club.id);
   return (
     <span
       title={club.nome}
       className="inline-flex shrink-0 items-center justify-center rounded-full text-[8px] font-extrabold text-white ring-1 ring-white/15"
-      style={{ width: size, height: size, background: `linear-gradient(135deg, hsl(${h} 60% 42%), hsl(${(h + 40) % 360} 55% 22%))`, fontSize: Math.max(7, size * 0.32) }}
+      style={{ width: size, height: size, background: `linear-gradient(135deg, ${kit.primary} 0 55%, ${kit.secondary} 55% 100%)`, textShadow: "0 1px 2px rgba(0,0,0,.85)", fontSize: Math.max(7, size * 0.32) }}
     >
       {club.abreviacao.slice(0, 3)}
     </span>
   );
 }
 
-export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId">; size?: number }) {
-  if (p.foto)
-    return <img src={p.foto} alt={p.apelido} width={size} height={size} className="shrink-0 rounded-full bg-[var(--color-surface-3)] object-cover" loading="lazy" />;
-  const initials = p.apelido
-    .split(" ")
-    .slice(0, 2)
-    .map((s) => s[0])
-    .join("");
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold ring-1 ${POS_COLORS[p.posicaoId]}`}
-      style={{ width: size, height: size, fontSize: size * 0.34 }}
-      aria-hidden
-    >
-      {initials}
-    </span>
-  );
+export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId"> & { atletaId?: number; clubeId?: number }; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  if (p.foto && !failed)
+    return (
+      <img
+        src={p.foto}
+        alt={p.apelido}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full bg-[var(--color-surface-3)] object-cover object-top"
+        style={{ width: size, height: size }}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  return <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;
 }
 
 const STATUS_STYLE: Record<number, { cls: string; Icon: typeof Info }> = {

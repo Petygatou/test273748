@@ -2,15 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDownUp, BookOpen, Grid3x3, Scale, Search, Shield, Swords, Table } from "lucide-react";
 import { useMemo, useState } from "react";
-import { AskButton } from "../components/AskButton";
-import { Radar, SERIES_A, SERIES_B, divergingColor } from "../components/charts";
+import { SERIES_A, SERIES_B, divergingColor } from "../components/charts";
 import { OutcomeBar } from "../components/FixtureCard";
-import { Card, ClubBadge, ErrorBox, FactorChip, PageSkeleton, PlayerPhoto, PosBadge, RangeBar, SectionTitle, Seg, StatusPill } from "../components/ui";
+import { X1 } from "../components/X1";
+import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, RangeBar, SectionTitle, Seg, StatusPill } from "../components/ui";
 import { ALL_POSITIONS, POSITIONS, SCORING, SCOUT_LABELS, type PositionId, type ScoutKey } from "../engine/rules";
 import type { CedenciaCell, PlayerProjection, RoundAnalysis } from "../engine/types";
-import { compactPlayer, confrontoFor } from "../lib/derive";
+import { confrontoFor } from "../lib/derive";
 import { cs, fmt1, fmt2, pct, posAbbr, signed } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
+import { searchPlayers } from "../lib/search";
 
 type Tab = "mercado" | "x1" | "confrontos" | "cedencia" | "times" | "glossario";
 const TABS: Array<{ value: Tab; label: string; Icon: typeof Table }> = [
@@ -42,8 +43,13 @@ function StatsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-2xl font-extrabold">Central de Estatísticas</h1>
-        <p className="text-sm text-[var(--color-ink-3)]">Projeções do motor para a rodada {a.rodada}, modelo de times e matriz de cedência posicional.</p>
+        <h1 className="font-display text-2xl font-extrabold">Estatísticas</h1>
+        <p className="text-sm text-[var(--color-ink-3)]">
+          Tudo sobre a rodada {a.rodada}: mercado completo, duelo entre atletas, confrontos e o que cada time cede por posição.{" "}
+          <Link to="/modelo" className="font-semibold text-[var(--color-brand)] underline">
+            Veja a precisão do modelo
+          </Link>
+        </p>
       </div>
       <div className="seg max-w-full overflow-x-auto scrollbar-none" role="tablist" aria-label="Seções">
         {TABS.map(({ value, label, Icon }) => (
@@ -94,15 +100,14 @@ function Mercado({ a }: { a: RoundAnalysis }) {
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<SortKey>("xP");
   const [limit, setLimit] = useState(40);
-  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const rows = useMemo(() => {
-    const nq = norm(q.trim());
+    const hits = q.trim() ? new Set(searchPlayers(a.players, a.clubs, q, { limit: 5000 }).map((p) => p.atletaId)) : null;
     return a.players
       .filter((p) => (pos === "all" ? true : p.posicaoId === Number(pos)))
       .filter((p) => (onlyLikely ? p.pJogar >= 0.5 && p.matchId != null : true))
       .filter((p) => (club === "all" ? true : p.clubeId === club))
       .filter((p) => p.preco <= maxPrice)
-      .filter((p) => (nq ? norm(p.apelido).includes(nq) : true))
+      .filter((p) => (hits ? hits.has(p.atletaId) : true))
       .sort((x, y) => sortValue(y, sort) - sortValue(x, sort));
   }, [a, pos, onlyLikely, club, maxPrice, q, sort]);
   const clubs = Object.values(a.clubs).sort((x, y) => x.nome.localeCompare(y.nome));
@@ -124,7 +129,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="relative sm:col-span-1">
             <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
-            <input className="input pl-9" placeholder="Buscar atleta" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar atleta" />
+            <input className="input pl-9" placeholder="Atleta, clube ou posição (ex.: ata fla)" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar atleta" />
           </div>
           <select className="input" value={club} onChange={(e) => setClub(e.target.value === "all" ? "all" : Number(e.target.value))} aria-label="Clube">
             <option value="all">Todos os clubes</option>
@@ -215,182 +220,6 @@ function Mercado({ a }: { a: RoundAnalysis }) {
         )}
       </div>
     </Card>
-  );
-}
-
-/* ================================ X1 ================================ */
-
-function percentile(values: number[], v: number) {
-  if (!values.length) return 50;
-  let below = 0;
-  for (const x of values) if (x < v) below++;
-  return Math.round((below / values.length) * 100);
-}
-
-function PlayerPicker({ a, value, onChange, color, label }: { a: RoundAnalysis; value?: number; onChange: (id: number) => void; color: string; label: string }) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const cur = a.players.find((p) => p.atletaId === value);
-  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const res = q.trim().length >= 2 ? a.players.filter((p) => norm(p.apelido).includes(norm(q.trim()))).slice(0, 8) : [];
-  return (
-    <div className="relative">
-      <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">
-        <span className="h-2.5 w-2.5 rounded-sm" style={{ background: color }} aria-hidden /> {label}
-      </div>
-      <input
-        className="input"
-        placeholder={cur ? cur.apelido : "Buscar atleta"}
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        aria-label={label}
-      />
-      {open && res.length > 0 && (
-        <ul className="card absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto p-1">
-          {res.map((p) => (
-            <li key={p.atletaId}>
-              <button
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--color-surface-3)]"
-                onClick={() => {
-                  onChange(p.atletaId);
-                  setQ("");
-                  setOpen(false);
-                }}
-              >
-                <PosBadge pos={p.posicaoId} />
-                <ClubBadge club={a.clubs[p.clubeId]} size={16} />
-                <span className="flex-1 truncate text-sm">{p.apelido}</span>
-                <span className="tabular text-xs text-[var(--color-ink-3)]">{fmt1(p.xP)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; idb?: number; onChange: (a?: number, b?: number) => void }) {
-  const ranked = a.players.filter((p) => p.matchId != null && p.posicaoId === 5 && p.pJogar > 0.5);
-  const pa = a.players.find((p) => p.atletaId === ida) ?? ranked[0];
-  const pb = a.players.find((p) => p.atletaId === idb) ?? ranked[1];
-  if (!pa || !pb) return null;
-  const tec = pa.posicaoId === 6 && pb.posicaoId === 6;
-  const pool = a.players.filter((p) => p.matchId != null && p.pJogar >= 0.3 && (tec ? p.posicaoId === 6 : p.posicaoId !== 6));
-  const metrics: Array<{ axis: string; get: (p: PlayerProjection) => number; show: (p: PlayerProjection) => string }> = [
-    { axis: "xP", get: (p) => p.xP, show: (p) => fmt1(p.xP) },
-    { axis: "Teto", get: (p) => p.teto, show: (p) => fmt1(p.teto) },
-    { axis: "Piso", get: (p) => p.piso, show: (p) => fmt1(p.piso) },
-    { axis: "Regularidade", get: (p) => p.regularidade, show: (p) => `${p.regularidade}%` },
-    { axis: "Confronto", get: (p) => p.fatores.ataque * p.fatores.cedencia, show: (p) => `${((p.fatores.ataque * p.fatores.cedencia - 1) * 100).toFixed(0)}%` },
-    { axis: "Custo-benefício", get: (p) => (p.preco > 0 ? p.xP / p.preco : 0), show: (p) => `${fmt2(p.preco > 0 ? (p.xP / p.preco) * 10 : 0)} pts/10C$` },
-  ];
-  const series = [pa, pb].map((p, i) => ({
-    label: p.apelido,
-    color: i === 0 ? SERIES_A : SERIES_B,
-    values: metrics.map((m) => percentile(pool.map(m.get), m.get(p))),
-    raw: metrics.map((m) => m.show(p)),
-  }));
-
-  type Row = { label: string; va: number | null; vb: number | null; fmt: (x: number) => string; higher?: boolean };
-  const rows: Row[] = [
-    { label: "Preço", va: pa.preco, vb: pb.preco, fmt: (x) => cs(x), higher: false },
-    { label: "xP (pontos esperados)", va: pa.xP, vb: pb.xP, fmt: fmt1 },
-    { label: "xP se jogar", va: pa.xPJogando, vb: pb.xPJogando, fmt: fmt1 },
-    { label: "Chance de jogar", va: pa.pJogar, vb: pb.pJogar, fmt: (x) => pct(x) },
-    { label: "Piso (P15)", va: pa.piso, vb: pb.piso, fmt: fmt1 },
-    { label: "Teto (P85)", va: pa.teto, vb: pb.teto, fmt: fmt1 },
-    { label: "Chance de 12+", va: pa.pAcima12, vb: pb.pAcima12, fmt: (x) => pct(x) },
-    { label: "Chance de negativar", va: pa.pNegativo, vb: pb.pNegativo, fmt: (x) => pct(x), higher: false },
-    { label: "Mínimo p/ valorizar", va: pa.mpv, vb: pb.mpv, fmt: fmt1, higher: false },
-    { label: "Valorização esperada", va: pa.valorizacaoEsperada, vb: pb.valorizacaoEsperada, fmt: (x) => signed(x) },
-    { label: "Média na temporada", va: pa.media, vb: pb.media, fmt: fmt2 },
-    { label: "Média em casa", va: pa.mediaCasa, vb: pb.mediaCasa, fmt: fmt2 },
-    { label: "Média fora", va: pa.mediaFora, vb: pb.mediaFora, fmt: fmt2 },
-    { label: "Regularidade (3+ pts)", va: pa.regularidade, vb: pb.regularidade, fmt: (x) => `${x}%` },
-  ];
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <PlayerPicker a={a} value={pa.atletaId} onChange={(id) => onChange(id, pb.atletaId)} color={SERIES_A} label="Atleta A" />
-          <PlayerPicker a={a} value={pb.atletaId} onChange={(id) => onChange(pa.atletaId, id)} color={SERIES_B} label="Atleta B" />
-        </div>
-        <div className="mt-4">
-          <Radar axes={metrics.map((m) => m.axis)} series={series} />
-          <p className="mt-2 text-center text-xs text-[var(--color-ink-3)]">Eixos em percentil entre {tec ? "os técnicos" : "os atletas de linha"} que devem jogar (100 = melhor da rodada).</p>
-        </div>
-        <div className="mt-4 flex justify-center">
-          <AskButton
-            label="Explicar este X1"
-            payload={() => ({
-              titulo: `X1: ${pa.apelido} x ${pb.apelido}`,
-              pergunta: `Compare ${pa.apelido} e ${pb.apelido} para esta rodada e diga qual escalar em cada perfil (mitada, equilibrada, valorização), explicando com os números.`,
-              contexto: { a: compactPlayer(a)(pa), b: compactPlayer(a)(pb) },
-            })}
-          />
-        </div>
-      </Card>
-      <Card className="p-4">
-        <div className="overflow-x-auto">
-          <table className="data w-full text-sm">
-            <thead>
-              <tr>
-                <th className="text-left">Métrica</th>
-                <th className="text-right" style={{ color: SERIES_A }}>
-                  {pa.apelido}
-                </th>
-                <th className="text-right" style={{ color: SERIES_B }}>
-                  {pb.apelido}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="tabular">
-              <tr>
-                <td className="text-[var(--color-ink-3)]">Jogo</td>
-                {[pa, pb].map((p) => (
-                  <td key={p.atletaId} className="text-right text-xs">
-                    {p.adversarioId != null ? `${p.mando === "casa" ? "vs" : "@"} ${a.clubs[p.adversarioId]?.nome}` : "—"}
-                  </td>
-                ))}
-              </tr>
-              {rows.map((r) => {
-                const better = r.va == null || r.vb == null || r.va === r.vb ? 0 : (r.higher === false ? r.va < r.vb : r.va > r.vb) ? -1 : 1;
-                return (
-                  <tr key={r.label}>
-                    <td className="text-[var(--color-ink-3)]">{r.label}</td>
-                    <td className={`text-right ${better === -1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-2)]"}`}>
-                      {r.va == null ? "—" : r.fmt(r.va)} {better === -1 && <span aria-label="melhor">▲</span>}
-                    </td>
-                    <td className={`text-right ${better === 1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-2)]"}`}>
-                      {r.vb == null ? "—" : r.fmt(r.vb)} {better === 1 && <span aria-label="melhor">▲</span>}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {[pa, pb].map((p) => (
-            <div key={p.atletaId} className="space-y-1.5">
-              <div className="text-xs font-semibold text-[var(--color-ink-3)]">Fatores de {p.apelido}</div>
-              <div className="flex flex-wrap gap-1">
-                <FactorChip label="Ataque" value={p.fatores.ataque} />
-                <FactorChip label="Cedência" value={p.fatores.cedencia} />
-                <FactorChip label="Mando" value={p.fatores.mando} />
-                <FactorChip label="Forma" value={p.fatores.forma} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
   );
 }
 

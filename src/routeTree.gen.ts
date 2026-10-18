@@ -21,6 +21,7 @@ import { Route as LigasRouteImport } from './routes/ligas'
 import { Route as MeuTimeRouteImport } from './routes/meu-time'
 import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
+import { Route as ProvaveisRouteImport } from './routes/provaveis'
 import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
@@ -87,6 +88,11 @@ const NoticiasRoute = NoticiasRouteImport.update({
   path: '/noticias',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProvaveisRoute = ProvaveisRouteImport.update({
+  id: '/provaveis',
+  path: '/provaveis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiComandanteRoute = ApiComandanteRouteImport.update({
   id: '/api/comandante',
   path: '/api/comandante',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
   '/api/media': typeof ApiMediaRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
   '/api/media': typeof ApiMediaRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/events': typeof ApiEventsRoute
   '/api/media': typeof ApiMediaRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
     | '/api/events'
     | '/api/media'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
     | '/api/events'
     | '/api/media'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
     | '/api/events'
     | '/api/media'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   MeuTimeRoute: typeof MeuTimeRoute
   ModeloRoute: typeof ModeloRoute
   NoticiasRoute: typeof NoticiasRoute
+  ProvaveisRoute: typeof ProvaveisRoute
   ApiComandanteRoute: typeof ApiComandanteRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiMediaRoute: typeof ApiMediaRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NoticiasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/provaveis': {
+      id: '/provaveis'
+      path: '/provaveis'
+      fullPath: '/provaveis'
+      preLoaderRoute: typeof ProvaveisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/comandante': {
       id: '/api/comandante'
       path: '/api/comandante'
@@ -388,6 +408,7 @@ const rootRouteChildren: RootRouteChildren = {
   MeuTimeRoute: MeuTimeRoute,
   ModeloRoute: ModeloRoute,
   NoticiasRoute: NoticiasRoute,
+  ProvaveisRoute: ProvaveisRoute,
   ApiComandanteRoute: ApiComandanteRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiMediaRoute: ApiMediaRoute,

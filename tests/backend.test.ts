@@ -40,17 +40,18 @@ describe("contas", () => {
 });
 
 describe("comunidade", () => {
-  it("posta, curte, comenta, vota e respeita permissões", () => {
+  it("só admin publica; todos curtem, comentam e votam", () => {
     const a = db.users.find((u) => u.email === "admin@exemplo.com")!;
     const b = db.users.find((u) => u.email === "b@exemplo.com")!;
-    const p = community.createPost(b, { texto: "olá", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
-    expect(() => community.createPost(b, { texto: "x", oficial: true })).toThrow(/administrador/);
-    expect(() => community.createPost(b, { texto: "" })).toThrow(/vazia/);
-    expect(() => community.createPost(b, { texto: "x", media: { kind: "image", url: "https://evil/x.png" } })).not.toThrow(); // mídia externa é descartada
+    expect(() => community.createPost(b, { texto: "olá" })).toThrow(/administradores/);
+    expect(() => community.createStory(b, { media: { kind: "image", url: "/media/x.jpg" } })).toThrow(/administradores/);
+    const p = community.createPost(a, { texto: "olá", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
+    expect(() => community.createPost(a, { texto: "" })).toThrow(/vazia/);
+    expect(() => community.createPost(a, { texto: "x", media: { kind: "image", url: "https://evil/x.png" } })).not.toThrow(); // mídia externa é descartada
     community.toggleLike(a, p.id);
     community.toggleLike(b, p.id);
     community.toggleLike(b, p.id);
-    community.addComment(a, p.id, "boa!");
+    community.addComment(b, p.id, "boa!");
     community.vote(a, p.id, 1);
     community.vote(b, p.id, 0);
     community.vote(b, p.id, 1); // troca de voto
@@ -61,11 +62,10 @@ describe("comunidade", () => {
     expect(view.comments[0].texto).toBe("boa!");
     expect(view.poll!.votos).toEqual([0, 2]);
     expect(view.podeApagar).toBe(true); // admin
-    expect(community.listPosts(b).find((x) => x.id === p.id)!.podeApagar).toBe(true); // autor
+    expect(community.listPosts(b).find((x) => x.id === p.id)!.podeApagar).toBe(false);
     const ext = community.listPosts(a).find((x) => x.texto === "x")!;
     expect(ext.media).toBeUndefined();
-    const doAdmin = community.createPost(a, { texto: "do admin" });
-    expect(() => community.deletePost(b, doAdmin.id)).toThrow(/permissão/);
+    expect(() => community.deletePost(b, p.id)).toThrow(/permissão/);
     community.deletePost(a, p.id);
     expect(db.likes.filter((l) => l.postId === p.id)).toHaveLength(0);
   });

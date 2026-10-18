@@ -123,7 +123,7 @@ async function fetchFeed(url: string): Promise<string> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 8000);
   try {
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 ComandanteFC/1.0" }, signal: ctrl.signal });
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 TropaFC/1.0" }, signal: ctrl.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();
   } finally {

@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Ban, Crown, Lock, RefreshCw, Save, Search, Shuffle, Swords, Unlock, Upload, X } from "lucide-react";
+import { Ban, Crown, Lock, SlidersHorizontal, RefreshCw, Save, Shuffle, Swords, Unlock, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AskButton } from "../components/AskButton";
 import { Pitch } from "../components/Pitch";
-import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, ProbBar, SectionTitle, Seg, StatTile } from "../components/ui";
+import { PlayerSearch } from "../components/PlayerSearch";
+import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, ProbBar, SectionTitle, Seg, StatTile } from "../components/ui";
 import { lineupFromIds, optimizeLineup, profileValue } from "../engine/optimizer";
 import { FORMATION_KEYS, type FormationKey } from "../engine/rules";
 import { simulateLineup, type LineupSimResult } from "../engine/simulate";
@@ -190,9 +191,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-extrabold">Montador Inteligente de Tropas</h1>
+          <h1 className="font-display text-2xl font-extrabold">Montar tropa</h1>
           <p className="text-sm text-[var(--color-ink-3)]">
-            Otimização exata (programação dinâmica sobre fronteiras de Pareto) — garante a melhor tropa possível para o objetivo e o orçamento, já contando o bônus do capitão.
+            Escolha o perfil e quanto você tem de cartoletas: o Tropa calcula a melhor escalação possível, já com o capitão. Toque em um atleta para trocar.
           </p>
         </div>
         {lineup && (
@@ -212,7 +213,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         {/* ----------------------------- controles ----------------------------- */}
-        <div className="order-2 min-w-0 space-y-4 lg:order-1">
+        <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
           <Card className="space-y-4 p-4">
             <div>
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Perfil estratégico</div>
@@ -278,6 +279,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                 </button>
               ))}
             </div>
+            <a href="#ajustes" className="chip">
+              <SlidersHorizontal size={12} aria-hidden /> Esquema e travas{fixed.length + banned.length > 0 ? ` (${fixed.length + banned.length})` : ""}
+            </a>
           </div>
           {!lineup ? (
             <Alert tone="critical">{result.erro ?? "Não foi possível montar a tropa com essas condições."}</Alert>
@@ -482,13 +486,7 @@ function Locks({
   captainLock: number | null;
   setCaptainLock: (v: number | null) => void;
 }) {
-  const [q, setQ] = useState("");
   const byId = new Map(analysis.players.map((p) => [p.atletaId, p] as const));
-  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const results =
-    q.trim().length >= 2
-      ? analysis.players.filter((p) => norm(p.apelido).includes(norm(q.trim())) || norm(analysis.clubs[p.clubeId]?.nome ?? "").includes(norm(q.trim()))).slice(0, 8)
-      : [];
   const chip = (id: number, kind: "fixed" | "banned") => {
     const p = byId.get(id);
     if (!p) return null;
@@ -505,33 +503,32 @@ function Locks({
   return (
     <Card className="space-y-3 p-4">
       <div className="text-xs font-semibold text-[var(--color-ink-3)] uppercase">Travas do cartoleiro</div>
-      <div className="relative">
-        <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
-        <input className="input pl-9" placeholder="Buscar atleta ou clube para fixar/banir" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar atleta" />
-      </div>
-      {results.length > 0 && (
-        <ul className="divide-y divide-[var(--color-line)] rounded-xl border border-[var(--color-line)]">
-          {results.map((p) => (
-            <li key={p.atletaId} className="flex items-center gap-2 px-2 py-1.5">
-              <PosBadge pos={p.posicaoId} />
-              <ClubBadge club={analysis.clubs[p.clubeId]} size={16} />
-              <span className="min-w-0 flex-1 truncate text-sm">{p.apelido}</span>
-              <span className="tabular text-xs text-[var(--color-ink-3)]">{fmt1(p.xP)}</span>
-              <button className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => setFixed([...new Set([...fixed, p.atletaId])])} aria-label={`Fixar ${p.apelido}`}>
-                <Lock size={12} />
+      <PlayerSearch
+        players={analysis.players}
+        clubs={analysis.clubs}
+        placeholder="Digite um atleta, clube ou posição"
+        label="Buscar atleta para fixar ou banir"
+        keepOpen
+        onSelect={(p) => setFixed([...new Set([...fixed, p.atletaId])])}
+        actions={(p) => (
+          <>
+            <button className={`btn px-2 py-1 text-[11px] ${fixed.includes(p.atletaId) ? "btn-primary" : "btn-ghost"}`} onClick={() => setFixed(fixed.includes(p.atletaId) ? fixed.filter((x) => x !== p.atletaId) : [...fixed, p.atletaId])} title="Fixar na tropa" aria-label={`Fixar ${p.apelido}`}>
+              <Lock size={12} />
+            </button>
+            <button className={`btn px-2 py-1 text-[11px] ${banned.includes(p.atletaId) ? "btn-primary" : "btn-ghost"}`} onClick={() => setBanned(banned.includes(p.atletaId) ? banned.filter((x) => x !== p.atletaId) : [...banned, p.atletaId])} title="Banir da tropa" aria-label={`Banir ${p.apelido}`}>
+              <Ban size={12} />
+            </button>
+            {p.posicaoId !== 6 && (
+              <button className={`btn px-2 py-1 text-[11px] ${captainLock === p.atletaId ? "btn-primary" : "btn-ghost"}`} onClick={() => setCaptainLock(captainLock === p.atletaId ? null : p.atletaId)} title="Forçar capitão" aria-label={`Capitão: ${p.apelido}`}>
+                <Crown size={12} />
               </button>
-              <button className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => setBanned([...new Set([...banned, p.atletaId])])} aria-label={`Banir ${p.apelido}`}>
-                <Ban size={12} />
-              </button>
-              {p.posicaoId !== 6 && (
-                <button className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => setCaptainLock(p.atletaId)} aria-label={`Capitão: ${p.apelido}`}>
-                  <Crown size={12} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+            )}
+          </>
+        )}
+      />
+      <p className="text-[11px] text-[var(--color-ink-3)]">
+        <Lock size={10} className="inline" /> fixar · <Ban size={10} className="inline" /> banir · <Crown size={10} className="inline" /> capitão. Enter fixa o atleta destacado.
+      </p>
       <div className="space-y-2">
         <div className="flex flex-wrap gap-1.5">
           {fixed.length ? fixed.map((id) => chip(id, "fixed")) : <span className="text-xs text-[var(--color-ink-3)]">Nenhum atleta fixado.</span>}

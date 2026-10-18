@@ -38,7 +38,7 @@ export interface CartolaRequest {
 
 function headersFor(token?: string): Record<string, string> {
   const h: Record<string, string> = {
-    "User-Agent": "Mozilla/5.0 (compatible; ComandanteFC/1.0)",
+    "User-Agent": "Mozilla/5.0 (compatible; TropaFC/1.0)",
     Accept: "application/json",
   };
   if (token) {

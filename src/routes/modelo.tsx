@@ -71,7 +71,7 @@ function ModelPage() {
                 <LineChart
                   x={rounds.map((x) => x.rodada)}
                   series={[
-                    { label: "Modelo Comandante", color: SERIES_A, values: rounds.map((x) => x.tropaModelo ?? 0) },
+                    { label: "Modelo Tropa", color: SERIES_A, values: rounds.map((x) => x.tropaModelo ?? 0) },
                     { label: "Escalar pela média", color: SERIES_B, values: rounds.map((x) => x.tropaMedia ?? 0) },
                   ]}
                 />

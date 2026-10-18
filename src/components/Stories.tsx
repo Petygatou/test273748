@@ -9,7 +9,7 @@ const COLORS = ["#ffffff", "#ff6b1a", "#f5c518", "#3987e5", "#0ca30c", "#111111"
 
 /* ------------------------------ barra de stories ------------------------------ */
 
-export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]; me: Author; onCreate: () => void; onOpen: (authorId: string) => void }) {
+export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]; me: Author; onCreate?: () => void; onOpen: (authorId: string) => void }) {
   const byAuthor = new Map<string, Story[]>();
   for (const s of stories) {
     if (!byAuthor.has(s.author.id)) byAuthor.set(s.author.id, []);
@@ -17,6 +17,7 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
   }
   return (
     <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none" role="list" aria-label="Stories">
+      {onCreate && (
       <button type="button" onClick={onCreate} className="flex w-16 shrink-0 flex-col items-center gap-1" role="listitem">
         <span className="relative">
           <Avatar k={me.avatar} size={58} />
@@ -24,8 +25,10 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
             <Plus size={13} aria-hidden />
           </span>
         </span>
-        <span className="w-full truncate text-center text-[11px] text-[var(--color-ink-2)]">Seu story</span>
+        <span className="w-full truncate text-center text-[11px] text-[var(--color-ink-2)]">Novo story</span>
       </button>
+      )}
+      {!onCreate && !byAuthor.size && <p className="py-3 text-sm text-[var(--color-ink-3)]">Nenhum story nas últimas 24 horas.</p>}
       {[...byAuthor.entries()].map(([id, list]) => {
         const a = list[0].author;
         return (

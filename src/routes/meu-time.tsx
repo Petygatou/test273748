@@ -111,7 +111,7 @@ function MyTeamPage() {
                     return (
                       <li key={x.atletaId} className="flex items-center gap-2 py-2">
                         <PosBadge pos={x.posicaoId} />
-                        <PlayerPhoto p={{ foto: x.foto, apelido: x.apelido, posicaoId: x.posicaoId as 1 }} size={28} />
+                        <PlayerPhoto p={{ foto: x.foto, apelido: x.apelido, posicaoId: x.posicaoId as 1, atletaId: x.atletaId, clubeId: x.clubeId }} size={28} />
                         <div className="min-w-0 flex-1">
                           <Link to="/jogador/$id" params={{ id: String(x.atletaId) }} className="flex items-center gap-1.5 truncate text-sm font-semibold hover:text-[var(--color-brand)]">
                             {x.apelido} {x.atletaId === t.capitaoId && <Crown size={12} className="text-[var(--color-gold)]" aria-label="capitão" />}
