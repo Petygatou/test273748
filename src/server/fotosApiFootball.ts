@@ -31,6 +31,8 @@ export interface FotosState {
   /** time da API → quando o elenco foi lido por completo */
   times: Record<number, string>;
   naoCasados: number;
+  /** nomes da API que não casaram com nenhum atleta do Cartola (para o admin conferir) */
+  semPar: Array<{ nome: string; time: string }>;
   /** time da API → nome */
   descobertos: Record<number, string>;
   descobertosEm: string;
@@ -54,6 +56,7 @@ const empty = (temporada: number): FotosState => ({
   porAtleta: {},
   times: {},
   naoCasados: 0,
+  semPar: [],
   descobertos: {},
   descobertosEm: "",
   modo: "elenco",
@@ -89,6 +92,7 @@ function saveFotos(st: FotosState) {
 }
 
 export const fotosMap = (): Record<number, string> => mem?.porAtleta ?? {};
+export const fotosSemPar = () => mem?.semPar ?? [];
 export const fotosResumo = (athletes: Athlete[]) => {
   const m = mem?.porAtleta ?? {};
   return {
@@ -117,7 +121,7 @@ const nextDay = (now: number) => new Date(new Date(now + 86400_000).toISOString(
  * Casa um jogador da API: primeiro no clube atual; se não achar, no mercado
  * inteiro, mas só com nome completo idêntico e único (quem trocou de clube).
  */
-function assign(st: FotosState, names: string[], photo: string, mine: Athlete[], all: Athlete[], taken: Set<number>) {
+function assign(st: FotosState, names: string[], photo: string, mine: Athlete[], all: Athlete[], taken: Set<number>, time = "") {
   for (const n of names) {
     if (!n) continue;
     const a = matchPlayer(n, mine.filter((x) => !taken.has(x.id)));
@@ -136,6 +140,7 @@ function assign(st: FotosState, names: string[], photo: string, mine: Athlete[],
     }
   }
   st.naoCasados++;
+  if (st.semPar.length < 400) st.semPar.push({ nome: names.find(Boolean) ?? "?", time });
   return false;
 }
 
@@ -220,7 +225,7 @@ export async function stepFotos(
     if (st.modo === "elenco") {
       try {
         const { response } = await apiPaged<SquadResponse[]>(`/players/squads?team=${teamId}`, key, of, doFetch);
-        for (const p of response?.[0]?.players ?? []) assign(st, [p.name], p.photo || `https://media.api-sports.io/football/players/${p.id}.png`, mine, athletes, taken);
+        for (const p of response?.[0]?.players ?? []) assign(st, [p.name], p.photo || `https://media.api-sports.io/football/players/${p.id}.png`, mine, athletes, taken, teamName);
         st.times[teamId] = new Date(now).toISOString();
       } catch (e) {
         const r = explainApiError(e);
@@ -237,7 +242,7 @@ export async function stepFotos(
       for (const it of response ?? []) {
         const pl = it.player;
         const full = [pl.firstname, pl.lastname].filter(Boolean).join(" ");
-        assign(st, [pl.name, full], pl.photo || `https://media.api-sports.io/football/players/${pl.id}.png`, mine, athletes, taken);
+        assign(st, [pl.name, full], pl.photo || `https://media.api-sports.io/football/players/${pl.id}.png`, mine, athletes, taken, teamName);
       }
       const total = paging?.total ?? 1;
       if (page >= total) {

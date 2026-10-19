@@ -461,6 +461,7 @@ describe("rostos da API-Football e sondagem da chave", () => {
     expect(m.find((a) => a.id === 10)?.foto).toContain("1100.png");
     expect(m.find((a) => a.id === 12)?.foto).toContain("55.png");
     expect(f.fotosResumo(all as never)).toMatchObject({ modo: "temporada", temporadaFoto: 2024 });
+    expect(f.fotosSemPar().length).toBeGreaterThanOrEqual(0);
     // erro de plano no elenco não bloqueia o dia: só muda o caminho
     expect(f.fotosResumo(all as never).erro).toBeNull();
     delete process.env.API_FOOTBALL_KEY;
