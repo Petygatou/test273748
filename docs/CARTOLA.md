@@ -68,3 +68,21 @@ Um vigia no servidor relê o mercado do Cartola e as notícias **a cada 60 segun
 ## Conta de administrador
 
 Defina `ADMIN_EMAILS` (o primeiro e-mail vira o admin) e `ADMIN_PASSWORD` (8+ caracteres). A conta é criada e a senha redefinida automaticamente na próxima tentativa de entrar. Para trocar a senha, mude a variável e reinicie. Ninguém consegue cadastrar o e-mail do admin antes de você.
+
+## Escalação oficial perto do jogo (o que mais aumenta o acerto)
+
+Os clubes entregam a súmula cerca de **1 hora antes da bola**. A API do Cartola não traz isso, então o site pode ler da **API-Football** (api-football.com / api-sports.io), que publica as escalações do Brasileirão assim que saem.
+
+1. Crie conta e copie a chave (*API Key*).
+2. No servidor, defina `API_FOOTBALL_KEY=<sua chave>` e reinicie. Opcionais: `API_FOOTBALL_LEAGUE` (padrão `71`, Série A) e `LINEUP_POLL_MS` (padrão 5 min).
+3. Pronto. De 100 min antes do jogo até 20 min depois, o vigia pergunta de 5 em 5 minutos até a súmula sair. Quando chega, cada atleta vira titular, reserva ou fora, a análise se recalcula e as telas atualizam sozinhas (aparece "Escalação oficial: FLA x CAM" nas mudanças e o ✓ nos atletas).
+
+Cuidados embutidos: só marca "fora" quem não está na súmula se quase todos os nomes foram casados com atletas do Cartola; senão vira "reserva". Nome ambíguo nunca é chutado. Ajustes manuais do Painel ADM vencem a súmula.
+
+**Custo de chamadas:** cada jogo gasta de ~3 a ~10 chamadas por rodada (para de perguntar quando a súmula chega) mais uma lista de jogos a cada 3 h. Num dia com 10 jogos isso passa de 100/dia; o plano gratuito pode ficar curto, e um plano pago resolve. Confira os limites atuais no site do provedor.
+
+Observação honesta: este módulo foi testado com respostas simuladas no formato da API-Football; ainda não foi testado contra a API real (o ambiente de desenvolvimento não alcança a internet aberta).
+
+## Fotos dos atletas
+
+A foto vem do campo `foto` que a API do Cartola envia para cada atleta. No Painel ADM → Dados reais → "Testar conexão" aparece a seção **Fotos dos atletas**: quantos atletas têm foto, um endereço de exemplo e se o servidor consegue baixar a imagem. O site tenta o CDN direto, depois pelo próprio servidor (`/api/foto`), e só então usa o rosto ilustrado.

@@ -9,7 +9,7 @@ import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/b
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
 import { loadImported } from "./importada";
-import { ensureWatcher, fingerprint, newsSignals } from "./watcher";
+import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
 
@@ -83,7 +83,7 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   ensureWatcher();
   const { data, motivo, importadoEm } = await loadRawSeason();
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {

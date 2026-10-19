@@ -32,7 +32,44 @@ function leitura(status: number | undefined, trecho: string, erro?: string): str
   return `Resposta inesperada (HTTP ${status}).`;
 }
 
-export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null> }> {
+export interface FotoProbe {
+  atletas: number;
+  comFoto: number;
+  exemplo?: string;
+  /** o servidor do site conseguiu baixar a imagem de exemplo? */
+  servidor: "ok" | "falhou" | "sem-foto";
+  leitura: string;
+}
+
+/** Confere se a API manda foto dos atletas e se o servidor consegue buscá-la. */
+export async function probeFotos(): Promise<FotoProbe> {
+  const { loadSeason } = await import("./season");
+  const { data } = await loadSeason();
+  const comFoto = data.athletes.filter((a) => a.foto).length;
+  const exemplo = data.athletes.find((a) => a.foto)?.foto;
+  if (!exemplo) {
+    return {
+      atletas: data.athletes.length,
+      comFoto,
+      servidor: "sem-foto",
+      leitura: data.source === "demo" ? "Modo Demonstração: atletas fictícios não têm foto." : "A API do Cartola não enviou foto para nenhum atleta (campo vazio). Sem foto oficial o site mostra o rosto ilustrado.",
+    };
+  }
+  const { proxyFoto } = await import("./foto");
+  const res = await proxyFoto(exemplo);
+  const ok = res.status === 200;
+  return {
+    atletas: data.athletes.length,
+    comFoto,
+    exemplo,
+    servidor: ok ? "ok" : "falhou",
+    leitura: ok
+      ? `${comFoto} de ${data.athletes.length} atletas têm foto e o servidor consegue buscá-la. Se o navegador não mostra, o bloqueio é do lado do visitante (extensão, rede) e o site já tenta pelo servidor como alternativa.`
+      : `${comFoto} atletas têm foto na API, mas nem o servidor consegue baixar a imagem de exemplo (HTTP ${res.status}). O CDN de imagens da Globo está barrando este servidor; veja o endereço de exemplo abaixo.`,
+  };
+}
+
+export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null>; fotos: FotoProbe | null }> {
   const hosts: HostProbe[] = [];
   for (const host of CARTOLA_HOSTS) {
     const t0 = Date.now();
@@ -50,7 +87,9 @@ export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boole
     }
   }
   const env = (k: string) => process.env[k] ?? null;
+  const fotos = await probeFotos().catch(() => null);
   return {
+    fotos,
     hosts,
     proxy: CARTOLA_HOSTS.some((h) => !/globo\.com$/i.test(new URL(h).hostname)),
     variaveis: { DATA_MODE: env("DATA_MODE"), CARTOLA_API_HOSTS: env("CARTOLA_API_HOSTS"), VERCEL_REGION: env("VERCEL_REGION") },

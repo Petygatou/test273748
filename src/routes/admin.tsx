@@ -274,6 +274,7 @@ interface Probe {
   hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
   proxy: boolean;
   variaveis: Record<string, string | null>;
+  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string } | null;
 }
 
 function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada: number } }) {
@@ -325,6 +326,13 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
               {h.trecho && <code className="mt-1 block max-h-16 overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{h.trecho}</code>}
             </div>
           ))}
+          {probe.fotos && (
+            <div className={`rounded-xl border p-3 ${probe.fotos.servidor === "ok" ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
+              <div className="text-sm font-semibold">Fotos dos atletas</div>
+              <p className="mt-1 text-sm text-[var(--color-ink-2)]">{probe.fotos.leitura}</p>
+              {probe.fotos.exemplo && <code className="mt-1 block overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{probe.fotos.exemplo}</code>}
+            </div>
+          )}
           <p className="text-xs text-[var(--color-ink-3)]">
             Variáveis: DATA_MODE={probe.variaveis.DATA_MODE ?? "(padrão)"} · CARTOLA_API_HOSTS={probe.variaveis.CARTOLA_API_HOSTS ?? "(padrão)"} · relay: {probe.proxy ? "sim" : "não"}.
           </p>

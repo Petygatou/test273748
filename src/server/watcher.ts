@@ -11,12 +11,13 @@ import type { Athlete, SeasonData } from "../engine/types";
 import { STATUS_LABELS } from "../engine/rules";
 import { invalidate } from "./cache";
 import { emit } from "./db";
+import { currentOfficialOverrides, newOfficialState, officialEnabled, stepOfficial, type OfficialState } from "./escalacoes";
 import { loadNews, type NewsItem } from "./news";
 
 export interface Mudanca {
   id: string;
   em: string;
-  tipo: "status" | "mercado" | "rodada" | "noticia";
+  tipo: "status" | "mercado" | "rodada" | "noticia" | "escalacao";
   texto: string;
   atletaId?: number;
   link?: string;
@@ -34,6 +35,7 @@ interface State {
   mudancas: Mudanca[];
   noticias: Set<string>;
   sinais: Record<number, number>;
+  oficial: OfficialState;
   ultimaLeitura: string | null;
   ultimoErro: string | null;
   tickRunning: boolean;
@@ -49,6 +51,7 @@ const st: State = (g.__tropaWatcher ??= {
   mudancas: [],
   noticias: new Set(),
   sinais: {},
+  oficial: newOfficialState(),
   ultimaLeitura: null,
   ultimoErro: null,
   tickRunning: false,
@@ -62,7 +65,14 @@ const push = (m: Omit<Mudanca, "id" | "em">) => {
 
 export const recentChanges = (n = 30) => st.mudancas.slice(0, n);
 export const newsSignals = () => st.sinais;
-export const watcherStatus = () => ({ ativo: st.started, ultimaLeitura: st.ultimaLeitura, ultimoErro: st.ultimoErro, intervaloMs: TICK_MS });
+export const officialOverrides = () => currentOfficialOverrides(st.oficial);
+export const watcherStatus = () => ({
+  ativo: st.started,
+  ultimaLeitura: st.ultimaLeitura,
+  ultimoErro: st.ultimoErro,
+  intervaloMs: TICK_MS,
+  escalacaoOficial: { ligada: officialEnabled(), jogosComEscalacao: st.oficial.porJogo.size, chamadas: st.oficial.chamadas, ultimaChamada: st.oficial.ultimaChamada, erro: st.oficial.erro },
+});
 
 /** Impressão digital do que muda a análise: rodada, mercado, status e preço de cada atleta. */
 export function fingerprint(d: Pick<SeasonData, "rodadaAtual" | "mercadoStatus" | "athletes">, sinais: Record<number, number> = {}): string {
@@ -173,6 +183,15 @@ async function tick() {
       }
     } catch {
       /* sem feed: segue só com o Cartola */
+    }
+
+    // escalações oficiais (API-Football): de 100 min antes do jogo até 20 min depois
+    if (officialEnabled()) {
+      const novos = await stepOfficial(st.oficial, data.athletes, data.clubs, data.temporada);
+      for (const n of novos) {
+        push({ tipo: "escalacao", texto: `Escalação oficial: ${n.clubes[0]} x ${n.clubes[1]}` });
+        mudou = true;
+      }
     }
 
     void loadSeason;

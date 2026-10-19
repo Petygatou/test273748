@@ -228,3 +228,94 @@ describe("vigia dos dados", () => {
     expect(signalsFromNews([mk("Fulano é desfalque", { publicadoEm: new Date(now - 72 * 3600_000).toISOString() })], now)).toEqual({});
   });
 });
+
+describe("escalação oficial (API-Football)", () => {
+  const clubs = { 1: { id: 1, nome: "Flamengo", abreviacao: "FLA" }, 2: { id: 2, nome: "Atlético-MG", abreviacao: "CAM" }, 3: { id: 3, nome: "Athletico-PR", abreviacao: "CAP" } };
+  const mk = (id: number, apelido: string, nome: string, clubeId: number, posicaoId: 1 | 2 | 3 | 4 | 5 = 4) => ({ id, apelido, nome, clubeId, posicaoId, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 });
+  const nomes = ["Rossi", "Varela", "Fabricio Bruno", "Leo Pereira", "Ayrton Lucas", "Pulgar", "De la Cruz", "Arrascaeta", "Gabigol", "Pedro", "Cebolinha"];
+  const fla = nomes.map((n, i) => mk(10 + i, n.split(" ").pop()!, `${n} Silva`, 1, i === 0 ? 1 : i < 5 ? 3 : i < 8 ? 4 : 5));
+  const banco = Array.from({ length: 6 }, (_, i) => mk(30 + i, `Reserva${i}`, `Reserva${i} Souza`, 1));
+  const outros = mk(99, "Sobrando", "Sobrando Lima", 1);
+  const athletes = [...fla, ...banco, outros, mk(200, "Hulk", "Givanildo Vieira de Souza", 2, 5), mk(201, "Paulinho", "Paulo Henrique", 2, 5)];
+
+  it("casa nomes da súmula com clubes e atletas, sem chutar ambíguos", async () => {
+    const e = await import("../src/server/escalacoes");
+    expect(e.matchClub("Atletico-MG", clubs as never)?.id).toBe(2);
+    expect(e.matchClub("Athletico Paranaense", clubs as never)?.id).toBe(3);
+    expect(e.matchClub("Flamengo RJ", clubs as never)?.id).toBe(1);
+    expect(e.matchClub("Time Desconhecido", clubs as never)).toBeNull();
+    const squad = athletes.filter((a) => a.clubeId === 1);
+    expect(e.matchPlayer("G. Arrascaeta", squad)?.apelido).toBe("Arrascaeta");
+    expect(e.matchPlayer("Pedro", squad)?.apelido).toBe("Pedro");
+    expect(e.matchPlayer("Fabricio Bruno", squad)?.apelido).toBe("Bruno");
+    expect(e.matchPlayer("Jogador Inexistente", squad)).toBeNull();
+    // dois "Silva": só a inicial e o sobrenome não bastam para escolher
+    const amb = [mk(1, "A", "Joao Silva", 1), mk(2, "B", "Jose Silva", 1)];
+    expect(e.matchPlayer("Silva", amb)).toBeNull();
+  });
+
+  it("transforma a súmula em titular/reserva/fora e só exclui quando casou quase tudo", async () => {
+    const e = await import("../src/server/escalacoes");
+    const lineup = {
+      team: { id: 1, name: "Flamengo" },
+      startXI: nomes.map((n) => ({ player: { name: n } })),
+      substitutes: banco.map((b) => ({ player: { name: b.apelido } })),
+    };
+    const r = e.mapLineup(lineup, athletes as never, clubs as never)!;
+    expect(r.titulares).toHaveLength(11);
+    expect(r.banco).toHaveLength(6);
+    const ov = e.toOverrides(r, athletes as never);
+    expect(ov[10]).toBe("titular");
+    expect(ov[30]).toBe("reserva");
+    expect(ov[99]).toBe("fora"); // fora dos 18
+    expect(ov[200]).toBeUndefined(); // outro clube não é tocado
+    // súmula mal casada: não exclui ninguém, só rebaixa a reserva
+    const mal = { ...lineup, substitutes: [{ player: { name: "Ninguem Conhecido" } }] };
+    const r2 = e.mapLineup(mal, athletes as never, clubs as never)!;
+    expect(e.toOverrides(r2, athletes as never)[99]).toBe("reserva");
+  });
+
+  it("busca as escalações na janela do jogo, uma vez, e respeita a chave", async () => {
+    const e = await import("../src/server/escalacoes");
+    const now = new Date("2026-10-20T20:00:00Z").getTime();
+    const kick = new Date(now + 60 * 60_000).toISOString(); // bola em 1 h
+    const calls: string[] = [];
+    const lineup = (team: string, names: string[]) => ({ team: { id: 1, name: team }, startXI: names.map((n) => ({ player: { name: n } })), substitutes: banco.map((b) => ({ player: { name: b.apelido } })) });
+    const hulkTeam = ["Hulk", "Paulinho"];
+    const fakeFetch = (async (url: string) => {
+      calls.push(url);
+      if (url.includes("/fixtures/lineups")) return new Response(JSON.stringify({ response: [lineup("Flamengo", nomes), lineup("Atletico-MG", hulkTeam)], errors: [] }));
+      return new Response(JSON.stringify({ response: [{ fixture: { id: 7, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 2, name: "Atletico-MG" } } }], errors: [] }));
+    }) as unknown as typeof fetch;
+    delete process.env.API_FOOTBALL_KEY;
+    const st = e.newOfficialState();
+    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, fakeFetch)).toEqual([]);
+    expect(calls).toHaveLength(0);
+    process.env.API_FOOTBALL_KEY = "teste";
+    const r = await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, fakeFetch);
+    // o Atlético só tem 2 jogadores na súmula de teste: não chega a 11 e não vale
+    expect(r).toHaveLength(0);
+    const before = calls.length;
+    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 60_000, fakeFetch)).toEqual([]);
+    expect(calls.length).toBe(before); // dentro dos 5 min: não pergunta de novo
+
+    // caminho feliz: as duas súmulas completas chegam, viram ajustes e o jogo não é consultado de novo
+    const ok = (async (url: string) =>
+      url.includes("/fixtures/lineups")
+        ? new Response(JSON.stringify({ response: [lineup("Flamengo", nomes), lineup("Flamengo", nomes)], errors: [] }))
+        : new Response(JSON.stringify({ response: [{ fixture: { id: 8, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }], errors: [] }))) as unknown as typeof fetch;
+    const st2 = e.newOfficialState();
+    const got = await e.stepOfficial(st2, athletes as never, clubs as never, 2026, now, ok);
+    expect(got).toHaveLength(1);
+    expect(got[0].overrides[10]).toBe("titular");
+    expect(e.currentOfficialOverrides(st2)[99]).toBe("fora");
+    expect(await e.stepOfficial(st2, athletes as never, clubs as never, 2026, now + 600_000, ok)).toEqual([]);
+    // e fora da janela (jogo daqui a 5 h) não gasta chamada
+    const far = e.newOfficialState();
+    let n = 0;
+    const counting = (async (u: string) => { n++; return ok(u); }) as unknown as typeof fetch;
+    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now - 4 * 3600_000, counting);
+    expect(n).toBe(1); // só a lista de jogos
+    delete process.env.API_FOOTBALL_KEY;
+  });
+});

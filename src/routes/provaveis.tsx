@@ -48,7 +48,7 @@ function Token({ p, live, started }: { p: PlayerProjection; live: Live; started:
           <PlayerPhoto p={p} size={44} />
         </span>
         {p.override && (
-          <span className="absolute -bottom-0.5 -left-1 rounded-full bg-[var(--color-brand)] px-1 text-[8px] font-extrabold text-[#1a0a00]" title="Confirmado pela equipe Tropa">
+          <span className="absolute -bottom-0.5 -left-1 rounded-full bg-[var(--color-brand)] px-1 text-[8px] font-extrabold text-[#1a0a00]" title="Escalação oficial confirmada">
             ✓
           </span>
         )}
@@ -208,7 +208,7 @@ function Novidades({ items, a }: { items: Mudanca[]; a: RoundAnalysis }) {
             return (
               <li key={m.id} className="flex items-start gap-2">
                 <span className="tabular mt-0.5 w-12 shrink-0 text-[11px] text-[var(--color-ink-3)]">{new Date(m.em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-                <span className="chip shrink-0 text-[10px]">{m.tipo === "status" ? "Cartola" : m.tipo === "noticia" ? "Notícia" : "Mercado"}</span>
+                <span className="chip shrink-0 text-[10px]">{m.tipo === "status" ? "Cartola" : m.tipo === "noticia" ? "Notícia" : m.tipo === "escalacao" ? "Oficial" : "Mercado"}</span>
                 <span className="min-w-0 flex-1">
                   {m.link ? (
                     <a href={m.link} target="_blank" rel="noopener noreferrer" className="underline decoration-[var(--color-ink-3)]/50">
