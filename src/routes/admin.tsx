@@ -275,6 +275,7 @@ interface Probe {
   proxy: boolean;
   variaveis: Record<string, string | null>;
   fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string } | null;
+  escalacao: { ligada: boolean; jogosComEscalacao: number; usadas: number; limite: number; restantesNaApi: number | null; ultimaChamada: string | null; erro: string | null } | null;
 }
 
 function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada: number } }) {
@@ -326,6 +327,20 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
               {h.trecho && <code className="mt-1 block max-h-16 overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{h.trecho}</code>}
             </div>
           ))}
+          {probe.escalacao && (
+            <div className={`rounded-xl border p-3 ${probe.escalacao.ligada && !probe.escalacao.erro ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
+              <div className="text-sm font-semibold">Escalação oficial (API-Football)</div>
+              {probe.escalacao.ligada ? (
+                <p className="mt-1 text-sm text-[var(--color-ink-2)]">
+                  Ligada. Chamadas hoje: <b>{probe.escalacao.usadas}</b> de {probe.escalacao.limite}
+                  {probe.escalacao.restantesNaApi != null ? ` · saldo informado pela API: ${probe.escalacao.restantesNaApi}` : ""} · jogos com súmula oficial: {probe.escalacao.jogosComEscalacao}.
+                  {probe.escalacao.erro ? ` Último erro: ${probe.escalacao.erro}` : ""}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-[var(--color-ink-2)]">Desligada. Defina API_FOOTBALL_KEY no servidor para usar a escalação oficial (docs/CARTOLA.md).</p>
+              )}
+            </div>
+          )}
           {probe.fotos && (
             <div className={`rounded-xl border p-3 ${probe.fotos.servidor === "ok" ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
               <div className="text-sm font-semibold">Fotos dos atletas</div>

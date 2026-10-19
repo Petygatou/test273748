@@ -69,7 +69,7 @@ export async function probeFotos(): Promise<FotoProbe> {
   };
 }
 
-export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null>; fotos: FotoProbe | null }> {
+export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null>; fotos: FotoProbe | null; escalacao: Awaited<ReturnType<typeof import("./watcher")["watcherStatus"]>>["escalacaoOficial"] | null }> {
   const hosts: HostProbe[] = [];
   for (const host of CARTOLA_HOSTS) {
     const t0 = Date.now();
@@ -88,8 +88,10 @@ export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boole
   }
   const env = (k: string) => process.env[k] ?? null;
   const fotos = await probeFotos().catch(() => null);
+  const escalacao = await import("./watcher").then((w) => w.watcherStatus().escalacaoOficial).catch(() => null);
   return {
     fotos,
+    escalacao,
     hosts,
     proxy: CARTOLA_HOSTS.some((h) => !/globo\.com$/i.test(new URL(h).hostname)),
     variaveis: { DATA_MODE: env("DATA_MODE"), CARTOLA_API_HOSTS: env("CARTOLA_API_HOSTS"), VERCEL_REGION: env("VERCEL_REGION") },

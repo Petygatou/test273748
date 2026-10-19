@@ -9,13 +9,21 @@
  *
  * Ligue com API_FOOTBALL_KEY. Sem a chave este módulo não faz nada.
  */
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Athlete, Club, LineupOverride } from "../engine/types";
+import { dataDir } from "./db";
 
 const BASE = process.env.API_FOOTBALL_BASE ?? "https://v3.football.api-sports.io";
 
 export interface ApiFixture {
   fixture: { id: number; date: string; status?: { short?: string } };
   teams: { home: { id: number; name: string }; away: { id: number; name: string } };
+}
+
+export interface ApiFixtureFull extends ApiFixture {
+  /** o endpoint /fixtures?ids= devolve as escalações junto, em uma só chamada para vários jogos */
+  lineups?: ApiLineup[];
 }
 
 export interface ApiLineup {
@@ -144,13 +152,130 @@ export function toOverrides(r: OfficialResult, athletes: Athlete[]): Record<numb
   return out;
 }
 
-/* ------------------------------ rede ------------------------------ */
+/* ------------------------- orçamento e rede ------------------------- */
 
-async function api<T>(path: string, key: string, doFetch: typeof fetch = fetch): Promise<T> {
+/**
+ * O plano gratuito da API-Football tem 100 chamadas por dia. Regras para não
+ * estourar:
+ *  - lista de jogos: UMA chamada por dia (cobre hoje e os próximos 2 dias);
+ *  - escalações: UMA chamada para TODOS os jogos devidos (`ids=a-b-c`);
+ *  - cada jogo só é consultado de 75 min antes até 10 min depois do início,
+ *    de 10 em 10 minutos, no máximo 7 vezes, e para quando a súmula chega;
+ *  - contador diário salvo em disco (não zera ao reiniciar) com teto de
+ *    API_FOOTBALL_DAILY_LIMIT (padrão 90, folga de 10) e leitura do saldo que
+ *    a própria API informa a cada resposta (x-ratelimit-requests-remaining).
+ */
+export interface Quota {
+  /** dia UTC (a API zera à meia-noite UTC) */
+  dia: string;
+  usadas: number;
+  /** saldo informado pela API na última resposta */
+  restantes: number | null;
+}
+
+interface FixtureState {
+  fixture: ApiFixture;
+  found: boolean;
+  lastTry: number;
+  tries: number;
+}
+
+export interface OfficialState {
+  persist: boolean;
+  fixtures: Map<number, FixtureState>;
+  fixturesDia: string;
+  fixturesAt: number;
+  quota: Quota;
+  ultimaChamada: string | null;
+  erro: string | null;
+  /** a resposta em lote não traz `lineups`: usar a chamada por jogo (mais cara) */
+  semLote: boolean;
+  /** ajustes por jogo; expiram 6 h depois do início */
+  porJogo: Map<number, { quando: number; overrides: Record<number, LineupOverride>; clubes: [string, string] }>;
+}
+
+const file = () => join(dataDir(), "api-football-state.json");
+const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+export function newOfficialState(persist = true): OfficialState {
+  const st: OfficialState = {
+    persist,
+    fixtures: new Map(),
+    fixturesDia: "",
+    fixturesAt: 0,
+    quota: { dia: dayOf(Date.now()), usadas: 0, restantes: null },
+    ultimaChamada: null,
+    erro: null,
+    semLote: false,
+    porJogo: new Map(),
+  };
+  if (persist) {
+    try {
+      const j = JSON.parse(readFileSync(file(), "utf8")) as {
+        quota: Quota;
+        fixturesDia: string;
+        fixturesAt: number;
+        semLote?: boolean;
+        fixtures: Array<[number, FixtureState]>;
+        porJogo: Array<[number, OfficialState["porJogo"] extends Map<number, infer V> ? V : never]>;
+      };
+      st.quota = j.quota;
+      st.fixturesDia = j.fixturesDia;
+      st.fixturesAt = j.fixturesAt;
+      st.semLote = Boolean(j.semLote);
+      st.fixtures = new Map(j.fixtures);
+      st.porJogo = new Map(j.porJogo);
+    } catch {
+      /* primeira execução */
+    }
+  }
+  return st;
+}
+
+function save(st: OfficialState) {
+  if (!st.persist) return;
+  try {
+    mkdirSync(dataDir(), { recursive: true });
+    const out = { quota: st.quota, fixturesDia: st.fixturesDia, fixturesAt: st.fixturesAt, semLote: st.semLote, fixtures: [...st.fixtures], porJogo: [...st.porJogo] };
+    writeFileSync(file() + ".tmp", JSON.stringify(out));
+    renameSync(file() + ".tmp", file());
+  } catch {
+    /* disco somente leitura: segue só em memória */
+  }
+}
+
+export const officialEnabled = () => Boolean(process.env.API_FOOTBALL_KEY);
+export const dailyLimit = () => Math.max(1, Number(process.env.API_FOOTBALL_DAILY_LIMIT ?? 90));
+
+/** Reserva uma chamada do dia; false = orçamento esgotado. */
+function spend(st: OfficialState, now: number): boolean {
+  const dia = dayOf(now);
+  if (st.quota.dia !== dia) st.quota = { dia, usadas: 0, restantes: null };
+  if (st.quota.usadas >= dailyLimit()) return false;
+  if (st.quota.restantes != null && st.quota.restantes <= 3) return false;
+  st.quota.usadas++;
+  return true;
+}
+
+export const quotaStatus = (st: OfficialState, now = Date.now()) => ({
+  dia: dayOf(now),
+  usadas: st.quota.dia === dayOf(now) ? st.quota.usadas : 0,
+  limite: dailyLimit(),
+  restantesNaApi: st.quota.dia === dayOf(now) ? st.quota.restantes : null,
+});
+
+const BEFORE = 75 * 60_000;
+const AFTER = 10 * 60_000;
+const EVERY = Number(process.env.LINEUP_POLL_MS ?? 10 * 60_000);
+const MAX_TRIES = 7;
+
+async function api<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10_000);
   try {
     const res = await doFetch(`${BASE}${path}`, { headers: { "x-apisports-key": key, Accept: "application/json" }, signal: ctrl.signal });
+    const rem = res.headers?.get?.("x-ratelimit-requests-remaining");
+    if (rem != null && rem !== "" && Number.isFinite(Number(rem))) st.quota.restantes = Number(rem);
     if (!res.ok) throw new Error(`API-Football HTTP ${res.status}`);
     const json = (await res.json()) as { response?: T; errors?: unknown };
     const errs = json.errors;
@@ -162,35 +287,24 @@ async function api<T>(path: string, key: string, doFetch: typeof fetch = fetch):
   }
 }
 
-interface FixtureState {
-  fixture: ApiFixture;
-  found: boolean;
-  lastTry: number;
-  tries: number;
+type Novo = { id: number; clubes: [string, string]; overrides: Record<number, LineupOverride> };
+
+function accept(st: OfficialState, fs: FixtureState, lineups: ApiLineup[] | undefined, athletes: Athlete[], clubs: Record<number, Club>): Novo | null {
+  if (!lineups || lineups.length < 2) return null;
+  const rs = lineups.map((l) => mapLineup(l, athletes, clubs));
+  if (rs.some((r) => !r)) return null;
+  const overrides: Record<number, LineupOverride> = {};
+  for (const r of rs as OfficialResult[]) Object.assign(overrides, toOverrides(r, athletes));
+  fs.found = true;
+  const kick = new Date(fs.fixture.fixture.date).getTime();
+  const clubes: [string, string] = [clubs[(rs[0] as OfficialResult).clubeId]?.abreviacao ?? "?", clubs[(rs[1] as OfficialResult).clubeId]?.abreviacao ?? "?"];
+  st.porJogo.set(fs.fixture.fixture.id, { quando: kick, overrides, clubes });
+  return { id: fs.fixture.fixture.id, clubes, overrides };
 }
-
-export interface OfficialState {
-  fixtures: Map<number, FixtureState>;
-  fixturesAt: number;
-  chamadas: number;
-  ultimaChamada: string | null;
-  erro: string | null;
-  /** atleta → ajuste oficial, por jogo (expira 6 h depois do início) */
-  porJogo: Map<number, { quando: number; overrides: Record<number, LineupOverride>; clubes: [string, string] }>;
-}
-
-export const newOfficialState = (): OfficialState => ({ fixtures: new Map(), fixturesAt: 0, chamadas: 0, ultimaChamada: null, erro: null, porJogo: new Map() });
-
-export const officialEnabled = () => Boolean(process.env.API_FOOTBALL_KEY);
-
-const POLL_MS = Number(process.env.LINEUP_POLL_MS ?? 5 * 60_000);
-const WINDOW_BEFORE = 100 * 60_000; // começa a perguntar 100 min antes
-const WINDOW_AFTER = 20 * 60_000;
 
 /**
- * Um passo do vigia: descobre os jogos próximos e busca as escalações dos que
- * estão na janela (de 100 min antes a 20 min depois do início), de 5 em 5 min
- * até saírem. Devolve os jogos cuja escalação chegou agora.
+ * Um passo do vigia (roda a cada minuto, mas quase nunca chama a API).
+ * Devolve os jogos cuja escalação oficial chegou agora.
  */
 export async function stepOfficial(
   st: OfficialState,
@@ -199,44 +313,66 @@ export async function stepOfficial(
   temporada: number,
   now = Date.now(),
   doFetch: typeof fetch = fetch,
-): Promise<Array<{ id: number; clubes: [string, string]; overrides: Record<number, LineupOverride> }>> {
+): Promise<Novo[]> {
   const key = process.env.API_FOOTBALL_KEY;
   if (!key) return [];
-  const novos: Array<{ id: number; clubes: [string, string]; overrides: Record<number, LineupOverride> }> = [];
+  const novos: Novo[] = [];
   try {
-    if (now - st.fixturesAt > 3 * 3600_000) {
-      const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+    // 1) lista de jogos: uma vez por dia (ou se vem jogo nas próximas 3 h que não conhecemos, no máximo a cada 6 h)
+    const dia = dayOf(now);
+    const desconhecido = [...st.fixtures.values()].length === 0 && now - st.fixturesAt > 6 * 3600_000;
+    if ((st.fixturesDia !== dia || desconhecido) && spend(st, now)) {
       const league = process.env.API_FOOTBALL_LEAGUE ?? "71";
-      const list = await api<ApiFixture[]>(`/fixtures?league=${league}&season=${temporada}&from=${day(now - 86400_000)}&to=${day(now + 3 * 86400_000)}`, key, doFetch);
-      st.chamadas++;
+      const list = await api<ApiFixture[]>(`/fixtures?league=${league}&season=${temporada}&from=${dia}&to=${dayOf(now + 2 * 86400_000)}`, key, st, doFetch);
+      st.fixturesDia = dia;
       st.fixturesAt = now;
       for (const f of list ?? []) if (!st.fixtures.has(f.fixture.id)) st.fixtures.set(f.fixture.id, { fixture: f, found: false, lastTry: 0, tries: 0 });
+      for (const [id, f] of st.fixtures) if (now - new Date(f.fixture.fixture.date).getTime() > 12 * 3600_000) st.fixtures.delete(id);
     }
-    for (const fs of st.fixtures.values()) {
-      if (fs.found) continue;
-      const kick = new Date(fs.fixture.fixture.date).getTime();
-      if (now < kick - WINDOW_BEFORE || now > kick + WINDOW_AFTER) continue;
-      if (now - fs.lastTry < POLL_MS) continue;
-      fs.lastTry = now;
-      fs.tries++;
-      const lineups = await api<ApiLineup[]>(`/fixtures/lineups?fixture=${fs.fixture.fixture.id}`, key, doFetch);
-      st.chamadas++;
-      st.ultimaChamada = new Date(now).toISOString();
-      if (!lineups || lineups.length < 2) continue;
-      const rs = lineups.map((l) => mapLineup(l, athletes, clubs));
-      if (rs.some((r) => !r)) continue;
-      const overrides: Record<number, LineupOverride> = {};
-      for (const r of rs as OfficialResult[]) Object.assign(overrides, toOverrides(r, athletes));
-      fs.found = true;
-      const clubes: [string, string] = [clubs[(rs[0] as OfficialResult).clubeId]?.abreviacao ?? "?", clubs[(rs[1] as OfficialResult).clubeId]?.abreviacao ?? "?"];
-      st.porJogo.set(fs.fixture.fixture.id, { quando: kick, overrides, clubes });
-      novos.push({ id: fs.fixture.fixture.id, clubes, overrides });
+
+    // 2) jogos devidos agora: todos numa só chamada
+    const devidos = [...st.fixtures.values()].filter((f) => {
+      if (f.found || f.tries >= MAX_TRIES) return false;
+      const kick = new Date(f.fixture.fixture.date).getTime();
+      return now >= kick - BEFORE && now <= kick + AFTER && now - f.lastTry >= EVERY - 30_000;
+    });
+    if (devidos.length) {
+      const batch = devidos.slice(0, 20);
+      if (!st.semLote) {
+        if (spend(st, now)) {
+          for (const f of batch) {
+            f.lastTry = now;
+            f.tries++;
+          }
+          const list = await api<ApiFixtureFull[]>(`/fixtures?ids=${batch.map((f) => f.fixture.fixture.id).join("-")}`, key, st, doFetch);
+          st.ultimaChamada = new Date(now).toISOString();
+          const temCampo = (list ?? []).some((x) => Array.isArray(x.lineups));
+          if (list?.length && !temCampo) st.semLote = true; // a API não devolveu `lineups` no lote: usa a chamada por jogo daqui em diante
+          for (const item of list ?? []) {
+            const fs = st.fixtures.get(item.fixture.id);
+            const n = fs && accept(st, fs, item.lineups, athletes, clubs);
+            if (n) novos.push(n);
+          }
+        }
+      } else {
+        // modo por jogo: uma chamada por jogo, o mais urgente primeiro
+        for (const fs of batch.sort((a, b) => new Date(a.fixture.fixture.date).getTime() - new Date(b.fixture.fixture.date).getTime())) {
+          if (!spend(st, now)) break;
+          fs.lastTry = now;
+          fs.tries++;
+          const lineups = await api<ApiLineup[]>(`/fixtures/lineups?fixture=${fs.fixture.fixture.id}`, key, st, doFetch);
+          st.ultimaChamada = new Date(now).toISOString();
+          const n = accept(st, fs, lineups, athletes, clubs);
+          if (n) novos.push(n);
+        }
+      }
     }
     for (const [id, j] of st.porJogo) if (now - j.quando > 6 * 3600_000) st.porJogo.delete(id);
     st.erro = null;
   } catch (e) {
     st.erro = e instanceof Error ? e.message : String(e);
   }
+  save(st);
   return novos;
 }
 

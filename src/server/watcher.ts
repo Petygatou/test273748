@@ -11,7 +11,7 @@ import type { Athlete, SeasonData } from "../engine/types";
 import { STATUS_LABELS } from "../engine/rules";
 import { invalidate } from "./cache";
 import { emit } from "./db";
-import { currentOfficialOverrides, newOfficialState, officialEnabled, stepOfficial, type OfficialState } from "./escalacoes";
+import { currentOfficialOverrides, newOfficialState, officialEnabled, quotaStatus, stepOfficial, type OfficialState } from "./escalacoes";
 import { loadNews, type NewsItem } from "./news";
 
 export interface Mudanca {
@@ -71,7 +71,7 @@ export const watcherStatus = () => ({
   ultimaLeitura: st.ultimaLeitura,
   ultimoErro: st.ultimoErro,
   intervaloMs: TICK_MS,
-  escalacaoOficial: { ligada: officialEnabled(), jogosComEscalacao: st.oficial.porJogo.size, chamadas: st.oficial.chamadas, ultimaChamada: st.oficial.ultimaChamada, erro: st.oficial.erro },
+  escalacaoOficial: { ligada: officialEnabled(), jogosComEscalacao: st.oficial.porJogo.size, ...quotaStatus(st.oficial), ultimaChamada: st.oficial.ultimaChamada, erro: st.oficial.erro },
 });
 
 /** Impressão digital do que muda a análise: rodada, mercado, status e preço de cada atleta. */

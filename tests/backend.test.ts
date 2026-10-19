@@ -275,47 +275,84 @@ describe("escalação oficial (API-Football)", () => {
     expect(e.toOverrides(r2, athletes as never)[99]).toBe("reserva");
   });
 
-  it("busca as escalações na janela do jogo, uma vez, e respeita a chave", async () => {
+  it("gasta pouquíssimas chamadas: lista 1x por dia, lote de jogos, janela curta, teto diário", async () => {
     const e = await import("../src/server/escalacoes");
     const now = new Date("2026-10-20T20:00:00Z").getTime();
     const kick = new Date(now + 60 * 60_000).toISOString(); // bola em 1 h
+    const lineup = (names: string[]) => ({ team: { id: 1, name: "Flamengo" }, startXI: names.map((n) => ({ player: { name: n } })), substitutes: banco.map((b) => ({ player: { name: b.apelido } })) });
     const calls: string[] = [];
-    const lineup = (team: string, names: string[]) => ({ team: { id: 1, name: team }, startXI: names.map((n) => ({ player: { name: n } })), substitutes: banco.map((b) => ({ player: { name: b.apelido } })) });
-    const hulkTeam = ["Hulk", "Paulinho"];
-    const fakeFetch = (async (url: string) => {
-      calls.push(url);
-      if (url.includes("/fixtures/lineups")) return new Response(JSON.stringify({ response: [lineup("Flamengo", nomes), lineup("Atletico-MG", hulkTeam)], errors: [] }));
-      return new Response(JSON.stringify({ response: [{ fixture: { id: 7, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 2, name: "Atletico-MG" } } }], errors: [] }));
-    }) as unknown as typeof fetch;
+    let remaining = 80;
+    const mkFetch = (comLineups: boolean, saida: "pronta" | "vazia") =>
+      (async (url: string) => {
+        calls.push(url);
+        remaining--;
+        const headers = { "x-ratelimit-requests-remaining": String(remaining) };
+        if (url.includes("/fixtures?ids=")) {
+          const ids = url.split("ids=")[1].split("-").map(Number);
+          const base = ids.map((id) => ({ fixture: { id, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }));
+          return new Response(JSON.stringify({ response: base.map((x) => (comLineups ? { ...x, lineups: saida === "pronta" ? [lineup(nomes), lineup(nomes)] : [] } : x)), errors: [] }), { headers });
+        }
+        if (url.includes("/fixtures/lineups")) return new Response(JSON.stringify({ response: [lineup(nomes), lineup(nomes)], errors: [] }), { headers });
+        return new Response(
+          JSON.stringify({ response: [7, 8, 9].map((id) => ({ fixture: { id, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } })), errors: [] }),
+          { headers },
+        );
+      }) as unknown as typeof fetch;
     delete process.env.API_FOOTBALL_KEY;
-    const st = e.newOfficialState();
-    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, fakeFetch)).toEqual([]);
-    expect(calls).toHaveLength(0);
-    process.env.API_FOOTBALL_KEY = "teste";
-    const r = await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, fakeFetch);
-    // o Atlético só tem 2 jogadores na súmula de teste: não chega a 11 e não vale
-    expect(r).toHaveLength(0);
-    const before = calls.length;
-    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 60_000, fakeFetch)).toEqual([]);
-    expect(calls.length).toBe(before); // dentro dos 5 min: não pergunta de novo
+    const st0 = e.newOfficialState(false);
+    expect(await e.stepOfficial(st0, athletes as never, clubs as never, 2026, now, mkFetch(true, "pronta"))).toEqual([]);
+    expect(calls).toHaveLength(0); // sem chave, nenhuma chamada
 
-    // caminho feliz: as duas súmulas completas chegam, viram ajustes e o jogo não é consultado de novo
-    const ok = (async (url: string) =>
-      url.includes("/fixtures/lineups")
-        ? new Response(JSON.stringify({ response: [lineup("Flamengo", nomes), lineup("Flamengo", nomes)], errors: [] }))
-        : new Response(JSON.stringify({ response: [{ fixture: { id: 8, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }], errors: [] }))) as unknown as typeof fetch;
-    const st2 = e.newOfficialState();
-    const got = await e.stepOfficial(st2, athletes as never, clubs as never, 2026, now, ok);
-    expect(got).toHaveLength(1);
+    process.env.API_FOOTBALL_KEY = "teste";
+    // 1) 3 jogos no mesmo horário, súmula ainda não saiu: lista (1) + lote (1) = 2 chamadas, não 4
+    const st = e.newOfficialState(false);
+    const f1 = mkFetch(true, "vazia");
+    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, f1)).toEqual([]);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("ids=7-8-9");
+    // 2) um minuto depois não pergunta de novo; 10 min depois pergunta (lote)
+    await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 60_000, f1);
+    expect(calls).toHaveLength(2);
+    // 3) a súmula sai: uma chamada resolve os 3 jogos
+    const got = await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 10 * 60_000, mkFetch(true, "pronta"));
+    expect(calls).toHaveLength(3);
+    expect(got).toHaveLength(3);
     expect(got[0].overrides[10]).toBe("titular");
-    expect(e.currentOfficialOverrides(st2)[99]).toBe("fora");
-    expect(await e.stepOfficial(st2, athletes as never, clubs as never, 2026, now + 600_000, ok)).toEqual([]);
-    // e fora da janela (jogo daqui a 5 h) não gasta chamada
-    const far = e.newOfficialState();
-    let n = 0;
-    const counting = (async (u: string) => { n++; return ok(u); }) as unknown as typeof fetch;
-    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now - 4 * 3600_000, counting);
-    expect(n).toBe(1); // só a lista de jogos
+    expect(e.currentOfficialOverrides(st)[99]).toBe("fora");
+    // 4) jogos resolvidos não são consultados de novo e a lista do dia não se repete
+    await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 30 * 60_000, f1);
+    expect(calls).toHaveLength(3);
+    // o saldo informado pela API é registrado
+    expect(e.quotaStatus(st, now).restantesNaApi).toBe(remaining);
+    expect(e.quotaStatus(st, now).usadas).toBe(3);
+
+    // fora da janela (jogo daqui a 5 h) só a lista de jogos, uma vez
+    const far = e.newOfficialState(false);
+    const before = calls.length;
+    const longe = (async (u: string) => { calls.push(u); return new Response(JSON.stringify({ response: [{ fixture: { id: 1, date: new Date(now + 5 * 3600_000).toISOString() }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }], errors: [] })); }) as unknown as typeof fetch;
+    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now, longe);
+    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now + 3 * 3600_000, longe);
+    expect(calls.length - before).toBe(1);
+
+    // teto diário: com 90 usadas não chama mais nada
+    process.env.API_FOOTBALL_DAILY_LIMIT = "2";
+    const cap = e.newOfficialState(false);
+    const c0 = calls.length;
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now, f1); // lista (1)
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now, f1); // lote (2)
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now + 11 * 60_000, f1); // teto: nada
+    expect(calls.length - c0).toBe(2);
+    delete process.env.API_FOOTBALL_DAILY_LIMIT;
+
+    // se a API não devolver `lineups` no lote, cai para a chamada por jogo (e continua dentro do teto)
+    const sem = e.newOfficialState(false);
+    const f2 = mkFetch(false, "pronta");
+    const d0 = calls.length;
+    await e.stepOfficial(sem, athletes as never, clubs as never, 2026, now, f2); // lista + lote sem lineups
+    expect(sem.semLote).toBe(true);
+    const r = await e.stepOfficial(sem, athletes as never, clubs as never, 2026, now + 10 * 60_000, f2);
+    expect(r).toHaveLength(3);
+    expect(calls.length - d0).toBe(2 + 3);
     delete process.env.API_FOOTBALL_KEY;
   });
 });

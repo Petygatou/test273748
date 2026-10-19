@@ -79,7 +79,14 @@ Os clubes entregam a súmula cerca de **1 hora antes da bola**. A API do Cartola
 
 Cuidados embutidos: só marca "fora" quem não está na súmula se quase todos os nomes foram casados com atletas do Cartola; senão vira "reserva". Nome ambíguo nunca é chutado. Ajustes manuais do Painel ADM vencem a súmula.
 
-**Custo de chamadas:** cada jogo gasta de ~3 a ~10 chamadas por rodada (para de perguntar quando a súmula chega) mais uma lista de jogos a cada 3 h. Num dia com 10 jogos isso passa de 100/dia; o plano gratuito pode ficar curto, e um plano pago resolve. Confira os limites atuais no site do provedor.
+**Orçamento de chamadas (plano gratuito = 100 por dia).** O site gasta de ~10 a ~40 por dia:
+- a lista de jogos é buscada **uma vez por dia** (hoje e os 2 próximos dias) e fica salva em disco;
+- cada jogo só é consultado de **75 min antes até 10 min depois** do início, de 10 em 10 minutos, **no máximo 7 vezes**, e para assim que a súmula chega;
+- todos os jogos devidos no mesmo momento vão **numa única chamada** (`/fixtures?ids=a-b-c`), então 5 jogos no mesmo horário custam 1 chamada, não 5;
+- um contador diário (salvo em disco, vale mesmo se o site reiniciar) trava em **90** (`API_FOOTBALL_DAILY_LIMIT`), e o site também lê o saldo que a própria API informa e para quando restam 3;
+- se a API não devolver as escalações no lote, o site cai sozinho para a chamada por jogo (mais cara, mas ainda dentro do teto).
+
+O Painel ADM → Dados reais mostra quantas chamadas já foram usadas hoje. A API zera o contador à meia-noite UTC (21h em Brasília).
 
 Observação honesta: este módulo foi testado com respostas simuladas no formato da API-Football; ainda não foi testado contra a API real (o ambiente de desenvolvimento não alcança a internet aberta).
 
