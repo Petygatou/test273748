@@ -11,7 +11,9 @@ import type { Athlete, SeasonData } from "../engine/types";
 import { STATUS_LABELS } from "../engine/rules";
 import { invalidate } from "./cache";
 import { emit } from "./db";
-import { currentOfficialOverrides, newOfficialState, officialEnabled, quotaStatus, stepOfficial, type OfficialState } from "./escalacoes";
+import { probableXI } from "../engine/lineup";
+import { stepFotos } from "./fotosApiFootball";
+import { currentOfficialOverrides, fixturesSummary, medicaoResumo, newOfficialState, officialEnabled, persistOfficial, quotaStatus, stepOfficial, type OfficialState } from "./escalacoes";
 import { loadNews, type NewsItem } from "./news";
 
 export interface Mudanca {
@@ -65,13 +67,15 @@ const push = (m: Omit<Mudanca, "id" | "em">) => {
 
 export const recentChanges = (n = 30) => st.mudancas.slice(0, n);
 export const newsSignals = () => st.sinais;
+export const officialFixtures = (clubs: Parameters<typeof fixturesSummary>[1]) => fixturesSummary(st.oficial, clubs);
+export const medicaoOficial = () => medicaoResumo(st.oficial);
 export const officialOverrides = () => currentOfficialOverrides(st.oficial);
 export const watcherStatus = () => ({
   ativo: st.started,
   ultimaLeitura: st.ultimaLeitura,
   ultimoErro: st.ultimoErro,
   intervaloMs: TICK_MS,
-  escalacaoOficial: { ligada: officialEnabled(), jogosComEscalacao: st.oficial.porJogo.size, ...quotaStatus(st.oficial), ultimaChamada: st.oficial.ultimaChamada, erro: st.oficial.erro },
+  escalacaoOficial: { ligada: officialEnabled(), jogosComEscalacao: st.oficial.porJogo.size, ...quotaStatus(st.oficial), jogosOficiais: [...st.oficial.porJogo.values()].map((j) => j.clubes), ultimaChamada: st.oficial.ultimaChamada, erro: st.oficial.erro },
 });
 
 /** Impressão digital do que muda a análise: rodada, mercado, status e preço de cada atleta. */
@@ -187,12 +191,31 @@ async function tick() {
 
     // escalações oficiais (API-Football): de 100 min antes do jogo até 20 min depois
     if (officialEnabled()) {
+      // previsão ANTES da súmula (análise atual, sem os ajustes oficiais deste jogo)
+      const pre = await import("./season").then((m) => m.loadAnalysis()).catch(() => null);
       const novos = await stepOfficial(st.oficial, data.athletes, data.clubs, data.temporada);
       for (const n of novos) {
+        if (pre) {
+          for (const t of n.times) {
+            const xi = probableXI(pre.analysis.players, t.clubeId);
+            const previstos = new Set([...xi.lines.gol, ...xi.lines.def, ...xi.lines.mei, ...xi.lines.ata].map((p) => p.atletaId));
+            const oficiais = new Set(t.titulares);
+            const acertos = [...previstos].filter((id) => oficiais.has(id)).length;
+            const acimaDe50 = pre.analysis.players.filter((p) => oficiais.has(p.atletaId) && p.pJogar >= 0.5).length;
+            if (oficiais.size >= 10) {
+              st.oficial.medicoes.push({ em: new Date().toISOString(), clube: data.clubs[t.clubeId]?.abreviacao ?? "?", acertos, acimaDe50 });
+              st.oficial.medicoes = st.oficial.medicoes.slice(-300);
+            }
+          }
+        }
+        persistOfficial(st.oficial);
         push({ tipo: "escalacao", texto: `Escalação oficial: ${n.clubes[0]} x ${n.clubes[1]}` });
         mudou = true;
       }
     }
+
+    // rostos reais: um elenco por minuto, só com cota sobrando
+    if (officialEnabled() && (await stepFotos(st.oficial, data.athletes, data.clubs, data.temporada))) mudou = true;
 
     void loadSeason;
     if (mudou) {

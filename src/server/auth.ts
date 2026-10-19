@@ -5,9 +5,11 @@
  * - Administrador: e-mails em ADMIN_EMAILS (vírgula). Sem ADMIN_EMAILS, a
  *   primeira conta criada vira administradora (bootstrap).
  */
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
-import { db, newId, type AvatarKey, type UserRow } from "./db";
+import { dataDir, db, newId, type AvatarKey, type UserRow } from "./db";
 
 const COOKIE = "cfc_session";
 const SESSION_DAYS = 30;
@@ -52,35 +54,58 @@ export function validateCredentials(email: string, password: string) {
 }
 
 let adminApplied = "";
+export interface AdminStatus {
+  emailDefinido: boolean;
+  senhaDefinida: boolean;
+  /** vazio quando está tudo certo */
+  problema: string;
+}
+
+/** Diagnóstico sem revelar segredos (aparece em /api/saude). */
+export function adminStatus(): AdminStatus {
+  const email = adminEmails()[0];
+  const pw = process.env.ADMIN_PASSWORD;
+  let problema = "";
+  if (!email) problema = "ADMIN_EMAILS não está definida: sem ela, a primeira conta criada vira admin.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) problema = "O e-mail em ADMIN_EMAILS não parece válido.";
+  else if (!pw) problema = "ADMIN_PASSWORD não está definida: crie a conta pelo site ou defina a variável.";
+  else if (pw.length < 8) problema = "ADMIN_PASSWORD tem menos de 8 caracteres: o site recusa.";
+  return { emailDefinido: Boolean(email), senhaDefinida: Boolean(pw), problema };
+}
+
 /**
  * Conta de administrador definida por variáveis de ambiente: o primeiro e-mail
- * de ADMIN_EMAILS com a senha de ADMIN_PASSWORD. A conta é criada (ou a senha
- * é redefinida) na primeira vez que alguém tenta entrar ou cadastrar. Assim o
- * admin nunca fica sem acesso e ninguém "toma" o e-mail dele antes.
+ * de ADMIN_EMAILS com a senha de ADMIN_PASSWORD. O identificador da conta é
+ * derivado do e-mail (igual em todas as instâncias), então o login continua
+ * valendo mesmo se o disco for apagado. Nunca lança erro: se a configuração
+ * estiver errada, o diagnóstico em /api/saude diz o quê.
  */
 export function ensureAdminAccount() {
   const email = adminEmails()[0];
   const pw = process.env.ADMIN_PASSWORD;
-  if (!email || !pw) return;
+  if (!email || !pw || adminStatus().problema) return;
   const mark = sha(`${email}:${pw}`);
-  if (adminApplied === mark) return;
-  validateCredentials(email, pw);
-  const salt = randomBytes(16).toString("hex");
-  const cur = db.users.find((u) => u.email === email);
-  if (cur) db.users.put({ ...cur, salt, hash: hashPassword(pw, salt), admin: true });
-  else
-    db.users.put({
-      id: newId(),
-      email,
-      nome: email.split("@")[0].slice(0, 40),
-      bio: "",
-      avatar: "estrategista",
-      salt,
-      hash: hashPassword(pw, salt),
-      admin: true,
-      criadoEm: new Date().toISOString(),
-    });
-  adminApplied = mark;
+  const existing = db.users.find((u) => u.email === email);
+  if (adminApplied === mark && existing) return;
+  try {
+    const salt = randomBytes(16).toString("hex");
+    if (existing) db.users.put({ ...existing, salt, hash: hashPassword(pw, salt), admin: true });
+    else
+      db.users.put({
+        id: sha(`admin:${email}`).slice(0, 32),
+        email,
+        nome: email.split("@")[0].slice(0, 40),
+        bio: "",
+        avatar: "estrategista",
+        salt,
+        hash: hashPassword(pw, salt),
+        admin: true,
+        criadoEm: new Date().toISOString(),
+      });
+    adminApplied = mark;
+  } catch {
+    /* não deixa o login quebrar por causa do bootstrap */
+  }
 }
 
 export function createUser(email: string, password: string, nome: string): UserRow {
@@ -113,11 +138,67 @@ export function verifyUser(email: string, password: string): UserRow {
   return u;
 }
 
+/* ------------------------------------------------------------------------- */
+/*  Sessão assinada no cookie (sem estado no servidor)                       */
+/*  Funciona em qualquer hospedagem, inclusive com várias instâncias e disco  */
+/*  temporário (Vercel): o servidor só precisa conhecer o segredo.           */
+/* ------------------------------------------------------------------------- */
+
+let fileSecret: string | null = null;
+function sessionSecret(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  // sem SESSION_SECRET, o segredo deriva da senha do admin: igual em todas as instâncias
+  if (process.env.ADMIN_PASSWORD) return sha(`tropa-session:${process.env.ADMIN_PASSWORD}`);
+  if (fileSecret) return fileSecret;
+  const f = join(dataDir(), "session-secret");
+  try {
+    fileSecret = readFileSync(f, "utf8").trim();
+  } catch {
+    fileSecret = randomBytes(32).toString("hex");
+    try {
+      mkdirSync(dataDir(), { recursive: true });
+      writeFileSync(f, fileSecret, { mode: 0o600 });
+    } catch {
+      /* disco somente leitura: o segredo vale só até reiniciar */
+    }
+  }
+  return fileSecret;
+}
+
+const b64 = (s: string) => Buffer.from(s).toString("base64url");
+const sign = (payload: string) => createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+
+export function makeSessionToken(user: Pick<UserRow, "id" | "email">, now = Date.now()): string {
+  const payload = b64(JSON.stringify({ u: user.id, e: user.email, x: now + SESSION_DAYS * 86400_000 }));
+  return `${payload}.${sign(payload)}`;
+}
+
+export function readSessionToken(token: string | undefined | null, now = Date.now()): { u: string; e: string } | null {
+  if (!token) return null;
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
+  const good = Buffer.from(sign(payload));
+  const got = Buffer.from(sig);
+  if (good.length !== got.length || !timingSafeEqual(good, got)) return null;
+  try {
+    const j = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { u?: string; e?: string; x?: number };
+    if (!j.u || !j.e || !j.x || j.x < now) return null;
+    return { u: j.u, e: j.e };
+  } catch {
+    return null;
+  }
+}
+
+function userFromToken(token: string | undefined | null): UserRow | null {
+  const t = readSessionToken(token);
+  if (!t) return null;
+  ensureAdminAccount();
+  return db.users.get(t.u) ?? db.users.find((x) => x.email === t.e) ?? null;
+}
+
 export function startSession(user: UserRow) {
-  const token = randomBytes(32).toString("base64url");
   const expira = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  db.sessions.put({ id: sha(token), userId: user.id, expiraEm: expira.toISOString() });
-  setCookie(COOKIE, token, {
+  setCookie(COOKIE, makeSessionToken(user), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -127,32 +208,19 @@ export function startSession(user: UserRow) {
 }
 
 export function endSession() {
-  const token = getCookie(COOKIE);
-  if (token) db.sessions.remove(sha(token));
   deleteCookie(COOKIE, { path: "/" });
 }
 
 /** Usuário da requisição atual (ou null). */
 export function currentUser(): UserRow | null {
-  const token = getCookie(COOKIE);
-  if (!token) return null;
-  const s = db.sessions.get(sha(token));
-  if (!s) return null;
-  if (new Date(s.expiraEm).getTime() < Date.now()) {
-    db.sessions.remove(s.id);
-    return null;
-  }
-  return db.users.get(s.userId) ?? null;
+  return userFromToken(getCookie(COOKIE));
 }
 
 /** Variante para rotas de API que recebem o Request diretamente. */
 export function userFromRequest(request: Request): UserRow | null {
   const cookie = request.headers.get("cookie") ?? "";
   const m = cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
-  if (!m) return null;
-  const s = db.sessions.get(sha(decodeURIComponent(m[1])));
-  if (!s || new Date(s.expiraEm).getTime() < Date.now()) return null;
-  return db.users.get(s.userId) ?? null;
+  return m ? userFromToken(decodeURIComponent(m[1])) : null;
 }
 
 export function requireUser(): UserRow {
@@ -180,5 +248,4 @@ export function changePassword(u: UserRow, atual: string, nova: string) {
   validateCredentials(u.email, nova);
   const salt = randomBytes(16).toString("hex");
   db.users.update(u.id, { salt, hash: hashPassword(nova, salt) });
-  db.sessions.removeWhere((s) => s.userId === u.id);
 }

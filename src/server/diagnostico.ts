@@ -36,6 +36,8 @@ export interface FotoProbe {
   atletas: number;
   comFoto: number;
   exemplo?: string;
+  /** rostos vindos da API-Football (elencos lidos aos poucos) */
+  apiFootball?: { mapeadas: number; timesLidos: number; naoCasados: number; erro: string | null };
   /** o servidor do site conseguiu baixar a imagem de exemplo? */
   servidor: "ok" | "falhou" | "sem-foto";
   leitura: string;
@@ -46,9 +48,12 @@ export async function probeFotos(): Promise<FotoProbe> {
   const { loadSeason } = await import("./season");
   const { data } = await loadSeason();
   const comFoto = data.athletes.filter((a) => a.foto).length;
+  const { fotosResumo } = await import("./fotosApiFootball");
+  const extra = fotosResumo(data.athletes);
   const exemplo = data.athletes.find((a) => a.foto)?.foto;
   if (!exemplo) {
     return {
+      apiFootball: extra,
       atletas: data.athletes.length,
       comFoto,
       servidor: "sem-foto",
@@ -59,6 +64,7 @@ export async function probeFotos(): Promise<FotoProbe> {
   const res = await proxyFoto(exemplo);
   const ok = res.status === 200;
   return {
+    apiFootball: extra,
     atletas: data.athletes.length,
     comFoto,
     exemplo,
@@ -69,7 +75,7 @@ export async function probeFotos(): Promise<FotoProbe> {
   };
 }
 
-export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null>; fotos: FotoProbe | null; escalacao: Awaited<ReturnType<typeof import("./watcher")["watcherStatus"]>>["escalacaoOficial"] | null }> {
+export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boolean; variaveis: Record<string, string | null>; fotos: FotoProbe | null; escalacao: (Awaited<ReturnType<typeof import("./watcher")["watcherStatus"]>>["escalacaoOficial"] & { chave: import("./escalacoes").ApiFootballProbe; jogos: ReturnType<typeof import("./escalacoes")["fixturesSummary"]> }) | null }> {
   const hosts: HostProbe[] = [];
   for (const host of CARTOLA_HOSTS) {
     const t0 = Date.now();
@@ -88,7 +94,17 @@ export async function probeCartola(): Promise<{ hosts: HostProbe[]; proxy: boole
   }
   const env = (k: string) => process.env[k] ?? null;
   const fotos = await probeFotos().catch(() => null);
-  const escalacao = await import("./watcher").then((w) => w.watcherStatus().escalacaoOficial).catch(() => null);
+  const escalacao = await (async () => {
+    try {
+      const w = await import("./watcher");
+      const e = await import("./escalacoes");
+      const { loadSeason } = await import("./season");
+      const { data } = await loadSeason().catch(() => ({ data: null }));
+      return { ...w.watcherStatus().escalacaoOficial, chave: await e.probeApiFootball(), jogos: data ? w.officialFixtures(data.clubs) : [] };
+    } catch {
+      return null;
+    }
+  })();
   return {
     fotos,
     escalacao,

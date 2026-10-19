@@ -8,6 +8,7 @@ import { buildRoundAnalysis } from "../engine/analysis";
 import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/backtest";
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
+import { fotosMap, loadFotos, withFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
 import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
@@ -82,8 +83,9 @@ async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; imp
 export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta }> {
   ensureWatcher();
   const { data, motivo, importadoEm } = await loadRawSeason();
+  loadFotos(data.temporada);
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const merged: SeasonData = { ...data, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  const merged: SeasonData = { ...data, athletes: data.source === "cartola" ? withFotos(data.athletes) : data.athletes, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {
@@ -111,7 +113,7 @@ function overridesKey(o: Record<number, LineupOverride> | undefined) {
 export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta }> {
   const { data, meta } = await loadSeason();
   // chave pelo CONTEÚDO (status, preço, rodada, ajustes, notícias), não pelo horário da leitura
-  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:${overridesKey(data.overrides)}`;
+  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}`;
   const analysis = await cached(key, 10 * 60_000, async () => buildRoundAnalysis(data, { simulations: Number(env("SIMULATIONS") ?? 3000) }));
   return { analysis, meta };
 }

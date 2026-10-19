@@ -9,7 +9,7 @@ import { PLAYER_POSITIONS, POSITIONS } from "../engine/rules";
 import { topBy } from "../lib/derive";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
 import { useAlerts } from "../lib/alerts";
-import { analysisQuery, backtestQuery } from "../lib/queries";
+import { analysisQuery, backtestQuery, mudancasQuery } from "../lib/queries";
 import { posRodadaFn } from "../server/fnsCartola";
 
 export const Route = createFileRoute("/")({
@@ -20,6 +20,8 @@ function Home() {
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useQuery(analysisQuery);
   const bt = useQuery({ ...backtestQuery, enabled: Boolean(data) });
+  const mud = useQuery({ ...mudancasQuery, enabled: Boolean(data) });
+  const real = mud.data?.medicao;
   const { alerts: oficiais } = useAlerts();
   const pos = useQuery({ queryKey: ["pos-rodada"], queryFn: () => posRodadaFn(), staleTime: 15 * 60_000, enabled: data?.analysis.source === "cartola" });
   if (isLoading) return <PageSkeleton />;
@@ -114,8 +116,14 @@ function Home() {
           <Link to="/modelo" className="block">
             <StatTile
               label="Acerto das prováveis"
-              value={bt.data?.provaveis ? pct(bt.data.provaveis.acerto, 1) : bt.isLoading ? "…" : "—"}
-              hint={bt.data?.provaveis ? `nas últimas ${bt.data.provaveis.rodadas.length} rodadas, sem olhar o futuro` : "teste rodada a rodada"}
+              value={real && real.acerto != null && real.times >= 2 ? pct(real.acerto, 1) : bt.data?.provaveis ? pct(bt.data.provaveis.acerto, 1) : bt.isLoading ? "…" : "—"}
+              hint={
+                real && real.acerto != null && real.times >= 2
+                  ? `medido contra a súmula oficial (${real.times} times)`
+                  : bt.data?.provaveis
+                    ? `nas últimas ${bt.data.provaveis.rodadas.length} rodadas, sem olhar o futuro`
+                    : "teste rodada a rodada"
+              }
               accent="good"
             />
           </Link>

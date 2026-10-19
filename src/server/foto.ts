@@ -3,12 +3,14 @@
  * CDN e, se o navegador não conseguir, passa por /api/foto, que só aceita
  * hosts da Globo e guarda a imagem em cache.
  */
-const ALLOWED = /(^|\.)(globo\.com|glbimg\.com)$/i;
+const ALLOWED = /(^|\.)(globo\.com|glbimg\.com|api-sports\.io)$/i;
 
 /** Normaliza a URL da API: tamanho 220x220 e sempre https. */
 export function normalizeFoto(url?: string | null): string | undefined {
   if (!url || typeof url !== "string") return undefined;
   const u = url.trim().replace("FORMATO", "220x220").replace(/^http:\/\//i, "https://");
+  // o Cartola manda uma silhueta genérica do clube quando não tem o rosto: não é foto
+  if (/\/silhuetas?\//i.test(u)) return undefined;
   return /^https:\/\//i.test(u) ? u : undefined;
 }
 

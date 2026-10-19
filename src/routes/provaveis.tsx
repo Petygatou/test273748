@@ -147,7 +147,7 @@ function teamTotal(xi: ProbableXI, live?: LiveData) {
   return ids.reduce((s, id) => s + (live.atletas[id]?.entrou ? live.atletas[id].pontos : 0), 0);
 }
 
-function MatchBlock({ a, f, live, match }: { a: RoundAnalysis; f: FixtureOdds; live?: LiveData; match?: LiveMatch }) {
+function MatchBlock({ a, f, live, match, oficial }: { a: RoundAnalysis; f: FixtureOdds; live?: LiveData; match?: LiveMatch; oficial?: boolean }) {
   const home = useMemo(() => probableXI(a.players, f.casaId), [a, f.casaId]);
   const away = useMemo(() => probableXI(a.players, f.foraId), [a, f.foraId]);
   const started = match?.status === "andamento" || match?.status === "encerrado";
@@ -171,6 +171,11 @@ function MatchBlock({ a, f, live, match }: { a: RoundAnalysis; f: FixtureOdds; l
         <span className="font-display min-w-0 flex-1 truncate text-right text-base font-bold">{cf?.nome}</span>
         <ClubBadge club={cf} size={30} />
       </div>
+      {oficial && (
+        <div className="mt-1 flex justify-center">
+          <span className="chip border-[var(--color-good)]/40 text-[var(--color-good-ink)]">✓ Escalação oficial</span>
+        </div>
+      )}
       <div className="mt-1 text-center text-[11px] text-[var(--color-ink-3)]">
         {[dateTime(f.data ?? match?.data), f.local].filter(Boolean).join(" · ") || `Rodada ${f.rodada}`}
       </div>
@@ -253,6 +258,11 @@ function ProvaveisPage() {
           <p className="text-sm text-[var(--color-ink-3)]">Rodada {a.rodada}: os 11 mais prováveis de cada time, com a chance de jogar. Durante os jogos, as parciais aparecem no lugar da porcentagem.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {mud.data?.medicao && mud.data.medicao.times >= 1 && mud.data.medicao.acerto != null && (
+            <span className="chip border-[var(--color-brand)]/40 text-[var(--color-ink)]" title="Dos 11 que apontamos antes da súmula, quantos estavam na escalação oficial. Medida real, jogo a jogo.">
+              Previsão x súmula oficial: <b className="tabular">{pct(mud.data.medicao.acerto, 1)}</b> · {mud.data.medicao.times} times
+            </span>
+          )}
           {bt.data?.provaveis && (
             <Link to="/modelo" className="chip border-[var(--color-good)]/40 text-[var(--color-good-ink)]" title="Dos 11 apontados, quantos entraram em campo (teste sem olhar o futuro)">
               <CheckCircle2 size={13} aria-hidden /> {pct(bt.data.provaveis.acerto, 1)} de acerto nas últimas {bt.data.provaveis.rodadas.length} rodadas
@@ -281,7 +291,7 @@ function ProvaveisPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {fixtures.map((f) => (
-          <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} />
+          <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} oficial={(mud.data?.status.escalacaoOficial.jogosOficiais ?? []).some(([x, y]) => x === a.clubs[f.casaId]?.abreviacao && y === a.clubs[f.foraId]?.abreviacao)} />
         ))}
       </div>
       {!fixtures.length && <Card className="p-6 text-center text-sm text-[var(--color-ink-3)]">Nenhum jogo em andamento agora.</Card>}

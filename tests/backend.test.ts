@@ -143,6 +143,8 @@ describe("fotos oficiais", () => {
     expect(normalizeFoto("http://s.sde.globo.com/media/organizations/2026/04/01/FORMATO/x.png")).toBe("https://s.sde.globo.com/media/organizations/2026/04/01/220x220/x.png");
     expect(normalizeFoto(null)).toBeUndefined();
     expect(normalizeFoto("javascript:alert(1)")).toBeUndefined();
+    // silhueta genérica do clube não é rosto
+    expect(normalizeFoto("https://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/220x220.png")).toBeUndefined();
     expect(isAllowedFoto("https://s.sde.globo.com/a.png")).not.toBeNull();
     expect(isAllowedFoto("https://s2.glbimg.com/a.png")).not.toBeNull();
     expect(isAllowedFoto("https://evil.com/a.png")).toBeNull();
@@ -353,6 +355,110 @@ describe("escalação oficial (API-Football)", () => {
     const r = await e.stepOfficial(sem, athletes as never, clubs as never, 2026, now + 10 * 60_000, f2);
     expect(r).toHaveLength(3);
     expect(calls.length - d0).toBe(2 + 3);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+});
+
+describe("sessão assinada no cookie", () => {
+  it("vale em outra instância (sem disco compartilhado), expira e rejeita adulteração", () => {
+    process.env.ADMIN_EMAILS = "chefe@tropa.com";
+    process.env.ADMIN_PASSWORD = "senhadochefe1";
+    const u = auth.verifyUser("chefe@tropa.com", "senhadochefe1");
+    const tok = auth.makeSessionToken(u);
+    expect(auth.readSessionToken(tok)).toMatchObject({ u: u.id, e: "chefe@tropa.com" });
+    // "outra instância": o banco local não tem a conta, mas a sessão continua válida e a conta do admin é recriada com o MESMO id
+    db.users.remove(u.id);
+    const req = new Request("http://x/", { headers: { cookie: `cfc_session=${encodeURIComponent(tok)}` } });
+    const again = auth.userFromRequest(req);
+    expect(again?.id).toBe(u.id);
+    expect(auth.isAdmin(again!)).toBe(true);
+    // adulteração e expiração
+    const [payload, sig] = tok.split(".");
+    expect(auth.readSessionToken(`${payload}x.${sig}`)).toBeNull();
+    expect(auth.readSessionToken(`${Buffer.from(JSON.stringify({ u: u.id, e: "outro@x.com", x: Date.now() + 1e9 })).toString("base64url")}.${sig}`)).toBeNull();
+    expect(auth.readSessionToken(tok, Date.now() + 40 * 86400_000)).toBeNull();
+    expect(auth.readSessionToken("lixo")).toBeNull();
+    // diagnóstico da configuração
+    expect(auth.adminStatus().problema).toBe("");
+    process.env.ADMIN_PASSWORD = "curta";
+    expect(auth.adminStatus().problema).toMatch(/8 caracteres/);
+    delete process.env.ADMIN_PASSWORD;
+    expect(auth.adminStatus().problema).toMatch(/ADMIN_PASSWORD/);
+    delete process.env.ADMIN_EMAILS;
+  });
+});
+
+describe("rostos da API-Football e sondagem da chave", () => {
+  const clubs = { 1: { id: 1, nome: "Flamengo", abreviacao: "FLA" } };
+  const ath = [
+    { id: 10, apelido: "Arrascaeta", nome: "Giorgian De Arrascaeta", clubeId: 1, posicaoId: 4 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 },
+    { id: 11, apelido: "Pedro", nome: "Pedro Guilherme", clubeId: 1, posicaoId: 5 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0, foto: "https://s.glbimg.com/ja-tem.png" },
+  ];
+
+  it("descobre os times pelo país, lê 1 elenco por vez, só com cota sobrando, e não sobrescreve foto do Cartola", async () => {
+    const e = await import("../src/server/escalacoes");
+    const f = await import("../src/server/fotosApiFootball");
+    process.env.API_FOOTBALL_KEY = "teste";
+    const now = new Date("2026-10-20T12:00:00Z").getTime();
+    const of = e.newOfficialState(false);
+    const urls: string[] = [];
+    const fake = (async (url: string) => {
+      urls.push(url);
+      if (url.includes("/teams?country=Brazil"))
+        return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" } }, { team: { id: 999, name: "Flamengo U20" } }, { team: { id: 5, name: "Brasil", national: true } }, { team: { id: 1, name: "Time Que Nao Existe" } }], errors: [] }));
+      return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" }, players: [{ id: 1100, name: "G. De Arrascaeta", photo: "https://media.api-sports.io/football/players/1100.png" }, { id: 7, name: "Pedro", photo: "https://media.api-sports.io/football/players/7.png" }] }], errors: [] }));
+    }) as unknown as typeof fetch;
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now, fake)).toBe(false); // 1º passo: descobre os times
+    expect(urls).toHaveLength(1);
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now + 60_000, fake)).toBe(true); // 2º: lê o elenco
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain("/players/squads?team=127");
+    const merged = f.withFotos(ath as never);
+    expect(merged[0].foto).toBe("https://media.api-sports.io/football/players/1100.png");
+    expect(merged[1].foto).toBe("https://s.glbimg.com/ja-tem.png"); // foto do Cartola manda
+    // sem elenco novo para ler: não gasta
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now + 120_000, fake)).toBe(false);
+    expect(urls).toHaveLength(2);
+    // pouca cota: não gasta; jogo na janela das escalações: não gasta
+    const of2 = e.newOfficialState(false);
+    of2.quota = { dia: "2026-10-20", usadas: 80, restantes: null };
+    expect(await f.stepFotos(of2, ath as never, clubs as never, 2098, now, fake)).toBe(false);
+    expect(urls).toHaveLength(2);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
+  it("erro de plano não é repetido: espera até o dia seguinte e explica em português", async () => {
+    const e = await import("../src/server/escalacoes");
+    process.env.API_FOOTBALL_KEY = "teste";
+    const now = new Date("2026-10-20T12:00:00Z").getTime();
+    const err = (async () => new Response(JSON.stringify({ response: [], errors: { plan: "Free plans do not have access to this season, try from 2022 to 2024." } }))) as unknown as typeof fetch;
+    let n = 0;
+    const counting = (async (u: string) => { n++; return err(u); }) as unknown as typeof fetch;
+    const st = e.newOfficialState(false);
+    await e.stepOfficial(st, ath as never, clubs as never, 2026, now, counting);
+    expect(n).toBe(1);
+    expect(st.erro).toMatch(/plano gratuito.*2022 a 2024/);
+    for (let m = 1; m <= 30; m++) await e.stepOfficial(st, ath as never, clubs as never, 2026, now + m * 60_000, counting);
+    expect(n).toBe(1); // 30 minutos depois, nenhuma chamada nova
+    await e.stepOfficial(st, ath as never, clubs as never, 2026, now + 13 * 3600_000, counting); // dia seguinte (UTC)
+    expect(n).toBe(2);
+    expect(e.explainApiError(new Error("HTTP 500")).permanente).toBe(false);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
+  it("a sondagem da chave entende a resposta do /status e erros", async () => {
+    const e = await import("../src/server/escalacoes");
+    delete process.env.API_FOOTBALL_KEY;
+    expect((await e.probeApiFootball()).ok).toBe(false);
+    process.env.API_FOOTBALL_KEY = "teste";
+    const good = (async () => new Response(JSON.stringify({ errors: [], response: { subscription: { plan: "Free", active: true }, requests: { current: 12, limit_day: 100 } } }))) as unknown as typeof fetch;
+    const r = await e.probeApiFootball(good);
+    expect(r).toMatchObject({ ok: true, plano: "Free", usadasHoje: 12, limiteDia: 100 });
+    expect(r.leitura).toMatch(/12 de 100/);
+    const bad = (async () => new Response(JSON.stringify({ errors: { token: "Error/Missing application key." }, response: [] }))) as unknown as typeof fetch;
+    expect((await e.probeApiFootball(bad)).leitura).toMatch(/não aceita/);
+    const denied = (async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
+    expect((await e.probeApiFootball(denied)).leitura).toMatch(/recusou/);
     delete process.env.API_FOOTBALL_KEY;
   });
 });
