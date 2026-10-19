@@ -545,3 +545,15 @@ describe("gestão de usuários (painel ADM)", () => {
     expect(auth.deviceFromUA(undefined)).toBe("desconhecido");
   });
 });
+
+describe("notícias", () => {
+  it("limpa o resumo do Google Notícias (HTML escapado) e não repete a manchete", async () => {
+    const { parseRss } = await import("../src/server/news");
+    const xml = `<rss><channel><item><title>Lateral do Athletico sofre lesão grave - Bem Paraná</title><link>https://news.google.com/x</link><pubDate>Mon, 19 Oct 2026 10:00:00 GMT</pubDate><description>&lt;a href="https://news.google.com/rss/articles/CBMixwFBVV95cUxNcXhk?oc=5" target="_blank"&gt;Lateral do Athletico sofre lesão grave&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;Bem Paraná&lt;/font&gt;</description><source url="https://bemparana.com.br">Bem Paraná</source></item><item><title>Outra</title><description>&lt;p&gt;Texto &amp;amp; resumo de verdade.&lt;/p&gt;</description></item></channel></rss>`;
+    const [a, b] = parseRss(xml);
+    expect(a.titulo).toBe("Lateral do Athletico sofre lesão grave");
+    expect(a.resumo).toBe("");
+    expect(b.resumo).toBe("Texto & resumo de verdade.");
+    expect(JSON.stringify([a, b])).not.toMatch(/<a|href|news\.google\.com\/rss/);
+  });
+});

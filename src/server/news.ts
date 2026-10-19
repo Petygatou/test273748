@@ -31,17 +31,28 @@ function feeds(): string[] {
   return env ? env.split(",").map((s) => s.trim()).filter(Boolean) : DEFAULT_FEEDS;
 }
 
-function decode(s: string): string {
-  return s
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/<[^>]+>/g, " ")
+const entities = (s: string) =>
+  s
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, "&");
+
+/**
+ * Texto limpo de um campo RSS. O Google Notícias manda o resumo como HTML
+ * escapado (&lt;a href=...&gt;): primeiro desfazemos as entidades, depois
+ * tiramos as tags, e repetimos uma vez para o caso de escape duplo.
+ */
+function decode(s: string): string {
+  let out = s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+  for (let i = 0; i < 2; i++) out = entities(out.replace(/<[^>]+>/g, " "));
+  return out
+    .replace(/<[^>]*>?/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -65,6 +76,9 @@ export function parseRss(xml: string): Array<{ titulo: string; link: string; res
     const parsed = date ? new Date(date) : null;
     let resumo = tag(it, "description") || tag(it, "summary");
     if (resumo.startsWith(titulo)) resumo = resumo.slice(titulo.length).trim();
+    // o Google Notícias repete só a manchete e o veículo no resumo: nesse caso, sem resumo
+    const so = (x: string) => x.toLowerCase().replace(/[^a-z0-9à-ú]+/gi, "");
+    if (!resumo || so(resumo) === so(fonte) || so(titulo).includes(so(resumo)) || so(resumo).replace(so(fonte), "") === so(titulo)) resumo = "";
     return {
       titulo,
       link: linkTag,
