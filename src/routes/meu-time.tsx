@@ -101,7 +101,7 @@ function MyTeamPage() {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <Card className="p-4">
-              <SectionTitle title="Escalação atual" subtitle="xP do motor para esta rodada" icon={<Wallet size={18} className="text-[var(--color-brand)]" />} />
+              <SectionTitle title="Escalação atual" subtitle="Pontos previstos para esta rodada" icon={<Wallet size={18} className="text-[var(--color-brand)]" />} />
               {!t.atletas.length && <p className="text-sm text-[var(--color-ink-3)]">Você ainda não escalou nesta rodada.</p>}
               <ul className="divide-y divide-[var(--color-line)]">
                 {[...t.atletas]
@@ -122,7 +122,7 @@ function MyTeamPage() {
                         </div>
                         <div className="text-right">
                           <div className="font-display tabular font-bold text-[var(--color-gold)]">{p ? fmt1(p.xP) : "—"}</div>
-                          <div className="text-[10px] text-[var(--color-ink-3)]">{p?.alertas[0]?.split(":")[0] ?? "xP"}</div>
+                          <div className="text-[10px] text-[var(--color-ink-3)]">{p?.alertas[0]?.split(":")[0] ?? "pts previstos"}</div>
                         </div>
                       </li>
                     );

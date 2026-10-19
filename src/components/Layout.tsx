@@ -121,6 +121,7 @@ export function Layout({ children }: { children: ReactNode }) {
     void qc.invalidateQueries({ queryKey: ["backtest"] });
   });
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const navegando = useRouterState({ select: (s) => s.status === "pending" });
   const [searchOpen, setSearchOpen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
 
@@ -216,10 +217,14 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
 
       <div className="mx-auto w-full max-w-7xl px-4 pt-3">
-        <SyncBar />
+        {/* na Início o topo já mostra rodada, mercado e contagem regressiva */}
+        {path !== "/" && <SyncBar />}
         <DemoNotice />
       </div>
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-3">{children}</main>
+      {navegando && <div className="loading-bar" role="progressbar" aria-label="Carregando" />}
+      <main key={path} className="animate-page mx-auto w-full max-w-7xl flex-1 px-4 pt-3">
+        {children}
+      </main>
 
       <footer className="mt-10 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:grid-cols-[auto_1fr]">

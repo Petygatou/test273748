@@ -24,7 +24,7 @@ Stack: **TanStack Start v1** (React 19, SSR) · **Tailwind CSS v4** · **Vite 7*
 | Comunidade | `/comunidade` | Stories e publicações **só de administradores** (upload, câmera, filtros, enquetes); todos curtem, comentam e votam em tempo real (SSE) |
 | Meu Time | `/meu-time` | Conecta a conta do Cartola: seu time, patrimônio, pontos, comparação com a tropa ótima no seu patrimônio, minhas ligas e **times acompanhados com parciais ao vivo** |
 | Ligas | `/ligas` | Busca de ligas e classificação (campeonato, rodada, mês, turno) |
-| Painel ADM | `/admin` (só aparece para administradores) | **Prováveis escalações que alimentam o modelo**, publicações e stories oficiais, alertas de mercado com apoio do Comandante |
+| Painel ADM | `/admin` (só aparece para administradores) | **Usuários**: quem está online, último acesso, entradas, aparelho, tropas, comentários, votos e curtidas de cada conta, com bloquear e excluir. Também | **Prováveis escalações que alimentam o modelo**, publicações e stories oficiais, alertas de mercado com apoio do Comandante |
 | Conta | `/conta` | Conta com e-mail e senha, perfil, 8 avatares ilustrados, preferências, tropas salvas na conta |
 
 Também: busca global com preenchimento automático (atalho `/` ou Ctrl+K), rostos ilustrados para todos os atletas (camisa nas cores do clube; foto oficial quando a API fornece), PWA (manifest + ícones), auto-recuperação de versão (recarrega uma vez em erro de chunk), SyncBar com status do mercado/rodada/Modo Demonstração, layout mobile-first com navegação inferior.

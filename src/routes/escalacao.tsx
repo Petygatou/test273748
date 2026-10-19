@@ -32,9 +32,9 @@ interface BuilderSettings {
 const DEFAULT_SETTINGS: BuilderSettings = { profile: "equilibrada", budget: 120, formation: "auto", minPJogar: 0.5 };
 
 const PROFILES: Array<{ value: ProfileKey; label: string; desc: string }> = [
-  { value: "mitada", label: "Mitada", desc: "Prioriza teto (P85): atletas explosivos, gasta o orçamento para buscar o melhor time absoluto." },
-  { value: "equilibrada", label: "Equilibrada", desc: "Pontos esperados com penalidade de risco: pune piso baixo e dúvida de escalação." },
-  { value: "valorizacao", label: "Valorização", desc: "Maximiza a variação esperada de preço (C$) — patrimônio primeiro, pontos como desempate." },
+  { value: "mitada", label: "Mitada", desc: "Para arriscar: atletas que podem explodir na rodada. Bom para buscar a mitada." },
+  { value: "equilibrada", label: "Equilibrada", desc: "O mais seguro: bons pontos com pouco risco de alguém não jogar ou ir mal." },
+  { value: "valorizacao", label: "Valorização", desc: "Para ganhar cartoletas: quem mais deve subir de preço depois da rodada." },
 ];
 
 function EscalacaoPage() {
@@ -216,13 +216,13 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
           <Card className="space-y-4 p-4">
             <div>
-              <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Perfil estratégico</div>
+              <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Seu estilo</div>
               <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
               <p className="mt-2 text-xs text-[var(--color-ink-3)]">{PROFILES.find((p) => p.value === settings.profile)?.desc}</p>
             </div>
             <div>
               <label htmlFor="budget" className="mb-1.5 block text-xs font-semibold text-[var(--color-ink-3)] uppercase">
-                Cartoletas disponíveis
+                Quanto você tem (C$)
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -244,10 +244,10 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
             </div>
             <div>
               <label htmlFor="formation" className="mb-1.5 block text-xs font-semibold text-[var(--color-ink-3)] uppercase">
-                Esquema tático
+                Esquema
               </label>
               <select id="formation" className="input" value={settings.formation} onChange={(e) => update({ formation: e.target.value as BuilderSettings["formation"] })}>
-                <option value="auto">Automático (testa os 7 e escolhe o melhor)</option>
+                <option value="auto">Automático (o melhor)</option>
                 {FORMATION_KEYS.map((f) => (
                   <option key={f} value={f}>
                     {f}
@@ -257,7 +257,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
             </div>
             <div>
               <label htmlFor="minp" className="mb-1.5 flex justify-between text-xs font-semibold text-[var(--color-ink-3)] uppercase">
-                <span>Chance mínima de jogar</span>
+                <span>Só quem tem chance de jogar acima de</span>
                 <span className="tabular text-[var(--color-ink)]">{pct(settings.minPJogar)}</span>
               </label>
               <input id="minp" type="range" min={0.3} max={0.9} step={0.05} value={settings.minPJogar} onChange={(e) => update({ minPJogar: Number(e.target.value) })} className="w-full accent-[var(--color-brand)]" />
@@ -288,13 +288,13 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatTile label="Pontos esperados" value={fmt1(lineup.xPComCapitao)} hint={`${fmt1(lineup.xP)} + capitão`} accent="gold" />
+                <StatTile label="Pontos previstos" value={fmt1(lineup.xPComCapitao)} hint={`${fmt1(lineup.xP)} + bônus do capitão`} accent="gold" />
                 <StatTile label="Custo" value={cs(lineup.custo)} hint={`sobra ${cs(lineup.sobra)}`} />
-                <StatTile label="Valorização esperada" value={`${signed(lineup.valorizacaoEsperada)}`} hint="C$ na próxima rodada" accent={lineup.valorizacaoEsperada >= 0 ? "good" : undefined} />
+                <StatTile label="Deve valorizar" value={`${signed(lineup.valorizacaoEsperada)}`} hint="C$ depois da rodada" accent={lineup.valorizacaoEsperada >= 0 ? "good" : undefined} />
                 <StatTile
-                  label="Faixa realista (P10–P90)"
+                  label="Faixa provável"
                   value={sim ? `${fmt0Safe(sim.p10)}–${fmt0Safe(sim.p90)}` : "…"}
-                  hint={sim ? `com banco: média ${fmt1(sim.mean)}` : "simulando 3.000 rodadas"}
+                  hint={sim ? `8 em cada 10 rodadas · média ${fmt1(sim.mean)}` : "simulando…"}
                   accent="brand"
                 />
               </div>
@@ -333,7 +333,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <Card className="p-4">
-                  <SectionTitle title="Capitão justificado" subtitle="Bônus de 1,5× — a escolha muda o objetivo" icon={<Crown size={18} className="text-[var(--color-gold)]" />} />
+                  <SectionTitle title="Por que esse capitão" subtitle="O capitão vale 1,5× os pontos" icon={<Crown size={18} className="text-[var(--color-gold)]" />} />
                   <ol className="space-y-2">
                     {lineup.capitaes.map((c, i) => {
                       const p = byId.get(c.atletaId)!;
@@ -345,7 +345,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                             <div className="min-w-0 flex-1">
                               <div className="truncate text-sm font-semibold">{p.apelido}</div>
                               <div className="tabular text-[11px] text-[var(--color-ink-3)]">
-                                xP {fmt1(c.xP)} · teto {fmt1(c.teto)} · ganho {signed(c.ganhoEsperado, 1)}
+                                {fmt1(c.xP)} pts · pode chegar a {fmt1(c.teto)} · bônus {signed(c.ganhoEsperado, 1)}
                               </div>
                             </div>
                             {c.atletaId !== lineup.captainId && (
@@ -362,7 +362,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                 </Card>
 
                 <Card className="p-4">
-                  <SectionTitle title="Por que esta tropa" subtitle="Leitura determinística do otimizador" icon={<Swords size={18} className="text-[var(--color-brand)]" />} />
+                  <SectionTitle title="Por que esta tropa" subtitle="O resumo da escolha, em palavras" icon={<Swords size={18} className="text-[var(--color-brand)]" />} />
                   <ul className="space-y-2 text-sm text-[var(--color-ink-2)]">
                     {lineup.explicacao.map((e, i) => (
                       <li key={i} className="flex gap-2">
@@ -387,14 +387,14 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
               {!manual && result.porEsquema.length > 1 && (
                 <Card className="p-4">
-                  <SectionTitle title="Comparativo de esquemas" subtitle="Melhor tropa possível em cada formação, mesmo orçamento" />
+                  <SectionTitle title="E se fosse outro esquema?" subtitle="A melhor tropa em cada formação, com o mesmo dinheiro" />
                   <div className="overflow-x-auto">
                     <table className="data w-full text-sm">
                       <thead>
                         <tr>
                           <th className="text-left">Esquema</th>
                           <th className="text-right">Objetivo</th>
-                          <th className="text-right">xP (sem capitão)</th>
+                          <th className="text-right">Pts previstos (sem capitão)</th>
                           <th className="text-right">Diferença</th>
                         </tr>
                       </thead>
@@ -502,7 +502,7 @@ function Locks({
   };
   return (
     <Card className="space-y-3 p-4">
-      <div className="text-xs font-semibold text-[var(--color-ink-3)] uppercase">Travas do cartoleiro</div>
+      <div className="text-xs font-semibold text-[var(--color-ink-3)] uppercase">Fixar ou tirar atletas</div>
       <PlayerSearch
         players={analysis.players}
         clubs={analysis.clubs}
@@ -613,7 +613,7 @@ function SwapSheet({
           <div className="min-w-0 flex-1">
             <div className="truncate font-semibold">{cur.apelido}</div>
             <div className="tabular text-xs text-[var(--color-ink-3)]">
-              xP {fmt1(cur.xP)} · piso {fmt1(cur.piso)} · teto {fmt1(cur.teto)} · {cs(cur.preco)}
+              {fmt1(cur.xP)} pts previstos · de {fmt1(cur.piso)} a {fmt1(cur.teto)} · {cs(cur.preco)}
             </div>
           </div>
           <button onClick={onClose} aria-label="Fechar" className="text-[var(--color-ink-3)]">

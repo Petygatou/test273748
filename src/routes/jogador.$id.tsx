@@ -39,7 +39,7 @@ function PlayerPage() {
       <Card className="p-4 md:p-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="flex items-center gap-4">
-            <PlayerPhoto p={p} size={72} />
+            <PlayerPhoto p={p} size={88} />
             <div className="min-w-0">
               <h1 className="font-display truncate text-2xl font-extrabold">{p.apelido}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-ink-2)]">
@@ -86,11 +86,11 @@ function PlayerPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile label="xP (pontos esperados)" value={fmt1(p.xP)} hint="já descontada a chance de não jogar" accent="gold" />
-        <StatTile label="Chance de jogar" value={pct(p.pJogar)} hint={p.override ? `prováveis: ${p.override}` : "status + participação recente"} />
-        <StatTile label="xP se jogar" value={fmt1(p.xPJogando)} hint={`base ${fmt1(p.base)} · explosão ${fmt1(p.explosao)}`} accent="brand" />
+        <StatTile label="Pontos previstos" value={fmt1(p.xP)} hint="já contando a chance de não jogar" accent="gold" />
+        <StatTile label="Chance de jogar" value={pct(p.pJogar)} hint={p.override ? `escalação: ${p.override}` : "status do Cartola + últimos jogos"} />
+        <StatTile label="Se entrar em campo" value={fmt1(p.xPJogando)} hint={`pontos previstos se jogar`} accent="brand" />
         <StatTile
-          label="Mínimo p/ valorizar"
+          label="Precisa para valorizar"
           value={fmt1(p.mpv)}
           hint={`${p.mpvFonte === "oficial" ? "oficial" : "calibrado"} · esperado ${signed(p.valorizacaoEsperada)} C$`}
           accent={p.valorizacaoEsperada >= 0 ? "good" : undefined}
@@ -99,10 +99,10 @@ function PlayerPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="p-4">
-          <SectionTitle title="Distribuição de pontos" subtitle={`Monte Carlo com ${a.config.simulations.toLocaleString("pt-BR")} simulações (dado que joga)`} />
+          <SectionTitle title="O que pode acontecer" subtitle={`Em ${a.config.simulations.toLocaleString("pt-BR")} jogos simulados, se ele entrar em campo`} />
           <RangeBar p={p} />
           <div className="mt-4 space-y-2">
-            <ProbBar label="Negativar" value={p.pNegativo} tone="blue" />
+            <ProbBar label="Pontuar negativo" value={p.pNegativo} tone="blue" />
             <ProbBar label="5+ pontos" value={p.pAcima5} />
             <ProbBar label="8+ pontos" value={p.pAcima8} />
             <ProbBar label="12+ pontos" value={p.pAcima12} tone="gold" />
@@ -114,7 +114,7 @@ function PlayerPage() {
         </Card>
 
         <Card className="p-4">
-          <SectionTitle title="De onde vêm os pontos" subtitle="Projeção scout a scout, dado que entra em campo" />
+          <SectionTitle title="De onde vêm os pontos" subtitle="O que ele deve fazer em campo nesta rodada" />
           <ul className="space-y-1.5">
             {p.scouts.map((s) => (
               <li key={s.key} className="grid grid-cols-[110px_1fr_70px] items-center gap-2 text-sm">
@@ -140,17 +140,17 @@ function PlayerPage() {
         </Card>
 
         <Card className="p-4">
-          <SectionTitle title="Fatores de contexto" subtitle="Como o confronto altera a projeção" />
+          <SectionTitle title="O que pesa nesta rodada" subtitle="Como o adversário e o momento mudam a previsão" />
           <div className="flex flex-wrap gap-2">
             <FactorChip label="Ataque do time" value={p.fatores.ataque} title="Gols esperados no confronto / gols esperados contra adversário médio" />
-            <FactorChip label="Cedência do adversário" value={p.fatores.cedencia} title="Quanto o adversário cede do scout principal da posição" />
-            <FactorChip label="Mando" value={p.fatores.mando} />
+            <FactorChip label="Adversário" value={p.fatores.cedencia} title="Quanto o adversário costuma deixar essa posição pontuar" />
+            <FactorChip label="Casa/fora" value={p.fatores.mando} />
             <FactorChip label="Forma recente" value={p.fatores.forma} title="Pontos recentes (peso maior) vs. temporada" />
           </div>
           {ced && (
             <div className="mt-4">
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">
-                {opp?.nome} cede a {posName(p.posicaoId).toLowerCase()}s
+                Quanto o {opp?.nome} costuma dar para {posName(p.posicaoId).toLowerCase()}s
               </div>
               <div className="grid grid-cols-4 gap-2 text-center text-xs">
                 {(["geral", "casa", "fora", "ultimos5"] as const).map((k) => {

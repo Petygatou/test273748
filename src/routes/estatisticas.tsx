@@ -72,7 +72,7 @@ function StatsPage() {
 
 type SortKey = "xP" | "cb" | "teto" | "piso" | "pAcima12" | "valorizacaoEsperada" | "mpv" | "regularidade" | "preco" | "media" | "posse";
 const SORTS: Array<{ value: SortKey; label: string }> = [
-  { value: "xP", label: "xP" },
+  { value: "xP", label: "Pontos previstos" },
   { value: "cb", label: "Custo-benefício" },
   { value: "teto", label: "Teto" },
   { value: "piso", label: "Piso" },
@@ -163,7 +163,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
               <th className="sticky left-0 z-10 bg-[var(--color-surface-2)] text-left">Atleta</th>
               <th className="text-left">Jogo</th>
               <th className="text-right">C$</th>
-              <th className="text-right" title="Pontos esperados (já descontada a chance de não jogar)">xP</th>
+              <th className="text-right" title="Pontos previstos (já descontada a chance de não jogar)">Pts</th>
               <th className="text-right">Joga</th>
               <th className="min-w-[150px] text-left">Piso · Média · Teto</th>
               <th className="text-right">12+</th>
@@ -516,8 +516,8 @@ function Times({ a }: { a: RoundAnalysis }) {
 /* ================================ GLOSSÁRIO ================================ */
 
 const GLOSSARY: Array<{ term: string; def: string }> = [
-  { term: "xP (pontos esperados)", def: "Média de pontos que o atleta deve fazer na rodada, já multiplicada pela chance de entrar em campo. É o número que o otimizador soma." },
-  { term: "xP se jogar", def: "Pontos esperados caso o atleta entre em campo. Útil para comparar quem certamente joga." },
+  { term: "Pontos previstos (xP)", def: "Média de pontos que o atleta deve fazer na rodada, já multiplicada pela chance de entrar em campo. É o número que o otimizador soma." },
+  { term: "Pontos se jogar", def: "Pontos esperados caso o atleta entre em campo. Útil para comparar quem certamente joga." },
   { term: "Piso (P15) e Teto (P85)", def: "Resultado da simulação de Monte Carlo: em 15% das rodadas simuladas o atleta faz menos que o piso; em 15% faz mais que o teto. A faixa entre eles contém 70% dos cenários — e o backtest confere se isso acontece de verdade." },
   { term: "Base x Explosão", def: "Base = scouts de volume que se repetem (desarmes, faltas sofridas, finalizações, defesas). Explosão = eventos raros e decisivos (gol, assistência, SG, defesa de pênalti, vitória do técnico)." },
   { term: "Chance de jogar", def: "Combina o status oficial (provável, dúvida...), a participação recente nos jogos do clube (com peso maior para os últimos) e as prováveis escalações publicadas no Painel ADM." },
@@ -526,7 +526,7 @@ const GLOSSARY: Array<{ term: string; def: string }> = [
   { term: "Matriz de cedência", def: "Pontos médios que os atletas de cada posição fazem contra cada time, encolhidos em direção à média da liga para não exagerar amostras pequenas." },
   { term: "SG (saldo de gol)", def: "Probabilidade do time não sofrer gol, calculada pela matriz de placares do modelo Dixon-Coles, multiplicada pela taxa histórica do atleta de receber o SG quando o time não sofre gol." },
   { term: "MPV (mínimo para valorizar)", def: "Pontuação a partir da qual o atleta ganha cartoletas. Usa o valor oficial quando a API fornece; senão, a fórmula V = CPP × (pontos − MPV) é recalibrada a cada rodada com o mercado inteiro." },
-  { term: "Valorização esperada", def: "Chance de jogar × CPP × (xP se jogar − MPV). Positiva = deve valorizar." },
+  { term: "Valorização esperada", def: "Chance de jogar × CPP × (pontos se jogar − MPV). Positiva = deve valorizar." },
   { term: "Regularidade", def: "Porcentagem dos jogos da temporada com 3 pontos ou mais (com leve ajuste para poucas amostras)." },
   { term: "Diferencial", def: "Atleta com boa projeção e pouca gente escalando: se ele mitar, você ganha posições na liga." },
   { term: "Capitão justificado", def: "O capitão recebe 1,5× os pontos. O otimizador escolhe o capitão junto com a tropa, e a justificativa compara as alternativas em pontos esperados." },
