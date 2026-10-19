@@ -1,4 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { useDebounced } from "../lib/search";
 import { Crown, Plus, Radio, Search, X } from "lucide-react";
 import { useState } from "react";
 import { CAPTAIN_MULTIPLIER } from "../engine/rules";
@@ -12,7 +13,7 @@ import { Alert, Card, PosBadge, SectionTitle } from "./ui";
 export function FollowedTeams() {
   const [followed, setFollowed] = useLocal<TeamSummary[]>(KEYS.followed, []);
   const [q, setQ] = useState("");
-  const [term, setTerm] = useState("");
+  const term = useDebounced(q.trim(), 350);
   const search = useQuery({ queryKey: ["times", term], queryFn: () => searchTeamsFn({ data: { q: term } }), enabled: term.length >= 2, retry: false });
   const lives = useQueries({
     queries: followed.map((t) => ({ queryKey: ["team-live", t.timeId], queryFn: () => fetchTeamLiveFn({ data: { id: t.timeId } }), refetchInterval: 60_000, retry: false })),
@@ -22,21 +23,12 @@ export function FollowedTeams() {
   return (
     <Card className="p-4">
       <SectionTitle title="Times acompanhados" subtitle="Parciais ao vivo de qualquer time do Cartola (atualiza a cada minuto)" icon={<Radio size={18} className="text-[var(--color-critical-ink)]" />} />
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setTerm(q.trim());
-        }}
-      >
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
-          <input className="input pl-9" placeholder="Buscar time pelo nome" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar time" />
+          <input className="input pl-9" placeholder="Digite o nome do time ou do cartoleiro" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar time" />
         </div>
-        <button className="btn btn-ghost" type="submit">
-          Buscar
-        </button>
-      </form>
+        </div>
       {search.error && (
         <div className="mt-2">
           <Alert tone="warning">{search.error instanceof Error ? search.error.message : "Busca indisponível"}</Alert>

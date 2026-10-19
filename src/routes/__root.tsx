@@ -10,7 +10,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Comandante FC — inteligência para o Cartola" },
+      { title: "Tropa — o site da mitagem no Cartola" },
       { name: "description", content: "Projeções scout a scout, simulação de Monte Carlo, otimizador exato de tropas e backtest público da precisão do modelo para o Cartola FC." },
       { name: "theme-color", content: "#0b0c0f" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -19,8 +19,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
-      { rel: "apple-touch-icon", href: "/icon.svg" },
+      { rel: "icon", href: "/icon-64.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oxanium:wght@600;700;800&display=swap" },

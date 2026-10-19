@@ -13,13 +13,16 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { join } from "node:path";
 
 export function dataDir(): string {
-  return process.env.DATA_DIR ?? join(process.cwd(), "data");
+  return process.env.DATA_DIR ?? (process.env.VERCEL ? "/tmp/cfc-data" : join(process.cwd(), "data"));
 }
 
 export const events = new EventEmitter();
 events.setMaxListeners(1000);
 
-export type Topic = "community" | "alerts" | "overrides" | "users";
+export type Topic = "community" | "alerts" | "overrides" | "users" | "dados";
+
+/** Avisa os navegadores abertos (SSE) que um tópico mudou. */
+export const emit = (topic: Topic) => events.emit("change", topic);
 
 export class Collection<T extends { id: string }> {
   private rows = new Map<string, T>();

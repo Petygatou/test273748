@@ -24,6 +24,7 @@ function CommunityPage() {
   const [viewing, setViewing] = useState<string | null>(null);
 
   const canWrite = Boolean(auth.user);
+  const canPublish = auth.isAdmin;
 
   const load = useCallback(async () => {
     try {
@@ -60,19 +61,19 @@ function CommunityPage() {
       <div>
         <h1 className="font-display text-2xl font-extrabold">Comunidade</h1>
         <p className="text-sm text-[var(--color-ink-3)]">
-          A arena dos cartoleiros, sincronizada em tempo real.{" "}
+          Novidades oficiais do Tropa em tempo real. Curta, comente e vote nas enquetes.{" "}
           {!auth.user && (
             <Link to="/conta" className="font-semibold text-[var(--color-brand)] underline">
-              Entre para publicar
+              Entre para participar
             </Link>
           )}
         </p>
       </div>
       <Card className="p-3">
-        <StoriesBar stories={stories} me={auth.me} onCreate={() => (canWrite ? setComposeStory(true) : setErro("Entre na sua conta para publicar stories."))} onOpen={setViewing} />
+        <StoriesBar stories={stories} me={auth.me} onCreate={canPublish ? () => setComposeStory(true) : undefined} onOpen={setViewing} />
       </Card>
       {erro && <Alert tone="warning">{erro}</Alert>}
-      {canWrite && <Composer me={auth.me} onPublish={(p) => act(() => backend.createPost(p, auth.me))} />}
+      {canPublish && <Composer me={auth.me} onPublish={(p) => act(() => backend.createPost(p, auth.me))} />}
       {posts == null ? (
         <div className="space-y-3">
           {[0, 1].map((i) => (
@@ -92,7 +93,7 @@ function CommunityPage() {
           />
         ))
       )}
-      {composeStory && (
+      {composeStory && canPublish && (
         <StoryComposer
           onClose={() => setComposeStory(false)}
           onPublish={async (s) => {

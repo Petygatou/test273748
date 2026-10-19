@@ -40,17 +40,18 @@ describe("contas", () => {
 });
 
 describe("comunidade", () => {
-  it("posta, curte, comenta, vota e respeita permissões", () => {
+  it("só admin publica; todos curtem, comentam e votam", () => {
     const a = db.users.find((u) => u.email === "admin@exemplo.com")!;
     const b = db.users.find((u) => u.email === "b@exemplo.com")!;
-    const p = community.createPost(b, { texto: "olá", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
-    expect(() => community.createPost(b, { texto: "x", oficial: true })).toThrow(/administrador/);
-    expect(() => community.createPost(b, { texto: "" })).toThrow(/vazia/);
-    expect(() => community.createPost(b, { texto: "x", media: { kind: "image", url: "https://evil/x.png" } })).not.toThrow(); // mídia externa é descartada
+    expect(() => community.createPost(b, { texto: "olá" })).toThrow(/administradores/);
+    expect(() => community.createStory(b, { media: { kind: "image", url: "/media/x.jpg" } })).toThrow(/administradores/);
+    const p = community.createPost(a, { texto: "olá", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
+    expect(() => community.createPost(a, { texto: "" })).toThrow(/vazia/);
+    expect(() => community.createPost(a, { texto: "x", media: { kind: "image", url: "https://evil/x.png" } })).not.toThrow(); // mídia externa é descartada
     community.toggleLike(a, p.id);
     community.toggleLike(b, p.id);
     community.toggleLike(b, p.id);
-    community.addComment(a, p.id, "boa!");
+    community.addComment(b, p.id, "boa!");
     community.vote(a, p.id, 1);
     community.vote(b, p.id, 0);
     community.vote(b, p.id, 1); // troca de voto
@@ -61,11 +62,10 @@ describe("comunidade", () => {
     expect(view.comments[0].texto).toBe("boa!");
     expect(view.poll!.votos).toEqual([0, 2]);
     expect(view.podeApagar).toBe(true); // admin
-    expect(community.listPosts(b).find((x) => x.id === p.id)!.podeApagar).toBe(true); // autor
+    expect(community.listPosts(b).find((x) => x.id === p.id)!.podeApagar).toBe(false);
     const ext = community.listPosts(a).find((x) => x.texto === "x")!;
     expect(ext.media).toBeUndefined();
-    const doAdmin = community.createPost(a, { texto: "do admin" });
-    expect(() => community.deletePost(b, doAdmin.id)).toThrow(/permissão/);
+    expect(() => community.deletePost(b, p.id)).toThrow(/permissão/);
     community.deletePost(a, p.id);
     expect(db.likes.filter((l) => l.postId === p.id)).toHaveLength(0);
   });
@@ -132,5 +132,227 @@ describe("API do Cartola", () => {
     );
     await expect(http.cartola("/auth/time", { token: "b".repeat(40) })).rejects.toThrow(/Não autorizado/);
     expect(n).toBe(1);
+  });
+});
+
+describe("fotos oficiais", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("normaliza a URL da API e só aceita hosts da Globo", async () => {
+    const { normalizeFoto, isAllowedFoto } = await import("../src/server/foto");
+    expect(normalizeFoto("http://s.sde.globo.com/media/organizations/2026/04/01/FORMATO/x.png")).toBe("https://s.sde.globo.com/media/organizations/2026/04/01/220x220/x.png");
+    expect(normalizeFoto(null)).toBeUndefined();
+    expect(normalizeFoto("javascript:alert(1)")).toBeUndefined();
+    expect(isAllowedFoto("https://s.sde.globo.com/a.png")).not.toBeNull();
+    expect(isAllowedFoto("https://s2.glbimg.com/a.png")).not.toBeNull();
+    expect(isAllowedFoto("https://evil.com/a.png")).toBeNull();
+    expect(isAllowedFoto("https://globo.com.evil.com/a.png")).toBeNull();
+    expect(isAllowedFoto("http://s.sde.globo.com/a.png")).toBeNull();
+    expect(isAllowedFoto("http://127.0.0.1/a.png")).toBeNull();
+  });
+
+  it("repassa a imagem e recusa o que não é imagem", async () => {
+    const { proxyFoto } = await import("../src/server/foto");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (url.endsWith("ok.png") ? new Response(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }) : new Response("<html>", { headers: { "content-type": "text/html" } }))));
+    const ok = await proxyFoto("https://s.sde.globo.com/ok.png");
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("content-type")).toBe("image/png");
+    expect((await proxyFoto("https://s.sde.globo.com/pagina.html")).status).toBe(404);
+    expect((await proxyFoto("https://evil.com/ok.png")).status).toBe(400);
+    expect((await proxyFoto(null)).status).toBe(400);
+  });
+});
+
+describe("dados reais importados", () => {
+  it("só aceita temporada real, completa", async () => {
+    const { validateSeason, saveImported, loadImported } = await import("../src/server/importada");
+    const fake = { source: "demo", athletes: [], matches: [], history: [], clubs: {}, rodadaAtual: 5 };
+    expect(() => validateSeason(fake)).toThrow(/reais/);
+    expect(() => validateSeason({ ...fake, source: "cartola" })).toThrow(/poucos atletas/);
+    const ok = { source: "cartola", athletes: Array.from({ length: 60 }, (_, i) => ({ id: i })), matches: [], history: [], clubs: {}, rodadaAtual: 5 };
+    expect(validateSeason(ok).rodadaAtual).toBe(5);
+    await saveImported(validateSeason(ok));
+    const back = await loadImported();
+    expect(back?.data.athletes).toHaveLength(60);
+  });
+});
+
+describe("admin por variável de ambiente", () => {
+  it("cria a conta do admin e redefine a senha pela variável", () => {
+    process.env.ADMIN_EMAILS = "dono@tropa.com";
+    process.env.ADMIN_PASSWORD = "senhadodono1";
+    const u = auth.verifyUser("dono@tropa.com", "senhadodono1");
+    expect(auth.isAdmin(u)).toBe(true);
+    expect(() => auth.createUser("dono@tropa.com", "outrasenha99", "")).toThrow(/Já existe/); // ninguém toma o e-mail
+    process.env.ADMIN_PASSWORD = "novasenha123";
+    expect(() => auth.verifyUser("dono@tropa.com", "senhadodono1")).toThrow();
+    expect(auth.verifyUser("dono@tropa.com", "novasenha123").id).toBe(u.id);
+    delete process.env.ADMIN_EMAILS;
+    delete process.env.ADMIN_PASSWORD;
+  });
+});
+
+describe("vigia dos dados", () => {
+  const base = { id: 1, apelido: "Fulano", clubeId: 1, posicaoId: 5 as const, statusId: 7, preco: 10, variacao: 0, media: 5, jogos: 10, pontosUltima: 0 };
+
+  it("a impressão digital muda com status, preço, rodada e notícia, e não com o relógio", async () => {
+    const { fingerprint } = await import("../src/server/watcher");
+    const d = { rodadaAtual: 10, mercadoStatus: 1, athletes: [base] };
+    const f0 = fingerprint(d);
+    expect(fingerprint({ ...d })).toBe(f0);
+    expect(fingerprint({ ...d, athletes: [{ ...base, statusId: 2 }] })).not.toBe(f0);
+    expect(fingerprint({ ...d, athletes: [{ ...base, preco: 10.5 }] })).not.toBe(f0);
+    expect(fingerprint({ ...d, rodadaAtual: 11 })).not.toBe(f0);
+    expect(fingerprint({ ...d, mercadoStatus: 2 })).not.toBe(f0);
+    expect(fingerprint(d, { 1: -1.6 })).not.toBe(f0);
+  });
+
+  it("descreve as mudanças de status entre duas leituras", async () => {
+    const { diffMarket } = await import("../src/server/watcher");
+    const prev = new Map([[1, { status: 7, preco: 10, nome: "Fulano" }]]);
+    const out = diffMarket(prev, [{ ...base, statusId: 2 }], () => "FLA");
+    expect(out).toHaveLength(1);
+    expect(out[0].texto).toMatch(/Fulano \(FLA\).*Dúvida/);
+    expect(diffMarket(prev, [base], () => "FLA")).toHaveLength(0);
+  });
+
+  it("só aceita notícia que cita o atleta no título e traz palavra de ausência", async () => {
+    const { signalsFromNews } = await import("../src/server/watcher");
+    const now = Date.now();
+    const mk = (titulo: string, extra: Partial<{ categoria: string; publicadoEm: string }> = {}) =>
+      ({ id: titulo, titulo, resumo: "", link: "https://x", fonte: "x", publicadoEm: new Date(now - 3600_000).toISOString(), categoria: "Desfalques", atletas: [{ id: 1, apelido: "Fulano", clubeId: 1, impacto: null }], clubes: [], ...extra }) as never;
+    expect(signalsFromNews([mk("Fulano é desfalque do Flamengo contra o Vasco")], now)[1].shift).toBeLessThan(-1);
+    expect(signalsFromNews([mk("Fulano é dúvida para o jogo")], now)[1].shift).toBeGreaterThan(-1.2);
+    expect(signalsFromNews([mk("Flamengo vence e Fulano brilha")], now)).toEqual({});
+    expect(signalsFromNews([mk("Sicrano é desfalque do Flamengo")], now)).toEqual({});
+    expect(signalsFromNews([mk("Fulano é desfalque", { publicadoEm: new Date(now - 72 * 3600_000).toISOString() })], now)).toEqual({});
+  });
+});
+
+describe("escalação oficial (API-Football)", () => {
+  const clubs = { 1: { id: 1, nome: "Flamengo", abreviacao: "FLA" }, 2: { id: 2, nome: "Atlético-MG", abreviacao: "CAM" }, 3: { id: 3, nome: "Athletico-PR", abreviacao: "CAP" } };
+  const mk = (id: number, apelido: string, nome: string, clubeId: number, posicaoId: 1 | 2 | 3 | 4 | 5 = 4) => ({ id, apelido, nome, clubeId, posicaoId, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 });
+  const nomes = ["Rossi", "Varela", "Fabricio Bruno", "Leo Pereira", "Ayrton Lucas", "Pulgar", "De la Cruz", "Arrascaeta", "Gabigol", "Pedro", "Cebolinha"];
+  const fla = nomes.map((n, i) => mk(10 + i, n.split(" ").pop()!, `${n} Silva`, 1, i === 0 ? 1 : i < 5 ? 3 : i < 8 ? 4 : 5));
+  const banco = Array.from({ length: 6 }, (_, i) => mk(30 + i, `Reserva${i}`, `Reserva${i} Souza`, 1));
+  const outros = mk(99, "Sobrando", "Sobrando Lima", 1);
+  const athletes = [...fla, ...banco, outros, mk(200, "Hulk", "Givanildo Vieira de Souza", 2, 5), mk(201, "Paulinho", "Paulo Henrique", 2, 5)];
+
+  it("casa nomes da súmula com clubes e atletas, sem chutar ambíguos", async () => {
+    const e = await import("../src/server/escalacoes");
+    expect(e.matchClub("Atletico-MG", clubs as never)?.id).toBe(2);
+    expect(e.matchClub("Athletico Paranaense", clubs as never)?.id).toBe(3);
+    expect(e.matchClub("Flamengo RJ", clubs as never)?.id).toBe(1);
+    expect(e.matchClub("Time Desconhecido", clubs as never)).toBeNull();
+    const squad = athletes.filter((a) => a.clubeId === 1);
+    expect(e.matchPlayer("G. Arrascaeta", squad)?.apelido).toBe("Arrascaeta");
+    expect(e.matchPlayer("Pedro", squad)?.apelido).toBe("Pedro");
+    expect(e.matchPlayer("Fabricio Bruno", squad)?.apelido).toBe("Bruno");
+    expect(e.matchPlayer("Jogador Inexistente", squad)).toBeNull();
+    // dois "Silva": só a inicial e o sobrenome não bastam para escolher
+    const amb = [mk(1, "A", "Joao Silva", 1), mk(2, "B", "Jose Silva", 1)];
+    expect(e.matchPlayer("Silva", amb)).toBeNull();
+  });
+
+  it("transforma a súmula em titular/reserva/fora e só exclui quando casou quase tudo", async () => {
+    const e = await import("../src/server/escalacoes");
+    const lineup = {
+      team: { id: 1, name: "Flamengo" },
+      startXI: nomes.map((n) => ({ player: { name: n } })),
+      substitutes: banco.map((b) => ({ player: { name: b.apelido } })),
+    };
+    const r = e.mapLineup(lineup, athletes as never, clubs as never)!;
+    expect(r.titulares).toHaveLength(11);
+    expect(r.banco).toHaveLength(6);
+    const ov = e.toOverrides(r, athletes as never);
+    expect(ov[10]).toBe("titular");
+    expect(ov[30]).toBe("reserva");
+    expect(ov[99]).toBe("fora"); // fora dos 18
+    expect(ov[200]).toBeUndefined(); // outro clube não é tocado
+    // súmula mal casada: não exclui ninguém, só rebaixa a reserva
+    const mal = { ...lineup, substitutes: [{ player: { name: "Ninguem Conhecido" } }] };
+    const r2 = e.mapLineup(mal, athletes as never, clubs as never)!;
+    expect(e.toOverrides(r2, athletes as never)[99]).toBe("reserva");
+  });
+
+  it("gasta pouquíssimas chamadas: lista 1x por dia, lote de jogos, janela curta, teto diário", async () => {
+    const e = await import("../src/server/escalacoes");
+    const now = new Date("2026-10-20T20:00:00Z").getTime();
+    const kick = new Date(now + 60 * 60_000).toISOString(); // bola em 1 h
+    const lineup = (names: string[]) => ({ team: { id: 1, name: "Flamengo" }, startXI: names.map((n) => ({ player: { name: n } })), substitutes: banco.map((b) => ({ player: { name: b.apelido } })) });
+    const calls: string[] = [];
+    let remaining = 80;
+    const mkFetch = (comLineups: boolean, saida: "pronta" | "vazia") =>
+      (async (url: string) => {
+        calls.push(url);
+        remaining--;
+        const headers = { "x-ratelimit-requests-remaining": String(remaining) };
+        if (url.includes("/fixtures?ids=")) {
+          const ids = url.split("ids=")[1].split("-").map(Number);
+          const base = ids.map((id) => ({ fixture: { id, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }));
+          return new Response(JSON.stringify({ response: base.map((x) => (comLineups ? { ...x, lineups: saida === "pronta" ? [lineup(nomes), lineup(nomes)] : [] } : x)), errors: [] }), { headers });
+        }
+        if (url.includes("/fixtures/lineups")) return new Response(JSON.stringify({ response: [lineup(nomes), lineup(nomes)], errors: [] }), { headers });
+        return new Response(
+          JSON.stringify({ response: [7, 8, 9].map((id) => ({ fixture: { id, date: kick }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } })), errors: [] }),
+          { headers },
+        );
+      }) as unknown as typeof fetch;
+    delete process.env.API_FOOTBALL_KEY;
+    const st0 = e.newOfficialState(false);
+    expect(await e.stepOfficial(st0, athletes as never, clubs as never, 2026, now, mkFetch(true, "pronta"))).toEqual([]);
+    expect(calls).toHaveLength(0); // sem chave, nenhuma chamada
+
+    process.env.API_FOOTBALL_KEY = "teste";
+    // 1) 3 jogos no mesmo horário, súmula ainda não saiu: lista (1) + lote (1) = 2 chamadas, não 4
+    const st = e.newOfficialState(false);
+    const f1 = mkFetch(true, "vazia");
+    expect(await e.stepOfficial(st, athletes as never, clubs as never, 2026, now, f1)).toEqual([]);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toContain("ids=7-8-9");
+    // 2) um minuto depois não pergunta de novo; 10 min depois pergunta (lote)
+    await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 60_000, f1);
+    expect(calls).toHaveLength(2);
+    // 3) a súmula sai: uma chamada resolve os 3 jogos
+    const got = await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 10 * 60_000, mkFetch(true, "pronta"));
+    expect(calls).toHaveLength(3);
+    expect(got).toHaveLength(3);
+    expect(got[0].overrides[10]).toBe("titular");
+    expect(e.currentOfficialOverrides(st)[99]).toBe("fora");
+    // 4) jogos resolvidos não são consultados de novo e a lista do dia não se repete
+    await e.stepOfficial(st, athletes as never, clubs as never, 2026, now + 30 * 60_000, f1);
+    expect(calls).toHaveLength(3);
+    // o saldo informado pela API é registrado
+    expect(e.quotaStatus(st, now).restantesNaApi).toBe(remaining);
+    expect(e.quotaStatus(st, now).usadas).toBe(3);
+
+    // fora da janela (jogo daqui a 5 h) só a lista de jogos, uma vez
+    const far = e.newOfficialState(false);
+    const before = calls.length;
+    const longe = (async (u: string) => { calls.push(u); return new Response(JSON.stringify({ response: [{ fixture: { id: 1, date: new Date(now + 5 * 3600_000).toISOString() }, teams: { home: { id: 1, name: "Flamengo" }, away: { id: 1, name: "Flamengo" } } }], errors: [] })); }) as unknown as typeof fetch;
+    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now, longe);
+    await e.stepOfficial(far, athletes as never, clubs as never, 2026, now + 3 * 3600_000, longe);
+    expect(calls.length - before).toBe(1);
+
+    // teto diário: com 90 usadas não chama mais nada
+    process.env.API_FOOTBALL_DAILY_LIMIT = "2";
+    const cap = e.newOfficialState(false);
+    const c0 = calls.length;
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now, f1); // lista (1)
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now, f1); // lote (2)
+    await e.stepOfficial(cap, athletes as never, clubs as never, 2026, now + 11 * 60_000, f1); // teto: nada
+    expect(calls.length - c0).toBe(2);
+    delete process.env.API_FOOTBALL_DAILY_LIMIT;
+
+    // se a API não devolver `lineups` no lote, cai para a chamada por jogo (e continua dentro do teto)
+    const sem = e.newOfficialState(false);
+    const f2 = mkFetch(false, "pronta");
+    const d0 = calls.length;
+    await e.stepOfficial(sem, athletes as never, clubs as never, 2026, now, f2); // lista + lote sem lineups
+    expect(sem.semLote).toBe(true);
+    const r = await e.stepOfficial(sem, athletes as never, clubs as never, 2026, now + 10 * 60_000, f2);
+    expect(r).toHaveLength(3);
+    expect(calls.length - d0).toBe(2 + 3);
+    delete process.env.API_FOOTBALL_KEY;
   });
 });

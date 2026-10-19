@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useDebounced } from "../lib/search";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Search, Trophy } from "lucide-react";
 import { useState } from "react";
@@ -19,7 +20,7 @@ function LeaguesPage() {
   const navigate = useNavigate({ from: "/ligas" });
   const [token] = useCartolaToken();
   const [q, setQ] = useState("");
-  const [term, setTerm] = useState("");
+  const term = useDebounced(q.trim(), 350);
   const [ordem, setOrdem] = useState<Ordem>("campeonato");
   const search = useQuery({ queryKey: ["ligas-busca", term], queryFn: () => searchLeaguesFn({ data: { q: term } }), enabled: term.length >= 2, retry: false });
   const league = useQuery({ queryKey: ["liga", slug, ordem, token.slice(-12)], queryFn: () => leagueFn({ data: { token, slug: slug!, ordem } }), enabled: Boolean(slug && token), retry: false });
@@ -33,21 +34,12 @@ function LeaguesPage() {
         <p className="text-sm text-[var(--color-ink-3)]">Busque ligas do Cartola e acompanhe a classificação.</p>
       </div>
       <Card className="p-4">
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setTerm(q.trim());
-          }}
-        >
+        <div className="flex gap-2">
           <div className="relative flex-1">
             <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
-            <input className="input pl-9" placeholder="Nome da liga" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar liga" />
+            <input className="input pl-9" placeholder="Digite o nome da liga" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar liga" />
           </div>
-          <button className="btn btn-ghost" type="submit">
-            Buscar
-          </button>
-        </form>
+        </div>
         {search.error && (
           <div className="mt-2">
             <Alert tone="warning">{search.error instanceof Error ? search.error.message : "Busca indisponível"}</Alert>

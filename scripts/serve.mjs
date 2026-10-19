@@ -6,6 +6,7 @@ import { extname, join, normalize } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
+process.env.NODE_ENV ??= "production";
 const root = fileURLToPath(new URL("../dist/client/", import.meta.url));
 const { default: app } = await import(new URL("../dist/server/server.js", import.meta.url).href);
 const port = Number(process.env.PORT ?? 3000);
@@ -56,4 +57,8 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Erro interno");
   }
-}).listen(port, () => console.log(`Comandante FC em http://localhost:${port}`));
+}).listen(port, () => {
+  console.log(`Tropa em http://localhost:${port}`);
+  // liga o vigia dos dados mesmo sem nenhum visitante
+  setTimeout(() => fetch(`http://127.0.0.1:${port}/api/saude`).catch(() => {}), 500);
+});

@@ -21,9 +21,14 @@ import { Route as LigasRouteImport } from './routes/ligas'
 import { Route as MeuTimeRouteImport } from './routes/meu-time'
 import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
+import { Route as ProvaveisRouteImport } from './routes/provaveis'
 import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
+import { Route as ApiDiagnosticoRouteImport } from './routes/api/diagnostico'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiFotoRouteImport } from './routes/api/foto'
+import { Route as ApiImportarRouteImport } from './routes/api/importar'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
+import { Route as ApiSaudeRouteImport } from './routes/api/saude'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 import { Route as MediaFileRouteImport } from './routes/media/$file'
 
@@ -87,9 +92,19 @@ const NoticiasRoute = NoticiasRouteImport.update({
   path: '/noticias',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProvaveisRoute = ProvaveisRouteImport.update({
+  id: '/provaveis',
+  path: '/provaveis',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiComandanteRoute = ApiComandanteRouteImport.update({
   id: '/api/comandante',
   path: '/api/comandante',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDiagnosticoRoute = ApiDiagnosticoRouteImport.update({
+  id: '/api/diagnostico',
+  path: '/api/diagnostico',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiEventsRoute = ApiEventsRouteImport.update({
@@ -97,9 +112,24 @@ const ApiEventsRoute = ApiEventsRouteImport.update({
   path: '/api/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFotoRoute = ApiFotoRouteImport.update({
+  id: '/api/foto',
+  path: '/api/foto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportarRoute = ApiImportarRouteImport.update({
+  id: '/api/importar',
+  path: '/api/importar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaRoute = ApiMediaRouteImport.update({
   id: '/api/media',
   path: '/api/media',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSaudeRoute = ApiSaudeRouteImport.update({
+  id: '/api/saude',
+  path: '/api/saude',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
@@ -126,9 +156,14 @@ export interface FileRoutesByFullPath {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
+  '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
+  '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -145,9 +180,14 @@ export interface FileRoutesByTo {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
+  '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
+  '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -165,9 +205,14 @@ export interface FileRoutesById {
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
+  '/provaveis': typeof ProvaveisRoute
   '/api/comandante': typeof ApiComandanteRoute
+  '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/foto': typeof ApiFotoRoute
+  '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
+  '/api/saude': typeof ApiSaudeRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -186,9 +231,14 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
+    | '/api/diagnostico'
     | '/api/events'
+    | '/api/foto'
+    | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesByTo: FileRoutesByTo
@@ -205,9 +255,14 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
+    | '/api/diagnostico'
     | '/api/events'
+    | '/api/foto'
+    | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   id:
@@ -224,9 +279,14 @@ export interface FileRouteTypes {
     | '/meu-time'
     | '/modelo'
     | '/noticias'
+    | '/provaveis'
     | '/api/comandante'
+    | '/api/diagnostico'
     | '/api/events'
+    | '/api/foto'
+    | '/api/importar'
     | '/api/media'
+    | '/api/saude'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesById: FileRoutesById
@@ -244,9 +304,14 @@ export interface RootRouteChildren {
   MeuTimeRoute: typeof MeuTimeRoute
   ModeloRoute: typeof ModeloRoute
   NoticiasRoute: typeof NoticiasRoute
+  ProvaveisRoute: typeof ProvaveisRoute
   ApiComandanteRoute: typeof ApiComandanteRoute
+  ApiDiagnosticoRoute: typeof ApiDiagnosticoRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiFotoRoute: typeof ApiFotoRoute
+  ApiImportarRoute: typeof ApiImportarRoute
   ApiMediaRoute: typeof ApiMediaRoute
+  ApiSaudeRoute: typeof ApiSaudeRoute
   JogadorIdRoute: typeof JogadorIdRoute
   MediaFileRoute: typeof MediaFileRoute
 }
@@ -337,11 +402,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NoticiasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/provaveis': {
+      id: '/provaveis'
+      path: '/provaveis'
+      fullPath: '/provaveis'
+      preLoaderRoute: typeof ProvaveisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/comandante': {
       id: '/api/comandante'
       path: '/api/comandante'
       fullPath: '/api/comandante'
       preLoaderRoute: typeof ApiComandanteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diagnostico': {
+      id: '/api/diagnostico'
+      path: '/api/diagnostico'
+      fullPath: '/api/diagnostico'
+      preLoaderRoute: typeof ApiDiagnosticoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/events': {
@@ -351,11 +430,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/foto': {
+      id: '/api/foto'
+      path: '/api/foto'
+      fullPath: '/api/foto'
+      preLoaderRoute: typeof ApiFotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/importar': {
+      id: '/api/importar'
+      path: '/api/importar'
+      fullPath: '/api/importar'
+      preLoaderRoute: typeof ApiImportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media': {
       id: '/api/media'
       path: '/api/media'
       fullPath: '/api/media'
       preLoaderRoute: typeof ApiMediaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/saude': {
+      id: '/api/saude'
+      path: '/api/saude'
+      fullPath: '/api/saude'
+      preLoaderRoute: typeof ApiSaudeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/jogador/$id': {
@@ -388,9 +488,14 @@ const rootRouteChildren: RootRouteChildren = {
   MeuTimeRoute: MeuTimeRoute,
   ModeloRoute: ModeloRoute,
   NoticiasRoute: NoticiasRoute,
+  ProvaveisRoute: ProvaveisRoute,
   ApiComandanteRoute: ApiComandanteRoute,
+  ApiDiagnosticoRoute: ApiDiagnosticoRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiFotoRoute: ApiFotoRoute,
+  ApiImportarRoute: ApiImportarRoute,
   ApiMediaRoute: ApiMediaRoute,
+  ApiSaudeRoute: ApiSaudeRoute,
   JogadorIdRoute: JogadorIdRoute,
   MediaFileRoute: MediaFileRoute,
 }

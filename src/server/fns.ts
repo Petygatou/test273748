@@ -60,3 +60,30 @@ export const saveLineupOverride = createServerFn({ method: "POST" })
     invalidate("analysis:");
     return { ok: true };
   });
+
+/** Admin confirma o time inteiro: 11 titulares, e o resto do elenco como reserva (ou limpa). */
+export const saveLineupBatch = createServerFn({ method: "POST" })
+  .validator((d: { titulares: number[]; reservas: number[]; limpar?: boolean }) => {
+    const ids = (a: unknown) => (Array.isArray(a) ? a.filter((x): x is number => Number.isInteger(x)).slice(0, 40) : []);
+    return { titulares: ids(d.titulares), reservas: ids(d.reservas), limpar: Boolean(d.limpar) };
+  })
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    const { loadSeason } = await import("./season");
+    const { saveOverride } = await import("./store");
+    const { invalidate } = await import("./cache");
+    const admin = requireAdmin();
+    if (!data.limpar && data.titulares.length !== 11) throw new Error("Confirme exatamente 11 titulares.");
+    const { meta } = await loadSeason();
+    for (const id of data.titulares) await saveOverride(meta.temporada, meta.rodada, id, data.limpar ? null : "titular", admin.id);
+    for (const id of data.reservas) await saveOverride(meta.temporada, meta.rodada, id, data.limpar ? null : "reserva", admin.id);
+    invalidate("analysis:");
+    return { ok: true };
+  });
+
+/** Últimas mudanças detectadas pelo vigia (status de atletas, mercado, notícias). */
+export const fetchMudancas = createServerFn({ method: "GET" }).handler(async () => {
+  const { ensureWatcher, recentChanges, watcherStatus } = await import("./watcher");
+  ensureWatcher();
+  return { mudancas: recentChanges(30), status: watcherStatus() };
+});

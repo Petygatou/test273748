@@ -1,12 +1,21 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { fetchAnalysis, fetchBacktest, fetchLive, fetchNews } from "../server/fns";
+import { fetchAnalysis, fetchBacktest, fetchLive, fetchMudancas, fetchNews } from "../server/fns";
 
 export const analysisQuery = queryOptions({
   queryKey: ["analysis"],
   queryFn: () => fetchAnalysis(),
-  staleTime: 5 * 60_000,
+  // o servidor avisa por SSE quando algo muda; o intervalo é só rede de segurança
+  staleTime: 30_000,
   gcTime: 60 * 60_000,
-  refetchOnWindowFocus: false,
+  refetchInterval: 90_000,
+  refetchOnWindowFocus: true,
+});
+
+export const mudancasQuery = queryOptions({
+  queryKey: ["mudancas"],
+  queryFn: () => fetchMudancas(),
+  staleTime: 15_000,
+  refetchInterval: 60_000,
 });
 
 export const backtestQuery = queryOptions({

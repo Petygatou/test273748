@@ -1,5 +1,7 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Cross, Info, ShieldOff } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { kitFor } from "../lib/kits";
+import { Face } from "./Face";
 import type { Club, PlayerProjection } from "../engine/types";
 import { factorPct, fmt1, posAbbr, statusLabel } from "../lib/format";
 
@@ -50,37 +52,45 @@ export function PosBadge({ pos }: { pos: number }) {
 export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
   if (!club) return <span className="inline-block rounded-full bg-[var(--color-surface-4)]" style={{ width: size, height: size }} />;
   if (club.escudo) return <img src={club.escudo} alt={club.nome} width={size} height={size} className="inline-block object-contain" loading="lazy" />;
-  // escudo sintético: iniciais do clube
-  let h = 0;
-  for (const ch of club.abreviacao) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  // escudo sintético: iniciais do clube nas cores do uniforme
+  const kit = kitFor(club.id);
   return (
     <span
       title={club.nome}
       className="inline-flex shrink-0 items-center justify-center rounded-full text-[8px] font-extrabold text-white ring-1 ring-white/15"
-      style={{ width: size, height: size, background: `linear-gradient(135deg, hsl(${h} 60% 42%), hsl(${(h + 40) % 360} 55% 22%))`, fontSize: Math.max(7, size * 0.32) }}
+      style={{ width: size, height: size, background: `linear-gradient(135deg, ${kit.primary} 0 55%, ${kit.secondary} 55% 100%)`, textShadow: "0 1px 2px rgba(0,0,0,.85)", fontSize: Math.max(7, size * 0.32) }}
     >
       {club.abreviacao.slice(0, 3)}
     </span>
   );
 }
 
-export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId">; size?: number }) {
-  if (p.foto)
-    return <img src={p.foto} alt={p.apelido} width={size} height={size} className="shrink-0 rounded-full bg-[var(--color-surface-3)] object-cover" loading="lazy" />;
-  const initials = p.apelido
-    .split(" ")
-    .slice(0, 2)
-    .map((s) => s[0])
-    .join("");
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full font-bold ring-1 ${POS_COLORS[p.posicaoId]}`}
-      style={{ width: size, height: size, fontSize: size * 0.34 }}
-      aria-hidden
-    >
-      {initials}
-    </span>
-  );
+/**
+ * Foto oficial do atleta: tenta o CDN da Globo direto, depois pelo nosso
+ * servidor (/api/foto) e, só se as duas falharem, usa o rosto ilustrado.
+ */
+export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId"> & { atletaId?: number; clubeId?: number }; size?: number }) {
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => setAttempt(0), [p.foto]);
+  const sources = p.foto ? [p.foto, `/api/foto?u=${encodeURIComponent(p.foto)}`] : [];
+  const src = sources[attempt];
+  if (src)
+    return (
+      <img
+        key={src}
+        src={src}
+        alt={p.apelido}
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full bg-gradient-to-b from-[var(--color-surface-3)] to-[var(--color-surface-1)] object-cover object-top"
+        style={{ width: size, height: size }}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setAttempt((n) => n + 1)}
+      />
+    );
+  return <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;
 }
 
 const STATUS_STYLE: Record<number, { cls: string; Icon: typeof Info }> = {
@@ -188,10 +198,16 @@ export function PageSkeleton() {
 }
 
 export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void }) {
+  const msg = error instanceof Error ? error.message : String(error);
+  const semDados = /Dados reais do Cartola indisponíveis/i.test(msg);
   return (
-    <Alert tone="critical">
-      <div className="font-semibold">Não foi possível carregar os dados.</div>
-      <div className="text-xs">{error instanceof Error ? error.message : String(error)}</div>
+    <Alert tone={semDados ? "warning" : "critical"}>
+      <div className="font-semibold">{semDados ? "Os dados reais do Cartola ainda não chegaram." : "Não foi possível carregar os dados."}</div>
+      <div className="text-xs">
+        {semDados
+          ? "O site só mostra dados verdadeiros e, por enquanto, o servidor não conseguiu falar com a API da Globo. A equipe já pode resolver pelo Painel ADM, em “Dados reais”."
+          : msg}
+      </div>
       {retry && (
         <button className="btn btn-ghost mt-2 px-3 py-1 text-xs" onClick={retry}>
           Tentar de novo

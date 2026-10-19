@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, Bell, ChevronRight, Coins, Crown, FlaskConical, Gem, Swords, Target } from "lucide-react";
-import { AskButton } from "../components/AskButton";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, Bell, ChevronRight, ClipboardList, Coins, Crown, FlaskConical, Gem, Radio, Scale, Swords, Target } from "lucide-react";
 import { FixtureCard } from "../components/FixtureCard";
 import { PlayerRow } from "../components/PlayerRow";
+import { PlayerSearch } from "../components/PlayerSearch";
 import { Card, ErrorBox, PageSkeleton, PosBadge, SectionTitle, StatTile } from "../components/ui";
 import { PLAYER_POSITIONS, POSITIONS } from "../engine/rules";
-import { roundBrief, topBy } from "../lib/derive";
+import { topBy } from "../lib/derive";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
 import { useAlerts } from "../lib/alerts";
 import { analysisQuery, backtestQuery } from "../lib/queries";
@@ -17,6 +17,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useQuery(analysisQuery);
   const bt = useQuery({ ...backtestQuery, enabled: Boolean(data) });
   const { alerts: oficiais } = useAlerts();
@@ -32,8 +33,6 @@ function Home() {
   const alertas = topBy(a.players, (p) => p.xP, 60, (p) => p.alertas.length > 0 && p.pJogar > 0.3 && p.posicaoId !== 6)
     .filter((p) => p.alertas.some((x) => x.startsWith("Pendurado") || x.startsWith("Status")))
     .slice(0, 6);
-  const sims = a.config.simulations;
-  const r = bt.data?.resumo;
 
   return (
     <div className="space-y-6">
@@ -51,29 +50,51 @@ function Home() {
         </div>
       )}
       {/* hero */}
-      <section className="card relative overflow-hidden p-5 md:p-6">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[var(--color-brand)]/15 blur-3xl" aria-hidden />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
+      <section className="card relative overflow-hidden p-5 md:p-7">
+        <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[var(--color-brand)]/15 blur-3xl" aria-hidden />
+        <div className="relative flex flex-col gap-5 md:flex-row md:items-center">
+          <img src="/logo.png" alt="" width={120} height={148} className="mx-auto hidden h-32 w-auto md:block" />
+          <div className="min-w-0 flex-1">
             <div className="text-xs font-semibold tracking-widest text-[var(--color-brand)] uppercase">Rodada {a.rodada} · {a.temporada}</div>
-            <h1 className="font-display mt-1 text-2xl font-extrabold md:text-3xl">A matemática já leu a rodada.</h1>
-            <p className="mt-1 max-w-xl text-sm text-[var(--color-ink-2)]">
-              {a.fixtures.length} jogos, {a.diagnostics.atletasModelados} atletas projetados scout a scout e {sims.toLocaleString("pt-BR")} simulações de Monte Carlo por atleta.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/escalacao" className="btn btn-primary">
-              <Swords size={16} aria-hidden /> Montar tropa
-            </Link>
-            <AskButton
-              label="Leitura da rodada com Comandante"
-              payload={() => ({
-                titulo: `Leitura da rodada ${a.rodada}`,
-                pergunta: "Faça a leitura estratégica desta rodada: jogos que mais importam, onde buscar SG, ataques em alta, capitão seguro e capitão diferencial. Use só os números do motor.",
-                contexto: roundBrief(a),
-              })}
+            <h1 className="font-display mt-1 text-2xl font-extrabold md:text-3xl">Bora mitar na rodada {a.rodada}?</h1>
+            <p className="mt-1 max-w-xl text-sm text-[var(--color-ink-2)]">Projeções de cada atleta, prováveis escalações e a melhor tropa para o seu orçamento — tudo calculado pelo nosso modelo.</p>
+            <PlayerSearch
+              className="mt-4 max-w-xl"
+              inputClassName="h-12 text-base"
+              players={a.players}
+              clubs={clubs}
+              placeholder="Busque um atleta, clube ou posição"
+              label="Buscar atleta"
+              suggestions={capitaes}
+              suggestionsLabel="Mais bem projetados da rodada"
+              onSelect={(p) => navigate({ to: "/jogador/$id", params: { id: String(p.atletaId) } })}
             />
           </div>
+        </div>
+        <div className="relative mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
+          {(
+            [
+              { to: "/escalacao", label: "Montar minha tropa", hint: "a melhor escalação no seu C$", Icon: Swords },
+              { to: "/provaveis", label: "Ver prováveis", hint: "quem joga em cada time", Icon: ClipboardList },
+              { to: "/estatisticas", search: { tab: "x1" }, label: "Comparar dois atletas", hint: "duelo X1 com veredito", Icon: Scale },
+              { to: "/ao-vivo", label: "Acompanhar ao vivo", hint: "parciais da sua tropa", Icon: Radio },
+            ] as const
+          ).map((x) => (
+            <Link
+              key={x.label}
+              to={x.to}
+              search={"search" in x ? (x.search as never) : undefined}
+              className="group flex items-center gap-3 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3 transition-colors hover:border-[var(--color-brand)]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-brand)]/15 text-[var(--color-brand)]">
+                <x.Icon size={19} aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm leading-tight font-bold">{x.label}</span>
+                <span className="hidden truncate text-[11px] text-[var(--color-ink-3)] sm:block">{x.hint}</span>
+              </span>
+            </Link>
+          ))}
         </div>
         <div className="relative mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile label="Melhor capitão" value={capitaes[0]?.apelido ?? "—"} hint={capitaes[0] ? `xP ${fmt1(capitaes[0].xP)} · ${pct(capitaes[0].pAcima12)} de 12+` : undefined} accent="gold" />
@@ -92,9 +113,9 @@ function Home() {
           <StatTile label="Vantagem do mando" value={`+${((a.homeAdvantage - 1) * 100).toFixed(0)}%`} hint="gols a mais jogando em casa (estimado)" />
           <Link to="/modelo" className="block">
             <StatTile
-              label="Precisão comprovada"
-              value={r?.tropaModelo != null && r.tropaMedia ? `${signed(((r.tropaModelo - r.tropaMedia) / r.tropaMedia) * 100, 0)}%` : bt.isLoading ? "…" : "—"}
-              hint={r ? `pontos reais da tropa vs. escalar pela média (${r.rodadas} rodadas)` : "backtest walk-forward"}
+              label="Acerto das prováveis"
+              value={bt.data?.provaveis ? pct(bt.data.provaveis.acerto, 1) : bt.isLoading ? "…" : "—"}
+              hint={bt.data?.provaveis ? `nas últimas ${bt.data.provaveis.rodadas.length} rodadas, sem olhar o futuro` : "teste rodada a rodada"}
               accent="good"
             />
           </Link>

@@ -38,9 +38,12 @@ export interface CartolaRequest {
 
 function headersFor(token?: string): Record<string, string> {
   const h: Record<string, string> = {
-    "User-Agent": "Mozilla/5.0 (compatible; ComandanteFC/1.0)",
+    "User-Agent": "Mozilla/5.0 (compatible; TropaFC/1.0)",
     Accept: "application/json",
   };
+  // chave opcional do relay (Cloudflare Worker) que fica na frente da API
+  const relayKey = env("CARTOLA_RELAY_KEY");
+  if (relayKey) h["x-relay-key"] = relayKey;
   if (token) {
     // tokens novos (OAuth) vão como Bearer; os antigos GLB como X-GLB-Token. Mandamos os dois.
     h["X-GLB-Token"] = token;

@@ -105,7 +105,7 @@ export interface DemoOptions {
   temporada?: number;
 }
 
-export function generateDemoSeason(opts: DemoOptions = {}): SeasonData & { latent: { clubs: Array<{ id: number; attack: number; defense: number }> } } {
+export function generateDemoSeason(opts: DemoOptions = {}): SeasonData & { latent: { clubs: Array<{ id: number; attack: number; defense: number }>; players: Array<{ id: number; quality: number }> } } {
   const seed = opts.seed ?? 2026;
   const R = opts.currentRound ?? 31;
   const rng = new Rng(seed);
@@ -203,7 +203,31 @@ export function generateDemoSeason(opts: DemoOptions = {}): SeasonData & { laten
   anchorDay.setUTCHours(21, 30, 0, 0);
   const start = new Date(anchorDay.getTime() + 2 * 86400000 - (R - 1) * 7 * 86400000);
 
+  // status "como o Cartola mostrava antes de cada rodada" (o que os snapshots
+  // guardam em produção); rng separado para não alterar a temporada simulada
+  const srng = new Rng(seed + 7);
+  const statusHistory: Record<number, Record<number, number>> = {};
+  const snapshotStatus = (r: number) => {
+    const snap: Record<number, number> = {};
+    for (const c of clubs) {
+      const lineup = pickLineup(c, r, srng, true);
+      const starters = new Set(lineup.starters.map((p) => p.athlete.id));
+      const bench = new Set(lineup.bench.map((p) => p.athlete.id));
+      for (const p of c.players) {
+        const id = p.athlete.id;
+        if (p.athlete.posicaoId === 6) snap[id] = STATUS.PROVAVEL;
+        else if (p.injuredUntil >= r) snap[id] = STATUS.CONTUNDIDO;
+        else if (p.suspendedRound === r) snap[id] = STATUS.SUSPENSO;
+        else if (starters.has(id)) snap[id] = srng.next() < 0.08 ? STATUS.DUVIDA : STATUS.PROVAVEL;
+        else if (bench.has(id)) snap[id] = srng.next() < 0.55 ? STATUS.PROVAVEL : STATUS.NULO;
+        else snap[id] = STATUS.NULO;
+      }
+    }
+    return snap;
+  };
+
   for (let r = 1; r <= schedule.length; r++) {
+    if (r < R) statusHistory[r] = snapshotStatus(r);
     if (r < R) {
       for (const c of clubs)
         for (const p of c.players) {
@@ -278,9 +302,10 @@ export function generateDemoSeason(opts: DemoOptions = {}): SeasonData & { laten
     history,
     ownership,
     overrides: {},
+    statusHistory,
     source: "demo",
     updatedAt: new Date(anchor).toISOString(),
-    latent: { clubs: clubs.map((c) => ({ id: c.club.id, attack: c.attack, defense: c.defense })) },
+    latent: { clubs: clubs.map((c) => ({ id: c.club.id, attack: c.attack, defense: c.defense })), players: clubs.flatMap((c) => c.players.map((p) => ({ id: p.athlete.id, quality: p.quality }))) },
   };
 }
 

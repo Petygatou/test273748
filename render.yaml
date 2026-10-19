@@ -10,5 +10,17 @@ services:
     envVars:
       - key: DATA_DIR
         value: /data
+      - key: DATA_MODE
+        value: live
+      - key: CARTOLA_API_HOSTS
+        sync: false
+      - key: CARTOLA_RELAY_KEY
+        sync: false
+      - key: IMPORT_KEY
+        sync: false
+      - key: API_FOOTBALL_KEY
+        sync: false
       - key: ADMIN_EMAILS
         value: admin.k7x2q9@comandantefc.app
+      - key: ADMIN_PASSWORD
+        sync: false

@@ -51,7 +51,40 @@ export function validateCredentials(email: string, password: string) {
   return e;
 }
 
+let adminApplied = "";
+/**
+ * Conta de administrador definida por variáveis de ambiente: o primeiro e-mail
+ * de ADMIN_EMAILS com a senha de ADMIN_PASSWORD. A conta é criada (ou a senha
+ * é redefinida) na primeira vez que alguém tenta entrar ou cadastrar. Assim o
+ * admin nunca fica sem acesso e ninguém "toma" o e-mail dele antes.
+ */
+export function ensureAdminAccount() {
+  const email = adminEmails()[0];
+  const pw = process.env.ADMIN_PASSWORD;
+  if (!email || !pw) return;
+  const mark = sha(`${email}:${pw}`);
+  if (adminApplied === mark) return;
+  validateCredentials(email, pw);
+  const salt = randomBytes(16).toString("hex");
+  const cur = db.users.find((u) => u.email === email);
+  if (cur) db.users.put({ ...cur, salt, hash: hashPassword(pw, salt), admin: true });
+  else
+    db.users.put({
+      id: newId(),
+      email,
+      nome: email.split("@")[0].slice(0, 40),
+      bio: "",
+      avatar: "estrategista",
+      salt,
+      hash: hashPassword(pw, salt),
+      admin: true,
+      criadoEm: new Date().toISOString(),
+    });
+  adminApplied = mark;
+}
+
 export function createUser(email: string, password: string, nome: string): UserRow {
+  ensureAdminAccount();
   const e = validateCredentials(email, password);
   if (db.users.find((u) => u.email === e)) throw new Error("Já existe uma conta com esse e-mail.");
   const salt = randomBytes(16).toString("hex");
@@ -70,6 +103,7 @@ export function createUser(email: string, password: string, nome: string): UserR
 }
 
 export function verifyUser(email: string, password: string): UserRow {
+  ensureAdminAccount();
   const e = email.trim().toLowerCase();
   const u = db.users.find((x) => x.email === e);
   // mesmo custo com ou sem usuário, para não revelar quais e-mails existem

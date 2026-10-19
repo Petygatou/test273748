@@ -31,7 +31,7 @@ export interface StoryView {
   criadoEm: string;
 }
 
-const OFICIAL: Author = { id: "oficial", nome: "Comandante FC", avatar: "estrategista", oficial: true };
+const OFICIAL: Author = { id: "oficial", nome: "Tropa", avatar: "estrategista", oficial: true };
 
 function author(userId: string, oficial = false): Author {
   if (oficial || userId === "oficial") return OFICIAL;
@@ -98,6 +98,7 @@ export function createPost(u: UserRow, input: { texto?: string; media?: unknown;
     const opcoes = (input.poll.opcoes ?? []).map((o) => String(o).trim().slice(0, 60)).filter(Boolean).slice(0, 4);
     if (opcoes.length >= 2) poll = { pergunta: String(input.poll.pergunta).slice(0, 140), opcoes };
   }
+  if (!isAdmin(u)) throw new Error("Só administradores podem publicar.");
   if (!texto && !media && !poll) throw new Error("Publicação vazia.");
   const oficial = Boolean(input.oficial);
   if (oficial && !isAdmin(u)) throw new Error("Só o administrador publica como oficial.");
@@ -144,6 +145,7 @@ export function listStories(): StoryView[] {
 }
 
 export function createStory(u: UserRow, input: { media?: unknown; filtro?: string; textos?: unknown; oficial?: boolean }) {
+  if (!isAdmin(u)) throw new Error("Só administradores podem publicar stories.");
   if (!isMedia(input.media)) throw new Error("Story sem mídia.");
   const oficial = Boolean(input.oficial);
   if (oficial && !isAdmin(u)) throw new Error("Só o administrador publica story oficial.");

@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { Bell, ClipboardList, Lock, Megaphone, Shield, Trash2 } from "lucide-react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Bell, ClipboardList, Megaphone, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AskButton } from "../components/AskButton";
+import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
 import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import type { LineupOverride, RoundAnalysis } from "../engine/types";
 import { createAlert, deleteAlert, useAlerts, type AlertKind } from "../lib/alerts";
-import { useAuth } from "../lib/auth";
+import { meQuery, useAuth } from "../lib/auth";
 import { OFFICIAL_AUTHOR, getCommunity } from "../lib/community";
 import { countdown, fmt1, pct, timeAgo } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
@@ -15,35 +16,25 @@ import { saveLineupOverride } from "../server/fns";
 import { Composer } from "../components/Composer";
 
 export const Route = createFileRoute("/admin")({
+  // o painel não existe para quem não é administrador
+  beforeLoad: async ({ context }) => {
+    const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
+    if (!me?.admin) throw redirect({ to: "/" });
+  },
   component: AdminPage,
 });
 
-type Tab = "provaveis" | "conteudo" | "alertas";
+type Tab = "provaveis" | "conteudo" | "alertas" | "dados";
 
 function AdminPage() {
   const auth = useAuth();
-  const [tab, setTab] = useState<Tab>("provaveis");
   const an = useQuery(analysisQuery);
+  const [tab, setTab] = useState<Tab>("provaveis");
+  // sem dados reais, a única coisa útil no painel é descobrir por quê
+  const tabEff: Tab = an.isError && tab === "provaveis" ? "dados" : tab;
 
   if (!auth.ready) return <PageSkeleton />;
-  if (!auth.isAdmin) {
-    return (
-      <Card className="mx-auto max-w-md p-6 text-center">
-        <Lock size={28} className="mx-auto text-[var(--color-brand)]" aria-hidden />
-        <h1 className="font-display mt-2 text-xl font-bold">Acesso restrito</h1>
-        <p className="mt-1 text-sm text-[var(--color-ink-3)]">
-          Apenas contas de administrador.{" "}
-          {auth.user ? (
-            "Sua conta não tem esse papel (defina ADMIN_EMAILS no servidor)."
-          ) : (
-            <Link to="/conta" className="text-[var(--color-brand)] underline">
-              Entre na sua conta
-            </Link>
-          )}
-        </p>
-      </Card>
-    );
-  }
+  if (!auth.isAdmin) return null;
 
   return (
     <div className="space-y-5">
@@ -56,18 +47,20 @@ function AdminPage() {
         </div>
         <Seg
           label="Seção"
-          value={tab}
+          value={tabEff}
           onChange={setTab}
           options={[
             { value: "provaveis", label: "Prováveis" },
             { value: "conteudo", label: "Conteúdo" },
             { value: "alertas", label: "Alertas" },
+            { value: "dados", label: "Dados reais" },
           ]}
         />
       </div>
-      {tab === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
-      {tab === "conteudo" && <Conteudo />}
-      {tab === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
+      {tabEff === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
+      {tabEff === "conteudo" && <Conteudo />}
+      {tabEff === "dados" && <Dados meta={an.data?.meta} />}
+      {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
   );
 }
@@ -116,6 +109,17 @@ function Provaveis({ a }: { a: RoundAnalysis }) {
           </select>
         }
       />
+      <PlayerSearch
+        className="mb-3"
+        players={a.players.filter((p) => p.posicaoId !== 6)}
+        clubs={a.clubs}
+        placeholder="Ir direto para um atleta ou clube"
+        label="Buscar atleta"
+        onSelect={(p) => {
+          setClub(p.clubeId);
+          setTimeout(() => document.getElementById(`ov-${p.atletaId}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50);
+        }}
+      />
       {erro && (
         <div className="mb-3">
           <Alert tone="critical">{erro}</Alert>
@@ -123,7 +127,7 @@ function Provaveis({ a }: { a: RoundAnalysis }) {
       )}
       <ul className="divide-y divide-[var(--color-line)]">
         {players.map((p) => (
-          <li key={p.atletaId} className="flex flex-wrap items-center gap-2 py-2">
+          <li key={p.atletaId} id={`ov-${p.atletaId}`} className="flex scroll-mt-32 flex-wrap items-center gap-2 py-2">
             <PosBadge pos={p.posicaoId} />
             <PlayerPhoto p={p} size={28} />
             <div className="min-w-[140px] flex-1">
@@ -154,7 +158,7 @@ function Conteudo() {
   const [msg, setMsg] = useState<string | null>(null);
   return (
     <div className="space-y-4">
-      <SectionTitle title="Publicar novidade oficial" subtitle="Aparece no feed com o selo do Comandante FC" icon={<Megaphone size={18} className="text-[var(--color-gold)]" />} right={<button className="btn btn-ghost" onClick={() => setStory(true)}>Story institucional</button>} />
+      <SectionTitle title="Publicar novidade oficial" subtitle="Aparece no feed com o selo oficial do Tropa" icon={<Megaphone size={18} className="text-[var(--color-gold)]" />} right={<button className="btn btn-ghost" onClick={() => setStory(true)}>Story institucional</button>} />
       {msg && <Alert tone="info">{msg}</Alert>}
       <Composer
         me={OFFICIAL_AUTHOR}
@@ -262,6 +266,98 @@ function Alertas({ a, fechamento }: { a?: RoundAnalysis; fechamento?: string }) 
           {!alerts.length && <li className="text-sm text-[var(--color-ink-3)]">Nenhum alerta ativo.</li>}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+interface Probe {
+  hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
+  proxy: boolean;
+  variaveis: Record<string, string | null>;
+  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string } | null;
+  escalacao: { ligada: boolean; jogosComEscalacao: number; usadas: number; limite: number; restantesNaApi: number | null; ultimaChamada: string | null; erro: string | null } | null;
+}
+
+function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada: number } }) {
+  const [probe, setProbe] = useState<Probe | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const run = async () => {
+    setLoading(true);
+    setErro(null);
+    try {
+      const res = await fetch("/api/diagnostico");
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+      setProbe(await res.json());
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Falha");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="space-y-4">
+      <Card className="p-4">
+        <SectionTitle title="De onde vêm os dados" subtitle="O site só usa dados reais do Cartola" icon={<Shield size={18} className="text-[var(--color-brand)]" />} />
+        <p className="text-sm text-[var(--color-ink-2)]">
+          {meta?.source === "cartola"
+            ? meta.importadoEm
+              ? `Dados reais da rodada ${meta.rodada}, enviados de outro computador ${timeAgo(meta.importadoEm)}.`
+              : `Dados reais da rodada ${meta.rodada}, direto da API do Cartola.`
+            : "Sem dados reais no momento. Teste a conexão abaixo."}
+        </p>
+        <button className="btn btn-primary mt-3" onClick={run} disabled={loading}>
+          {loading ? "Testando…" : "Testar conexão com a Globo"}
+        </button>
+        {erro && <p className="mt-2 text-sm text-[var(--color-critical-ink)]">{erro}</p>}
+      </Card>
+      {probe && (
+        <Card className="space-y-3 p-4">
+          {probe.hosts.map((h) => (
+            <div key={h.host} className={`rounded-xl border p-3 ${h.ok ? "border-[var(--color-good)]/40" : "border-[var(--color-critical)]/40"}`}>
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                <span className={h.ok ? "text-[var(--color-good-ink)]" : "text-[var(--color-critical-ink)]"}>{h.ok ? "● conectou" : "● falhou"}</span>
+                <code className="break-all text-xs">{h.host}</code>
+                <span className="tabular text-xs text-[var(--color-ink-3)]">
+                  {h.status ? `HTTP ${h.status} · ` : ""}
+                  {h.ms} ms
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--color-ink-2)]">{h.leitura}</p>
+              {h.trecho && <code className="mt-1 block max-h-16 overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{h.trecho}</code>}
+            </div>
+          ))}
+          {probe.escalacao && (
+            <div className={`rounded-xl border p-3 ${probe.escalacao.ligada && !probe.escalacao.erro ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
+              <div className="text-sm font-semibold">Escalação oficial (API-Football)</div>
+              {probe.escalacao.ligada ? (
+                <p className="mt-1 text-sm text-[var(--color-ink-2)]">
+                  Ligada. Chamadas hoje: <b>{probe.escalacao.usadas}</b> de {probe.escalacao.limite}
+                  {probe.escalacao.restantesNaApi != null ? ` · saldo informado pela API: ${probe.escalacao.restantesNaApi}` : ""} · jogos com súmula oficial: {probe.escalacao.jogosComEscalacao}.
+                  {probe.escalacao.erro ? ` Último erro: ${probe.escalacao.erro}` : ""}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-[var(--color-ink-2)]">Desligada. Defina API_FOOTBALL_KEY no servidor para usar a escalação oficial (docs/CARTOLA.md).</p>
+              )}
+            </div>
+          )}
+          {probe.fotos && (
+            <div className={`rounded-xl border p-3 ${probe.fotos.servidor === "ok" ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
+              <div className="text-sm font-semibold">Fotos dos atletas</div>
+              <p className="mt-1 text-sm text-[var(--color-ink-2)]">{probe.fotos.leitura}</p>
+              {probe.fotos.exemplo && <code className="mt-1 block overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{probe.fotos.exemplo}</code>}
+            </div>
+          )}
+          <p className="text-xs text-[var(--color-ink-3)]">
+            Variáveis: DATA_MODE={probe.variaveis.DATA_MODE ?? "(padrão)"} · CARTOLA_API_HOSTS={probe.variaveis.CARTOLA_API_HOSTS ?? "(padrão)"} · relay: {probe.proxy ? "sim" : "não"}.
+          </p>
+          {!probe.hosts.some((h) => h.ok) && (
+            <Alert tone="warning">
+              O servidor do site não alcança a API. As três saídas (relay gratuito, envio a partir do seu computador ou hospedagem que a Globo aceita) estão em <b>docs/CARTOLA.md</b>.
+            </Alert>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

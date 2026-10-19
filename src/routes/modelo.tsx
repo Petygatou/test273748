@@ -6,6 +6,7 @@ import { Alert, Card, ErrorBox, PageSkeleton, ProbBar, SectionTitle, StatTile } 
 import { SCOUT_LABELS } from "../engine/rules";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
 import { analysisQuery, backtestQuery } from "../lib/queries";
+import type { LineupAccuracy } from "../engine/lineup";
 
 export const Route = createFileRoute("/modelo")({
   component: ModelPage,
@@ -18,7 +19,7 @@ const METHOD = [
   ["Gols e assistências", "Participação do atleta nos gols do time × gols esperados do time no confronto. Assim G, A, SG e GS ficam coerentes com o placar."],
   ["Prior inteligente", "No começo da temporada, o preço carrega informação de qualidade; e o volume de scouts por jogo serve de proxy de minutos — reserva que sai do banco não herda o prior de titular."],
   ["Cedência posicional", "Para cada adversário e posição, quanto ele cede de cada scout (participação relativa), encolhido para a média da liga."],
-  ["Chance de jogar", "Status oficial + participação recente com decaimento + prováveis escalações do Painel ADM."],
+  ["Chance de jogar", "Regressão logística treinada na própria temporada, rodada a rodada: últimos jogos, sequência, disputa pela posição, suspensão por cartões e o status que o Cartola mostrava antes de cada rodada (guardado a cada rodada). Por cima entram os ajustes do Painel ADM."],
   ["Monte Carlo", "Milhares de rodadas simuladas: placar sorteado, gols distribuídos entre os atletas, demais scouts por binomial negativa. Daí saem piso, teto e probabilidades — e a distribuição da tropa inteira, com banco e reserva de luxo."],
   ["MPV e valorização", "V = CPP × (pontos − MPV), recalibrado toda rodada por regressão sobre o mercado inteiro (ou o valor oficial, quando a API fornece)."],
   ["Otimizador exato", "Programação dinâmica sobre fronteiras de Pareto por posição, com o capitão dentro da otimização. Garante o ótimo global — não é heurística."],
@@ -50,6 +51,8 @@ function ModelPage() {
       )}
       {bt.error && <ErrorBox error={bt.error} retry={() => bt.refetch()} />}
 
+      {bt.data?.provaveis && <ProvaveisAccuracy acc={bt.data.provaveis} demo={a.source === "demo"} />}
+
       {r && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -71,7 +74,7 @@ function ModelPage() {
                 <LineChart
                   x={rounds.map((x) => x.rodada)}
                   series={[
-                    { label: "Modelo Comandante", color: SERIES_A, values: rounds.map((x) => x.tropaModelo ?? 0) },
+                    { label: "Modelo Tropa", color: SERIES_A, values: rounds.map((x) => x.tropaModelo ?? 0) },
                     { label: "Escalar pela média", color: SERIES_B, values: rounds.map((x) => x.tropaMedia ?? 0) },
                   ]}
                 />
@@ -188,5 +191,71 @@ function ModelPage() {
         </p>
       </Card>
     </div>
+  );
+}
+
+function ProvaveisAccuracy({ acc, demo }: { acc: LineupAccuracy; demo: boolean }) {
+  const last = acc.rodadas;
+  return (
+    <Card className="p-4">
+      <SectionTitle
+        title="Acerto das prováveis escalações"
+        subtitle={`Dos 11 que apontamos em cada time, quantos entraram em campo · ${acc.timesAvaliados} escalações em ${last.length} rodadas`}
+      />
+      <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+        <div className="rounded-2xl bg-[var(--color-surface-1)] p-4 text-center">
+          <div className="font-display tabular text-5xl font-extrabold text-[var(--color-good-ink)]">{pct(acc.acerto, 1)}</div>
+          <div className="mt-1 text-xs text-[var(--color-ink-3)]">de acerto</div>
+          <div className="mt-3 text-xs text-[var(--color-ink-3)]">
+            repetir o último jogo: <b className="text-[var(--color-ink-2)]">{pct(acc.acertoBaseline, 1)}</b>
+          </div>
+        </div>
+        <div>
+          <div className="flex h-32 items-end gap-1.5" role="img" aria-label="Acerto por rodada">
+            {last.map((x) => (
+              <div key={x.rodada} className="flex flex-1 flex-col items-center gap-1">
+                <span className="tabular text-[10px] text-[var(--color-ink-3)]">{Math.round(x.acerto * 100)}</span>
+                <div className="w-full rounded-t bg-[var(--color-good)]/70" style={{ height: `${Math.max(4, (x.acerto - 0.5) * 2 * 100)}px` }} title={`R${x.rodada}: ${pct(x.acerto, 1)} · ${x.timesQuaseCertos}/${x.times} times com 10+ acertos`} />
+                <span className="text-[10px] text-[var(--color-ink-3)]">R{x.rodada}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="data w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="text-left">Chance que mostramos</th>
+                  {acc.calibracao.map((b) => (
+                    <th key={b.faixa} className="text-right">
+                      {b.faixa}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="tabular">
+                <tr>
+                  <td className="text-[var(--color-ink-3)]">Jogaram de fato</td>
+                  {acc.calibracao.map((b) => (
+                    <td key={b.faixa} className="text-right">
+                      {b.n ? pct(b.observado) : "—"}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-[var(--color-ink-3)]">
+        Teste sem olhar o futuro: para cada rodada o modelo só sabe o que aconteceu antes dela.{" "}
+        {acc.coberturaStatus >= 0.8
+          ? "Inclui o status que o Cartola mostrava antes de cada rodada."
+          : acc.coberturaStatus > 0
+            ? `O status do Cartola de antes de cada rodada só existe em ${Math.round(acc.coberturaStatus * 100)}% das rodadas medidas (o site começou a guardá-lo há pouco), então esta conta ainda subestima o acerto atual.`
+            : "Esta conta ainda não usa o status do Cartola de antes de cada rodada (o site começou a guardá-lo agora e o número melhora a cada rodada). Na previsão de hoje o status e os ajustes da equipe já são usados, então o acerto atual tende a ser maior que o medido."}{" "}
+        Ajustes feitos no Painel ADM (coletiva e treino) nunca entram nesta conta.
+        {demo && " No Modo Demonstração a conta é feita sobre a temporada simulada; com a API do Cartola ela é refeita com os jogos reais."}
+      </p>
+    </Card>
   );
 }

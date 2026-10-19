@@ -12,6 +12,7 @@
  * A cada leitura do mercado gravamos um snapshot (preço/variação/status por
  * rodada): com o tempo isso calibra o MPV e a chance de jogar com dados reais.
  */
+import { normalizeFoto } from "./foto";
 import type { PositionId, Scouts } from "../engine/rules";
 import { normalizeHistoryScouts } from "../engine/rulesCheck";
 import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/types";
@@ -107,10 +108,10 @@ interface RawDestaque {
 
 /* --------------------------- endpoints --------------------------- */
 
-export const getStatus = () => cached("cartola:status", 60_000, () => getJson<RawStatus>("/mercado/status"));
-const getMercado = () => cached("cartola:mercado", 5 * 60_000, () => getJson<RawMercado>("/atletas/mercado"));
+export const getStatus = () => cached("cartola:status", 25_000, () => getJson<RawStatus>("/mercado/status"));
+const getMercado = () => cached("cartola:mercado", 40_000, () => getJson<RawMercado>("/atletas/mercado"));
 const getPartidas = (r: number, current: boolean) =>
-  cached(`cartola:partidas:${r}`, current ? 2 * 60_000 : 12 * 3600_000, () => getJson<RawPartidas>(`/partidas/${r}`));
+  cached(`cartola:partidas:${r}`, current ? 45_000 : 12 * 3600_000, () => getJson<RawPartidas>(`/partidas/${r}`));
 const getPontuados = (r: number, recent: boolean) =>
   cached(`cartola:pontuados:${r}`, recent ? 10 * 60_000 : 24 * 3600_000, () => getJson<RawPontuados>(`/atletas/pontuados/${r}`));
 const getDestaques = () =>
@@ -123,9 +124,7 @@ export const getLivePartidas = () => cached("cartola:partidas:live", 45_000, () 
 
 /* --------------------------- normalização --------------------------- */
 
-function foto(url?: string | null): string | undefined {
-  return url ? url.replace("FORMATO", "220x220") : undefined;
-}
+const foto = normalizeFoto;
 
 function toMatch(p: RawPartida, rodada: number): Match {
   const data = p.timestamp ? new Date(p.timestamp * 1000).toISOString() : p.partida_data ? new Date(p.partida_data.replace(" ", "T") + "-03:00").toISOString() : undefined;
@@ -211,7 +210,14 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
   // salvaguarda: converte scouts acumulados em scouts por rodada, se for o caso
   const { history: rawHistory } = normalizeHistoryScouts(pontuados.flat());
   if (status.status_mercado === 1) await saveSnapshot(status.temporada, R, athletes);
-  const history = enrichHistory(rawHistory, await loadSnapshots(status.temporada));
+  const snaps = await loadSnapshots(status.temporada);
+  const history = enrichHistory(rawHistory, snaps);
+  // status antes de cada rodada (último retrato com o mercado aberto) → ensina a chance de jogar
+  const statusHistory: Record<number, Record<number, number>> = {};
+  for (const [rodada, snap] of snaps) {
+    if (rodada > R) continue;
+    statusHistory[rodada] = Object.fromEntries(Object.entries(snap.atletas).map(([id, v]) => [Number(id), v[1]]));
+  }
 
   const destaques = await getDestaques();
   const ownership: Record<number, number> = {};
@@ -229,6 +235,7 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
     history,
     ownership,
     overrides: {},
+    statusHistory,
     source: "cartola",
     updatedAt: new Date().toISOString(),
   };
