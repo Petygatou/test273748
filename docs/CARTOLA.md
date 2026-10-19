@@ -79,7 +79,9 @@ Os clubes entregam a súmula cerca de **1 hora antes da bola**. A API do Cartola
 
 Cuidados embutidos: só marca "fora" quem não está na súmula se quase todos os nomes foram casados com atletas do Cartola; senão vira "reserva". Nome ambíguo nunca é chutado. Ajustes manuais do Painel ADM vencem a súmula.
 
-**Orçamento de chamadas (plano gratuito = 100 por dia).** O site gasta de ~10 a ~40 por dia:
+**Plano da API-Football:** o plano **gratuito só libera as temporadas 2022–2024** ("Free plans do not have access to this season"), então para a escalação oficial de 2026 é preciso um plano pago. O **Pro (7.500 chamadas/dia, ~US$ 19/mês)** cobre com folga: o site usa menos de 100 por dia. Com o Pro, defina `API_FOOTBALL_DAILY_LIMIT=2000` e `LINEUP_POLL_MS=300000` (consulta a cada 5 min). A assinatura não renova sozinha: ao vencer, volta ao gratuito e o site avisa o erro no Painel ADM.
+
+**Orçamento de chamadas (o site gasta pouco mesmo no plano gratuito de 100 por dia).** O site gasta de ~10 a ~40 por dia:
 - a lista de jogos é buscada **uma vez por dia** (hoje e os 2 próximos dias) e fica salva em disco;
 - cada jogo só é consultado de **75 min antes até 10 min depois** do início, de 10 em 10 minutos, **no máximo 7 vezes**, e para assim que a súmula chega;
 - todos os jogos devidos no mesmo momento vão **numa única chamada** (`/fixtures?ids=a-b-c`), então 5 jogos no mesmo horário custam 1 chamada, não 5;
@@ -91,5 +93,7 @@ O Painel ADM → Dados reais mostra quantas chamadas já foram usadas hoje. A AP
 Observação honesta: este módulo foi testado com respostas simuladas no formato da API-Football; ainda não foi testado contra a API real (o ambiente de desenvolvimento não alcança a internet aberta).
 
 ## Fotos dos atletas
+
+O Cartola manda, quando não tem o rosto, uma **silhueta genérica do clube** (endereço com `/silhuetas/`). O site agora ignora essas silhuetas e usa, no lugar, o rosto da API-Football (descobre os 20 times com 1 chamada e lê 1 elenco por minuto, ~21 chamadas uma vez só, sem precisar de temporada paga) ou, por último, o rosto ilustrado.
 
 A foto vem do campo `foto` que a API do Cartola envia para cada atleta. No Painel ADM → Dados reais → "Testar conexão" aparece a seção **Fotos dos atletas**: quantos atletas têm foto, um endereço de exemplo e se o servidor consegue baixar a imagem. O site tenta o CDN direto, depois pelo próprio servidor (`/api/foto`), e só então usa o rosto ilustrado.

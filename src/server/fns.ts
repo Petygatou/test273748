@@ -83,7 +83,7 @@ export const saveLineupBatch = createServerFn({ method: "POST" })
 
 /** Últimas mudanças detectadas pelo vigia (status de atletas, mercado, notícias). */
 export const fetchMudancas = createServerFn({ method: "GET" }).handler(async () => {
-  const { ensureWatcher, recentChanges, watcherStatus } = await import("./watcher");
+  const { ensureWatcher, medicaoOficial, recentChanges, watcherStatus } = await import("./watcher");
   ensureWatcher();
-  return { mudancas: recentChanges(30), status: watcherStatus() };
+  return { mudancas: recentChanges(30), status: watcherStatus(), medicao: medicaoOficial() };
 });

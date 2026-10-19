@@ -7,7 +7,8 @@ export const Route = createFileRoute("/api/saude")({
       GET: async () => {
         const { ensureWatcher, watcherStatus } = await import("../../server/watcher");
         ensureWatcher();
-        return Response.json({ ok: true, vigia: watcherStatus() });
+        const { adminStatus } = await import("../../server/auth");
+        return Response.json({ ok: true, vigia: watcherStatus(), admin: adminStatus() });
       },
     },
   },

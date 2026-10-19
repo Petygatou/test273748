@@ -113,7 +113,7 @@ function NewsBody({ n, big = false, clubs }: { n: NewsItem; big?: boolean; clubs
           n.titulo
         )}
       </h2>
-      {n.resumo && <p className="mt-1 text-sm text-[var(--color-ink-2)]">{n.resumo}</p>}
+      {n.resumo && <p className="mt-1 line-clamp-3 text-sm break-words text-[var(--color-ink-2)]">{n.resumo}</p>}
       {(n.atletas.length > 0 || n.clubes.length > 0) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {n.clubes.slice(0, 3).map((c) => (

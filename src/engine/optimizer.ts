@@ -321,7 +321,7 @@ function captainOptions(players: PlayerProjection[], analysis: RoundAnalysis, pr
   return scored.map(({ p, m }, i) => {
     const fx = analysis.fixtures.find((f) => f.matchId === p.matchId);
     const parts: string[] = [];
-    parts.push(`xP ${br(p.xP, 1)} e ${Math.round(p.pAcima12 * 100)}% de chance de 12+ pontos (dado que joga)`);
+    parts.push(`${br(p.xP, 1)} pontos previstos e ${Math.round(p.pAcima12 * 100)}% de chance de passar de 12`);
     if (fx) {
       const lam = p.mando === "casa" ? fx.lambdaCasa : fx.lambdaFora;
       parts.push(`${p.mando === "casa" ? "em casa" : "fora"} contra ${analysis.clubs[p.adversarioId ?? 0]?.nome ?? "?"} (${br(lam)} gols esperados do time)`);

@@ -22,9 +22,9 @@ export function PlayerRow({
     <Link
       to="/jogador/$id"
       params={{ id: String(p.atletaId) }}
-      className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-[var(--color-surface-3)]"
+      className="group flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-[var(--color-surface-3)]"
     >
-      <PlayerPhoto p={p} size={38} />
+      <PlayerPhoto p={p} size={42} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm font-semibold">{p.apelido}</span>
@@ -40,8 +40,8 @@ export function PlayerRow({
         </div>
       </div>
       <div className="text-right">
-        <div className="font-display tabular text-base font-bold">{metric ?? fmt1(p.xP)}</div>
-        <div className="text-[10px] text-[var(--color-ink-3)]">{metricLabel ?? `xP · ${pct(p.pJogar)} joga`}</div>
+        <div className="font-display tabular text-lg leading-tight font-bold text-[var(--color-gold)]">{metric ?? fmt1(p.xP)}</div>
+        <div className="text-[10px] text-[var(--color-ink-3)]">{metricLabel ?? `pts · joga ${pct(p.pJogar)}`}</div>
       </div>
     </Link>
   );

@@ -152,6 +152,16 @@ export function toOverrides(r: OfficialResult, athletes: Athlete[]): Record<numb
   return out;
 }
 
+/** Traduz o erro da API; `permanente` = não adianta tentar de novo hoje. */
+export function explainApiError(e: unknown): { texto: string; permanente: boolean } {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/Free plans do not have access|plan/i.test(msg) && /season|plan/i.test(msg))
+    return { texto: "O plano gratuito da API-Football só libera as temporadas 2022 a 2024. A escalação oficial de 2026 exige um plano pago (ou outra fonte).", permanente: true };
+  if (/HTTP 40[13]|token|key|Missing application/i.test(msg)) return { texto: `A API-Football recusou a chave: ${msg}`, permanente: true };
+  if (/limit|rate|requests/i.test(msg)) return { texto: `Limite de chamadas da API-Football atingido: ${msg}`, permanente: true };
+  return { texto: msg, permanente: false };
+}
+
 /* ------------------------- orçamento e rede ------------------------- */
 
 /**
@@ -180,6 +190,15 @@ interface FixtureState {
   tries: number;
 }
 
+export interface Medicao {
+  em: string;
+  clube: string;
+  /** dos 11 que apontamos, quantos estavam na súmula */
+  acertos: number;
+  /** dos 11 da súmula, quantos tinham chance de jogar de 50% ou mais */
+  acimaDe50: number;
+}
+
 export interface OfficialState {
   persist: boolean;
   fixtures: Map<number, FixtureState>;
@@ -190,12 +209,16 @@ export interface OfficialState {
   erro: string | null;
   /** a resposta em lote não traz `lineups`: usar a chamada por jogo (mais cara) */
   semLote: boolean;
+  /** não chama a API antes desta hora (erro de plano/chave): evita gastar cota tentando de novo */
+  bloqueadoAte: number;
+  /** previsão (antes da súmula) x súmula oficial, por time: a medida real de acerto */
+  medicoes: Medicao[];
   /** ajustes por jogo; expiram 6 h depois do início */
   porJogo: Map<number, { quando: number; overrides: Record<number, LineupOverride>; clubes: [string, string] }>;
 }
 
 const file = () => join(dataDir(), "api-football-state.json");
-const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
+export const dayOf = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 export function newOfficialState(persist = true): OfficialState {
   const st: OfficialState = {
@@ -207,6 +230,8 @@ export function newOfficialState(persist = true): OfficialState {
     ultimaChamada: null,
     erro: null,
     semLote: false,
+    bloqueadoAte: 0,
+    medicoes: [],
     porJogo: new Map(),
   };
   if (persist) {
@@ -216,6 +241,8 @@ export function newOfficialState(persist = true): OfficialState {
         fixturesDia: string;
         fixturesAt: number;
         semLote?: boolean;
+        bloqueadoAte?: number;
+        medicoes?: Medicao[];
         fixtures: Array<[number, FixtureState]>;
         porJogo: Array<[number, OfficialState["porJogo"] extends Map<number, infer V> ? V : never]>;
       };
@@ -223,6 +250,8 @@ export function newOfficialState(persist = true): OfficialState {
       st.fixturesDia = j.fixturesDia;
       st.fixturesAt = j.fixturesAt;
       st.semLote = Boolean(j.semLote);
+      st.bloqueadoAte = j.bloqueadoAte ?? 0;
+      st.medicoes = j.medicoes ?? [];
       st.fixtures = new Map(j.fixtures);
       st.porJogo = new Map(j.porJogo);
     } catch {
@@ -232,11 +261,15 @@ export function newOfficialState(persist = true): OfficialState {
   return st;
 }
 
+export function persistOfficial(st: OfficialState) {
+  save(st);
+}
+
 function save(st: OfficialState) {
   if (!st.persist) return;
   try {
     mkdirSync(dataDir(), { recursive: true });
-    const out = { quota: st.quota, fixturesDia: st.fixturesDia, fixturesAt: st.fixturesAt, semLote: st.semLote, fixtures: [...st.fixtures], porJogo: [...st.porJogo] };
+    const out = { quota: st.quota, fixturesDia: st.fixturesDia, fixturesAt: st.fixturesAt, semLote: st.semLote, bloqueadoAte: st.bloqueadoAte, medicoes: st.medicoes, fixtures: [...st.fixtures], porJogo: [...st.porJogo] };
     writeFileSync(file() + ".tmp", JSON.stringify(out));
     renameSync(file() + ".tmp", file());
   } catch {
@@ -248,7 +281,7 @@ export const officialEnabled = () => Boolean(process.env.API_FOOTBALL_KEY);
 export const dailyLimit = () => Math.max(1, Number(process.env.API_FOOTBALL_DAILY_LIMIT ?? 90));
 
 /** Reserva uma chamada do dia; false = orçamento esgotado. */
-function spend(st: OfficialState, now: number): boolean {
+export function spend(st: OfficialState, now: number): boolean {
   const dia = dayOf(now);
   if (st.quota.dia !== dia) st.quota = { dia, usadas: 0, restantes: null };
   if (st.quota.usadas >= dailyLimit()) return false;
@@ -269,7 +302,12 @@ const AFTER = 10 * 60_000;
 const EVERY = Number(process.env.LINEUP_POLL_MS ?? 10 * 60_000);
 const MAX_TRIES = 7;
 
-async function api<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<T> {
+export async function api<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<T> {
+  return (await apiPaged<T>(path, key, st, doFetch)).response;
+}
+
+/** Igual a `api`, mas devolve também a paginação (`/players` vem em páginas de 20). */
+export async function apiPaged<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<{ response: T; paging?: { current: number; total: number } }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10_000);
   try {
@@ -277,17 +315,17 @@ async function api<T>(path: string, key: string, st: OfficialState, doFetch: typ
     const rem = res.headers?.get?.("x-ratelimit-requests-remaining");
     if (rem != null && rem !== "" && Number.isFinite(Number(rem))) st.quota.restantes = Number(rem);
     if (!res.ok) throw new Error(`API-Football HTTP ${res.status}`);
-    const json = (await res.json()) as { response?: T; errors?: unknown };
+    const json = (await res.json()) as { response?: T; errors?: unknown; paging?: { current: number; total: number } };
     const errs = json.errors;
     if (errs && ((Array.isArray(errs) && errs.length) || (!Array.isArray(errs) && typeof errs === "object" && Object.keys(errs as object).length)))
       throw new Error(`API-Football: ${JSON.stringify(errs).slice(0, 160)}`);
-    return json.response as T;
+    return { response: json.response as T, paging: json.paging };
   } finally {
     clearTimeout(timer);
   }
 }
 
-type Novo = { id: number; clubes: [string, string]; overrides: Record<number, LineupOverride> };
+export type Novo = { id: number; clubes: [string, string]; overrides: Record<number, LineupOverride>; times: Array<{ clubeId: number; titulares: number[] }> };
 
 function accept(st: OfficialState, fs: FixtureState, lineups: ApiLineup[] | undefined, athletes: Athlete[], clubs: Record<number, Club>): Novo | null {
   if (!lineups || lineups.length < 2) return null;
@@ -299,7 +337,7 @@ function accept(st: OfficialState, fs: FixtureState, lineups: ApiLineup[] | unde
   const kick = new Date(fs.fixture.fixture.date).getTime();
   const clubes: [string, string] = [clubs[(rs[0] as OfficialResult).clubeId]?.abreviacao ?? "?", clubs[(rs[1] as OfficialResult).clubeId]?.abreviacao ?? "?"];
   st.porJogo.set(fs.fixture.fixture.id, { quando: kick, overrides, clubes });
-  return { id: fs.fixture.fixture.id, clubes, overrides };
+  return { id: fs.fixture.fixture.id, clubes, overrides, times: (rs as OfficialResult[]).map((r) => ({ clubeId: r.clubeId, titulares: r.titulares })) };
 }
 
 /**
@@ -317,6 +355,7 @@ export async function stepOfficial(
   const key = process.env.API_FOOTBALL_KEY;
   if (!key) return [];
   const novos: Novo[] = [];
+  if (now < st.bloqueadoAte) return novos;
   try {
     // 1) lista de jogos: uma vez por dia (ou se vem jogo nas próximas 3 h que não conhecemos, no máximo a cada 6 h)
     const dia = dayOf(now);
@@ -370,7 +409,10 @@ export async function stepOfficial(
     for (const [id, j] of st.porJogo) if (now - j.quando > 6 * 3600_000) st.porJogo.delete(id);
     st.erro = null;
   } catch (e) {
-    st.erro = e instanceof Error ? e.message : String(e);
+    const r = explainApiError(e);
+    st.erro = r.texto;
+    // erro de plano/chave não melhora tentando de novo: espera; outros erros, 15 min
+    st.bloqueadoAte = r.permanente ? new Date(dayOf(now + 86400_000)).getTime() : now + 15 * 60_000;
   }
   save(st);
   return novos;
@@ -380,4 +422,84 @@ export function currentOfficialOverrides(st: OfficialState): Record<number, Line
   const out: Record<number, LineupOverride> = {};
   for (const j of st.porJogo.values()) Object.assign(out, j.overrides);
   return out;
+}
+
+/* ------------------------- verificação da chave ------------------------- */
+
+export interface ApiFootballProbe {
+  ok: boolean;
+  /** frase pronta para mostrar na tela */
+  leitura: string;
+  plano?: string;
+  usadasHoje?: number;
+  limiteDia?: number;
+  ativa?: boolean;
+}
+
+/**
+ * Pergunta à API quem somos. O endpoint /status NÃO consome a cota diária e
+ * responde plano, validade e quantas chamadas já foram usadas hoje.
+ */
+export async function probeApiFootball(doFetch: typeof fetch = fetch): Promise<ApiFootballProbe> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) return { ok: false, leitura: "Desligada: a variável API_FOOTBALL_KEY não está definida no servidor." };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10_000);
+  try {
+    const res = await doFetch(`${BASE}/status`, { headers: { "x-apisports-key": key, Accept: "application/json" }, signal: ctrl.signal });
+    if (res.status === 401 || res.status === 403) return { ok: false, leitura: `A API recusou a chave (HTTP ${res.status}). Confira se copiou inteira, sem espaço, e se ela é da API-Football (api-sports.io).` };
+    if (!res.ok) return { ok: false, leitura: `A API respondeu HTTP ${res.status}.` };
+    const j = (await res.json()) as { response?: unknown; errors?: unknown };
+    const errs = j.errors;
+    if (errs && !Array.isArray(errs) && typeof errs === "object" && Object.keys(errs as object).length) {
+      const msg = Object.values(errs as Record<string, string>).join("; ");
+      return { ok: false, leitura: `Chave não aceita pela API: ${msg}` };
+    }
+    const r = (Array.isArray(j.response) ? undefined : j.response) as { subscription?: { plan?: string; active?: boolean }; requests?: { current?: number; limit_day?: number } } | undefined;
+    if (!r?.subscription) return { ok: false, leitura: "A API respondeu, mas sem dados da conta. Se a chave é nova, aguarde alguns minutos." };
+    const usadasHoje = r.requests?.current;
+    const limiteDia = r.requests?.limit_day;
+    const ativa = r.subscription.active !== false;
+    return {
+      ok: ativa,
+      plano: r.subscription.plan,
+      usadasHoje,
+      limiteDia,
+      ativa,
+      leitura: ativa
+        ? `Chave válida · plano ${r.subscription.plan ?? "?"} · ${usadasHoje ?? "?"} de ${limiteDia ?? "?"} chamadas usadas hoje (em toda a conta, não só neste site).`
+        : "Chave reconhecida, mas a assinatura está inativa.",
+    };
+  } catch (e) {
+    return { ok: false, leitura: `Sem resposta da API-Football (${e instanceof Error ? e.message : "erro"}). O servidor do site pode estar sem acesso externo.` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Resumo dos jogos acompanhados, para o Painel ADM. */
+export function fixturesSummary(st: OfficialState, clubs: Record<number, Club>, now = Date.now()) {
+  const short = (name: string) => matchClub(name, clubs)?.abreviacao ?? name;
+  return [...st.fixtures.values()]
+    .map((f) => ({
+      id: f.fixture.fixture.id,
+      quando: f.fixture.fixture.date,
+      mandante: short(f.fixture.teams.home.name),
+      visitante: short(f.fixture.teams.away.name),
+      situacao: f.found ? ("oficial" as const) : f.tries >= MAX_TRIES ? ("esgotado" as const) : now < new Date(f.fixture.fixture.date).getTime() - BEFORE ? ("aguardando" as const) : ("buscando" as const),
+      tentativas: f.tries,
+    }))
+    .sort((a, b) => a.quando.localeCompare(b.quando))
+    .slice(0, 24);
+}
+
+/** Resumo da medida real: nossa previsão antes da súmula contra a súmula oficial. */
+export function medicaoResumo(st: OfficialState) {
+  const m = st.medicoes;
+  const total = m.length * 11;
+  return {
+    times: m.length,
+    acerto: total ? m.reduce((s, x) => s + x.acertos, 0) / total : null,
+    ultimos: m.slice(-8).reverse(),
+  };
 }

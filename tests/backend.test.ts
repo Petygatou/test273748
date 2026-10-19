@@ -143,6 +143,8 @@ describe("fotos oficiais", () => {
     expect(normalizeFoto("http://s.sde.globo.com/media/organizations/2026/04/01/FORMATO/x.png")).toBe("https://s.sde.globo.com/media/organizations/2026/04/01/220x220/x.png");
     expect(normalizeFoto(null)).toBeUndefined();
     expect(normalizeFoto("javascript:alert(1)")).toBeUndefined();
+    // silhueta genérica do clube não é rosto
+    expect(normalizeFoto("https://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/220x220.png")).toBeUndefined();
     expect(isAllowedFoto("https://s.sde.globo.com/a.png")).not.toBeNull();
     expect(isAllowedFoto("https://s2.glbimg.com/a.png")).not.toBeNull();
     expect(isAllowedFoto("https://evil.com/a.png")).toBeNull();
@@ -354,5 +356,204 @@ describe("escalação oficial (API-Football)", () => {
     expect(r).toHaveLength(3);
     expect(calls.length - d0).toBe(2 + 3);
     delete process.env.API_FOOTBALL_KEY;
+  });
+});
+
+describe("sessão assinada no cookie", () => {
+  it("vale em outra instância (sem disco compartilhado), expira e rejeita adulteração", () => {
+    process.env.ADMIN_EMAILS = "chefe@tropa.com";
+    process.env.ADMIN_PASSWORD = "senhadochefe1";
+    const u = auth.verifyUser("chefe@tropa.com", "senhadochefe1");
+    const tok = auth.makeSessionToken(u);
+    expect(auth.readSessionToken(tok)).toMatchObject({ u: u.id, e: "chefe@tropa.com" });
+    // "outra instância": o banco local não tem a conta, mas a sessão continua válida e a conta do admin é recriada com o MESMO id
+    db.users.remove(u.id);
+    const req = new Request("http://x/", { headers: { cookie: `cfc_session=${encodeURIComponent(tok)}` } });
+    const again = auth.userFromRequest(req);
+    expect(again?.id).toBe(u.id);
+    expect(auth.isAdmin(again!)).toBe(true);
+    // adulteração e expiração
+    const [payload, sig] = tok.split(".");
+    expect(auth.readSessionToken(`${payload}x.${sig}`)).toBeNull();
+    expect(auth.readSessionToken(`${Buffer.from(JSON.stringify({ u: u.id, e: "outro@x.com", x: Date.now() + 1e9 })).toString("base64url")}.${sig}`)).toBeNull();
+    expect(auth.readSessionToken(tok, Date.now() + 40 * 86400_000)).toBeNull();
+    expect(auth.readSessionToken("lixo")).toBeNull();
+    // diagnóstico da configuração
+    expect(auth.adminStatus().problema).toBe("");
+    process.env.ADMIN_PASSWORD = "curta";
+    expect(auth.adminStatus().problema).toMatch(/8 caracteres/);
+    delete process.env.ADMIN_PASSWORD;
+    expect(auth.adminStatus().problema).toMatch(/ADMIN_PASSWORD/);
+    delete process.env.ADMIN_EMAILS;
+  });
+});
+
+describe("rostos da API-Football e sondagem da chave", () => {
+  const clubs = { 1: { id: 1, nome: "Flamengo", abreviacao: "FLA" } };
+  const ath = [
+    { id: 10, apelido: "Arrascaeta", nome: "Giorgian De Arrascaeta", clubeId: 1, posicaoId: 4 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 },
+    { id: 11, apelido: "Pedro", nome: "Pedro Guilherme", clubeId: 1, posicaoId: 5 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0, foto: "https://s.glbimg.com/ja-tem.png" },
+  ];
+
+  it("descobre os times pelo país, lê 1 elenco por vez, só com cota sobrando, e não sobrescreve foto do Cartola", async () => {
+    const e = await import("../src/server/escalacoes");
+    const f = await import("../src/server/fotosApiFootball");
+    process.env.API_FOOTBALL_KEY = "teste";
+    const now = new Date("2026-10-20T12:00:00Z").getTime();
+    const of = e.newOfficialState(false);
+    const urls: string[] = [];
+    const fake = (async (url: string) => {
+      urls.push(url);
+      if (url.includes("/teams?country=Brazil"))
+        return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" } }, { team: { id: 999, name: "Flamengo U20" } }, { team: { id: 5, name: "Brasil", national: true } }, { team: { id: 1, name: "Time Que Nao Existe" } }], errors: [] }));
+      return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" }, players: [{ id: 1100, name: "G. De Arrascaeta", photo: "https://media.api-sports.io/football/players/1100.png" }, { id: 7, name: "Pedro", photo: "https://media.api-sports.io/football/players/7.png" }] }], errors: [] }));
+    }) as unknown as typeof fetch;
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now, fake)).toBe(false); // 1º passo: descobre os times
+    expect(urls).toHaveLength(1);
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now + 60_000, fake)).toBe(true); // 2º: lê o elenco
+    expect(urls).toHaveLength(2);
+    expect(urls[1]).toContain("/players/squads?team=127");
+    const merged = f.withFotos(ath as never);
+    expect(merged[0].foto).toBe("https://media.api-sports.io/football/players/1100.png");
+    expect(merged[1].foto).toBe("https://s.glbimg.com/ja-tem.png"); // foto do Cartola manda
+    // sem elenco novo para ler: não gasta
+    expect(await f.stepFotos(of, ath as never, clubs as never, 2099, now + 120_000, fake)).toBe(false);
+    expect(urls).toHaveLength(2);
+    // pouca cota: não gasta; jogo na janela das escalações: não gasta
+    const of2 = e.newOfficialState(false);
+    of2.quota = { dia: "2026-10-20", usadas: 80, restantes: null };
+    expect(await f.stepFotos(of2, ath as never, clubs as never, 2098, now, fake)).toBe(false);
+    expect(urls).toHaveLength(2);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
+  it("no plano gratuito cai para a temporada liberada: times pelas ligas de 2024 e jogadores paginados", async () => {
+    const e = await import("../src/server/escalacoes");
+    const f = await import("../src/server/fotosApiFootball");
+    process.env.API_FOOTBALL_KEY = "teste";
+    f.resetFotos(2097);
+    const now = new Date("2026-10-21T12:00:00Z").getTime();
+    const of = e.newOfficialState(false);
+    const plan = () => new Response(JSON.stringify({ response: [], errors: { plan: "Free plans do not have access to this season, try from 2022 to 2024." } }));
+    const urls: string[] = [];
+    const all = [...ath, { id: 12, apelido: "Rodrigo", nome: "Rodrigo Caio Coquette Russo", clubeId: 2, posicaoId: 3 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 }];
+    const clubs2 = { ...clubs, 2: { id: 2, nome: "Grêmio", abreviacao: "GRE" } };
+    const fake = (async (url: string) => {
+      urls.push(url);
+      if (url.includes("/teams?country=")) return plan();
+      if (url.includes("/teams?league=71")) return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" } }], errors: [] }));
+      if (url.includes("/teams?league=72")) return new Response(JSON.stringify({ response: [{ team: { id: 130, name: "Gremio" } }], errors: [] }));
+      if (url.includes("/players/squads")) return plan();
+      if (url.includes("/players?team=127") && url.includes("page=1"))
+        return new Response(JSON.stringify({ response: [{ player: { id: 1100, name: "G. De Arrascaeta", firstname: "Giorgian", lastname: "De Arrascaeta", photo: "https://media.api-sports.io/football/players/1100.png" } }], paging: { current: 1, total: 2 }, errors: [] }));
+      if (url.includes("/players?team=127") && url.includes("page=2"))
+        // jogador que hoje está em outro clube: casado pelo nome completo, único no mercado
+        return new Response(JSON.stringify({ response: [{ player: { id: 55, name: "R. Caio", firstname: "Rodrigo Caio", lastname: "Coquette Russo", photo: "https://media.api-sports.io/football/players/55.png" } }], paging: { current: 2, total: 2 }, errors: [] }));
+      return new Response(JSON.stringify({ response: [], paging: { current: 1, total: 1 }, errors: [] }));
+    }) as unknown as typeof fetch;
+    let t = now;
+    for (let i = 0; i < 8; i++) await f.stepFotos(of, all as never, clubs2 as never, 2097, (t += 60_000), fake);
+    expect(urls[0]).toContain("/teams?country=Brazil");
+    expect(urls[1]).toContain("/teams?league=71&season=2024");
+    expect(urls[2]).toContain("/teams?league=72&season=2024");
+    expect(urls.some((u) => u.includes("/players?team=127&season=2024&page=2"))).toBe(true);
+    const m = f.withFotos(all as never);
+    expect(m.find((a) => a.id === 10)?.foto).toContain("1100.png");
+    expect(m.find((a) => a.id === 12)?.foto).toContain("55.png");
+    expect(f.fotosResumo(all as never)).toMatchObject({ modo: "temporada", temporadaFoto: 2024 });
+    // erro de plano no elenco não bloqueia o dia: só muda o caminho
+    expect(f.fotosResumo(all as never).erro).toBeNull();
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
+  it("erro de plano não é repetido: espera até o dia seguinte e explica em português", async () => {
+    const e = await import("../src/server/escalacoes");
+    process.env.API_FOOTBALL_KEY = "teste";
+    const now = new Date("2026-10-20T12:00:00Z").getTime();
+    const err = (async () => new Response(JSON.stringify({ response: [], errors: { plan: "Free plans do not have access to this season, try from 2022 to 2024." } }))) as unknown as typeof fetch;
+    let n = 0;
+    const counting = (async (u: string) => { n++; return err(u); }) as unknown as typeof fetch;
+    const st = e.newOfficialState(false);
+    await e.stepOfficial(st, ath as never, clubs as never, 2026, now, counting);
+    expect(n).toBe(1);
+    expect(st.erro).toMatch(/plano gratuito.*2022 a 2024/);
+    for (let m = 1; m <= 30; m++) await e.stepOfficial(st, ath as never, clubs as never, 2026, now + m * 60_000, counting);
+    expect(n).toBe(1); // 30 minutos depois, nenhuma chamada nova
+    await e.stepOfficial(st, ath as never, clubs as never, 2026, now + 13 * 3600_000, counting); // dia seguinte (UTC)
+    expect(n).toBe(2);
+    expect(e.explainApiError(new Error("HTTP 500")).permanente).toBe(false);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
+  it("a sondagem da chave entende a resposta do /status e erros", async () => {
+    const e = await import("../src/server/escalacoes");
+    delete process.env.API_FOOTBALL_KEY;
+    expect((await e.probeApiFootball()).ok).toBe(false);
+    process.env.API_FOOTBALL_KEY = "teste";
+    const good = (async () => new Response(JSON.stringify({ errors: [], response: { subscription: { plan: "Free", active: true }, requests: { current: 12, limit_day: 100 } } }))) as unknown as typeof fetch;
+    const r = await e.probeApiFootball(good);
+    expect(r).toMatchObject({ ok: true, plano: "Free", usadasHoje: 12, limiteDia: 100 });
+    expect(r.leitura).toMatch(/12 de 100/);
+    const bad = (async () => new Response(JSON.stringify({ errors: { token: "Error/Missing application key." }, response: [] }))) as unknown as typeof fetch;
+    expect((await e.probeApiFootball(bad)).leitura).toMatch(/não aceita/);
+    const denied = (async () => new Response("{}", { status: 403 })) as unknown as typeof fetch;
+    expect((await e.probeApiFootball(denied)).leitura).toMatch(/recusou/);
+    delete process.env.API_FOOTBALL_KEY;
+  });
+});
+
+describe("gestão de usuários (painel ADM)", () => {
+  it("lista sem segredos, mostra atividade, bloqueia, desbloqueia e exclui com tudo", async () => {
+    const usuarios = await import("../src/server/usuarios");
+    const adm = auth.createUser("gestor@tropa.com", "senhagestor1", "Gestor");
+    db.users.update(adm.id, { admin: true });
+    const u = auth.createUser("fulano@tropa.com", "senhafulano1", "Fulano");
+    const p = community.createPost(db.users.get(adm.id)!, { texto: "enquete", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
+    community.addComment(u, p.id, "eu mito");
+    community.toggleLike(u, p.id);
+    community.vote(u, p.id, 1);
+    db.lineups.put({ id: "l1", userId: u.id, nome: "Minha", rodada: 31, temporada: 2026, formation: "4-3-3", profile: "equilibrada", titulares: [], captainId: 0, reservas: [], custo: 110, xP: 70, criadoEm: new Date().toISOString() });
+    db.users.update(u.id, { ultimoAcesso: new Date().toISOString(), logins: 3, dispositivo: "Android · Chrome" });
+
+    const { usuarios: lista, resumo } = usuarios.listUsers();
+    const row = lista.find((x) => x.id === u.id)!;
+    expect(row).toMatchObject({ online: true, logins: 3, comentarios: 1, curtidas: 1, votos: 1, tropas: 1, dispositivo: "Android · Chrome" });
+    expect(JSON.stringify(lista)).not.toMatch(/hash|salt/);
+    expect(resumo.online).toBeGreaterThanOrEqual(1);
+    const det = usuarios.userDetail(u.id);
+    expect(det.atividade.votos[0]).toEqual({ pergunta: "Quem mita?", opcao: "B" });
+    expect(det.atividade.comentarios[0].texto).toBe("eu mito");
+    expect(JSON.stringify(det)).not.toMatch(/"hash"|"salt"/);
+
+    const admRow = db.users.get(adm.id)!;
+    usuarios.userAction(admRow, u.id, "bloquear");
+    expect(() => auth.verifyUser("fulano@tropa.com", "senhafulano1")).toThrow(/bloqueada/);
+    const tok = auth.makeSessionToken(u);
+    expect(auth.userFromRequest(new Request("http://x", { headers: { cookie: `cfc_session=${encodeURIComponent(tok)}` } }))).toBeNull();
+    usuarios.userAction(admRow, u.id, "desbloquear");
+    expect(auth.verifyUser("fulano@tropa.com", "senhafulano1").id).toBe(u.id);
+    expect(() => usuarios.userAction(admRow, adm.id, "excluir")).toThrow(/própria/);
+    usuarios.userAction(admRow, u.id, "excluir");
+    expect(db.users.get(u.id)).toBeUndefined();
+    expect(db.comments.filter((c) => c.userId === u.id)).toHaveLength(0);
+    expect(db.lineups.filter((l) => l.userId === u.id)).toHaveLength(0);
+  });
+
+  it("resume o aparelho sem guardar o texto inteiro", () => {
+    expect(auth.deviceFromUA("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36")).toBe("Android · Chrome");
+    expect(auth.deviceFromUA("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605 Version/17.0 Mobile/15E148 Safari/604.1")).toBe("iPhone/iPad · Safari");
+    expect(auth.deviceFromUA(undefined)).toBe("desconhecido");
+  });
+});
+
+describe("notícias", () => {
+  it("limpa o resumo do Google Notícias (HTML escapado) e não repete a manchete", async () => {
+    const { parseRss } = await import("../src/server/news");
+    const xml = `<rss><channel><item><title>Lateral do Athletico sofre lesão grave - Bem Paraná</title><link>https://news.google.com/x</link><pubDate>Mon, 19 Oct 2026 10:00:00 GMT</pubDate><description>&lt;a href="https://news.google.com/rss/articles/CBMixwFBVV95cUxNcXhk?oc=5" target="_blank"&gt;Lateral do Athletico sofre lesão grave&lt;/a&gt;&amp;nbsp;&amp;nbsp;&lt;font color="#6f6f6f"&gt;Bem Paraná&lt;/font&gt;</description><source url="https://bemparana.com.br">Bem Paraná</source></item><item><title>Outra</title><description>&lt;p&gt;Texto &amp;amp; resumo de verdade.&lt;/p&gt;</description></item></channel></rss>`;
+    const [a, b] = parseRss(xml);
+    expect(a.titulo).toBe("Lateral do Athletico sofre lesão grave");
+    expect(a.resumo).toBe("");
+    expect(b.resumo).toBe("Texto & resumo de verdade.");
+    expect(JSON.stringify([a, b])).not.toMatch(/<a|href|news\.google\.com\/rss/);
   });
 });

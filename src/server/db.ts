@@ -49,8 +49,8 @@ export class Collection<T extends { id: string }> {
     }
   }
 
-  private persist() {
-    if (this.topic) events.emit("change", this.topic);
+  private persist(silent = false) {
+    if (this.topic && !silent) events.emit("change", this.topic);
     if (this.timer) return;
     this.timer = setTimeout(() => {
       this.timer = null;
@@ -94,12 +94,13 @@ export class Collection<T extends { id: string }> {
     return row;
   }
 
-  update(id: string, patch: Partial<T>): T | undefined {
+  /** `silent`: grava sem avisar os navegadores (ex.: registrar último acesso). */
+  update(id: string, patch: Partial<T>, silent = false): T | undefined {
     const cur = this.get(id);
     if (!cur) return undefined;
     const next = { ...cur, ...patch, id };
     this.rows.set(id, next);
-    this.persist();
+    this.persist(silent);
     return next;
   }
 
@@ -138,6 +139,14 @@ export interface UserRow {
   hash: string;
   admin: boolean;
   criadoEm: string;
+  /** última requisição autenticada (gravada no máximo 1 vez por minuto) */
+  ultimoAcesso?: string;
+  ultimoLogin?: string;
+  logins?: number;
+  /** resumo do aparelho no último login, ex.: "Android · Chrome" */
+  dispositivo?: string;
+  bloqueado?: boolean;
+  bloqueadoEm?: string;
 }
 export interface SessionRow {
   id: string; // sha256 do token

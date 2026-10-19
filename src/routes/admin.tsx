@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Bell, ClipboardList, Megaphone, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AskButton } from "../components/AskButton";
+import { AdminUsers } from "../components/AdminUsers";
 import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
 import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "provaveis" | "conteudo" | "alertas" | "dados";
+type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados";
 
 function AdminPage() {
   const auth = useAuth();
@@ -53,6 +54,7 @@ function AdminPage() {
             { value: "provaveis", label: "Prováveis" },
             { value: "conteudo", label: "Conteúdo" },
             { value: "alertas", label: "Alertas" },
+            { value: "usuarios", label: "Usuários" },
             { value: "dados", label: "Dados reais" },
           ]}
         />
@@ -60,6 +62,7 @@ function AdminPage() {
       {tabEff === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
       {tabEff === "conteudo" && <Conteudo />}
       {tabEff === "dados" && <Dados meta={an.data?.meta} />}
+      {tabEff === "usuarios" && <AdminUsers />}
       {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
   );
@@ -274,8 +277,18 @@ interface Probe {
   hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
   proxy: boolean;
   variaveis: Record<string, string | null>;
-  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string } | null;
-  escalacao: { ligada: boolean; jogosComEscalacao: number; usadas: number; limite: number; restantesNaApi: number | null; ultimaChamada: string | null; erro: string | null } | null;
+  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string; apiFootball?: { mapeadas: number; timesLidos: number; timesTotal: number; naoCasados: number; modo: string; temporadaFoto: number | null; erro: string | null } } | null;
+  escalacao: {
+    ligada: boolean;
+    jogosComEscalacao: number;
+    usadas: number;
+    limite: number;
+    restantesNaApi: number | null;
+    ultimaChamada: string | null;
+    erro: string | null;
+    chave: { ok: boolean; leitura: string };
+    jogos: Array<{ id: number; quando: string; mandante: string; visitante: string; situacao: "oficial" | "esgotado" | "aguardando" | "buscando"; tentativas: number }>;
+  } | null;
 }
 
 function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada: number } }) {
@@ -328,16 +341,30 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
             </div>
           ))}
           {probe.escalacao && (
-            <div className={`rounded-xl border p-3 ${probe.escalacao.ligada && !probe.escalacao.erro ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
+            <div className={`rounded-xl border p-3 ${probe.escalacao.chave.ok && !probe.escalacao.erro ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
               <div className="text-sm font-semibold">Escalação oficial (API-Football)</div>
-              {probe.escalacao.ligada ? (
-                <p className="mt-1 text-sm text-[var(--color-ink-2)]">
-                  Ligada. Chamadas hoje: <b>{probe.escalacao.usadas}</b> de {probe.escalacao.limite}
-                  {probe.escalacao.restantesNaApi != null ? ` · saldo informado pela API: ${probe.escalacao.restantesNaApi}` : ""} · jogos com súmula oficial: {probe.escalacao.jogosComEscalacao}.
+              <p className={`mt-1 text-sm ${probe.escalacao.chave.ok ? "text-[var(--color-good-ink)]" : "text-[var(--color-warning)]"}`}>{probe.escalacao.chave.ok ? "● " : "● "}{probe.escalacao.chave.leitura}</p>
+              {probe.escalacao.ligada && (
+                <p className="mt-1 text-xs text-[var(--color-ink-3)]">
+                  Gasto por este site hoje: <b>{probe.escalacao.usadas}</b> de {probe.escalacao.limite} (teto) · jogos com súmula oficial: {probe.escalacao.jogosComEscalacao}
+                  {probe.escalacao.ultimaChamada ? ` · última consulta ${timeAgo(probe.escalacao.ultimaChamada)}` : " · ainda não consultou (só começa 75 min antes de um jogo)"}.
                   {probe.escalacao.erro ? ` Último erro: ${probe.escalacao.erro}` : ""}
                 </p>
-              ) : (
-                <p className="mt-1 text-sm text-[var(--color-ink-2)]">Desligada. Defina API_FOOTBALL_KEY no servidor para usar a escalação oficial (docs/CARTOLA.md).</p>
+              )}
+              {probe.escalacao.jogos.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs">
+                  {probe.escalacao.jogos.map((j) => (
+                    <li key={j.id} className="flex items-center gap-2">
+                      <span className="tabular w-28 shrink-0 text-[var(--color-ink-3)]">{new Date(j.quando).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</span>
+                      <span className="flex-1 font-semibold">
+                        {j.mandante} x {j.visitante}
+                      </span>
+                      <span className={`chip text-[10px] ${j.situacao === "oficial" ? "text-[var(--color-good-ink)]" : ""}`}>
+                        {j.situacao === "oficial" ? "✓ súmula oficial" : j.situacao === "buscando" ? `buscando (${j.tentativas}ª)` : j.situacao === "esgotado" ? "não saiu a tempo" : "aguardando a janela"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
@@ -345,6 +372,14 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
             <div className={`rounded-xl border p-3 ${probe.fotos.servidor === "ok" ? "border-[var(--color-good)]/40" : "border-[var(--color-warning)]/40"}`}>
               <div className="text-sm font-semibold">Fotos dos atletas</div>
               <p className="mt-1 text-sm text-[var(--color-ink-2)]">{probe.fotos.leitura}</p>
+              {probe.fotos.apiFootball && (
+                <p className="mt-1 text-xs text-[var(--color-ink-3)]">
+                  Rostos reais da API-Football: <b>{probe.fotos.apiFootball.mapeadas}</b> atletas · {probe.fotos.apiFootball.timesLidos} de {probe.fotos.apiFootball.timesTotal || "?"} times lidos (1 chamada por minuto)
+                  {probe.fotos.apiFootball.temporadaFoto ? ` · usando a temporada ${probe.fotos.apiFootball.temporadaFoto}, a que o plano gratuito libera (contratados depois dela ficam com o desenho)` : ""}
+                  {probe.fotos.apiFootball.naoCasados ? ` · ${probe.fotos.apiFootball.naoCasados} nomes sem par` : ""}.
+                  {probe.fotos.apiFootball.erro ? ` Erro: ${probe.fotos.apiFootball.erro}` : ""}
+                </p>
+              )}
               {probe.fotos.exemplo && <code className="mt-1 block overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{probe.fotos.exemplo}</code>}
             </div>
           )}

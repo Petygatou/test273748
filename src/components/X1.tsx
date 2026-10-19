@@ -201,7 +201,7 @@ export function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; 
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          <Verdict icon={<Crown size={16} />} label="Para pontuar" winner={fav} detail={`xP ${fmt1(pa.xP)} x ${fmt1(pb.xP)}`} />
+          <Verdict icon={<Crown size={16} />} label="Para pontuar" winner={fav} detail={`${fmt1(pa.xP)} x ${fmt1(pb.xP)} pts previstos`} />
           <Verdict icon={<ShieldCheck size={16} />} label="Mais seguro" winner={safer} detail={`piso ${fmt1(pa.piso)} x ${fmt1(pb.piso)}`} />
           <Verdict icon={<Zap size={16} />} label="Mais explosivo" winner={boom} detail={`chance de 12+ ${pct(pa.pAcima12)} x ${pct(pb.pAcima12)}`} />
           <Verdict icon={<Wallet size={16} />} label="Melhor custo" winner={value} detail={`${fmt2(cbA * 10)} x ${fmt2(cbB * 10)} pts por C$ 10`} />
@@ -235,7 +235,7 @@ export function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; 
                     ["Regularidade (3+ pts)", `${pa.regularidade}%`, `${pb.regularidade}%`],
                     ["Chance de negativar", pct(pa.pNegativo), pct(pb.pNegativo)],
                     ["Mínimo p/ valorizar", fmt1(pa.mpv), fmt1(pb.mpv)],
-                    ["xP se jogar", fmt1(pa.xPJogando), fmt1(pb.xPJogando)],
+                    ["Pontos se jogar", fmt1(pa.xPJogando), fmt1(pb.xPJogando)],
                   ] as const
                 ).map(([l, x, y]) => (
                   <tr key={l}>
