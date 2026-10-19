@@ -274,7 +274,7 @@ interface Probe {
   hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
   proxy: boolean;
   variaveis: Record<string, string | null>;
-  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string; apiFootball?: { mapeadas: number; timesLidos: number; naoCasados: number; erro: string | null } } | null;
+  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string; apiFootball?: { mapeadas: number; timesLidos: number; timesTotal: number; naoCasados: number; modo: string; temporadaFoto: number | null; erro: string | null } } | null;
   escalacao: {
     ligada: boolean;
     jogosComEscalacao: number;
@@ -371,7 +371,10 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
               <p className="mt-1 text-sm text-[var(--color-ink-2)]">{probe.fotos.leitura}</p>
               {probe.fotos.apiFootball && (
                 <p className="mt-1 text-xs text-[var(--color-ink-3)]">
-                  Rostos extras da API-Football: {probe.fotos.apiFootball.mapeadas} atletas mapeados ({probe.fotos.apiFootball.timesLidos} de 20 elencos lidos, 1 por minuto; {probe.fotos.apiFootball.naoCasados} nomes sem par).{probe.fotos.apiFootball.erro ? ` Erro: ${probe.fotos.apiFootball.erro}` : ""}
+                  Rostos reais da API-Football: <b>{probe.fotos.apiFootball.mapeadas}</b> atletas · {probe.fotos.apiFootball.timesLidos} de {probe.fotos.apiFootball.timesTotal || "?"} times lidos (1 chamada por minuto)
+                  {probe.fotos.apiFootball.temporadaFoto ? ` · usando a temporada ${probe.fotos.apiFootball.temporadaFoto}, a que o plano gratuito libera (contratados depois dela ficam com o desenho)` : ""}
+                  {probe.fotos.apiFootball.naoCasados ? ` · ${probe.fotos.apiFootball.naoCasados} nomes sem par` : ""}.
+                  {probe.fotos.apiFootball.erro ? ` Erro: ${probe.fotos.apiFootball.erro}` : ""}
                 </p>
               )}
               {probe.fotos.exemplo && <code className="mt-1 block overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{probe.fotos.exemplo}</code>}

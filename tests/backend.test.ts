@@ -427,6 +427,45 @@ describe("rostos da API-Football e sondagem da chave", () => {
     delete process.env.API_FOOTBALL_KEY;
   });
 
+  it("no plano gratuito cai para a temporada liberada: times pelas ligas de 2024 e jogadores paginados", async () => {
+    const e = await import("../src/server/escalacoes");
+    const f = await import("../src/server/fotosApiFootball");
+    process.env.API_FOOTBALL_KEY = "teste";
+    f.resetFotos(2097);
+    const now = new Date("2026-10-21T12:00:00Z").getTime();
+    const of = e.newOfficialState(false);
+    const plan = () => new Response(JSON.stringify({ response: [], errors: { plan: "Free plans do not have access to this season, try from 2022 to 2024." } }));
+    const urls: string[] = [];
+    const all = [...ath, { id: 12, apelido: "Rodrigo", nome: "Rodrigo Caio Coquette Russo", clubeId: 2, posicaoId: 3 as const, statusId: 7, preco: 5, variacao: 0, media: 3, jogos: 10, pontosUltima: 0 }];
+    const clubs2 = { ...clubs, 2: { id: 2, nome: "Grêmio", abreviacao: "GRE" } };
+    const fake = (async (url: string) => {
+      urls.push(url);
+      if (url.includes("/teams?country=")) return plan();
+      if (url.includes("/teams?league=71")) return new Response(JSON.stringify({ response: [{ team: { id: 127, name: "Flamengo" } }], errors: [] }));
+      if (url.includes("/teams?league=72")) return new Response(JSON.stringify({ response: [{ team: { id: 130, name: "Gremio" } }], errors: [] }));
+      if (url.includes("/players/squads")) return plan();
+      if (url.includes("/players?team=127") && url.includes("page=1"))
+        return new Response(JSON.stringify({ response: [{ player: { id: 1100, name: "G. De Arrascaeta", firstname: "Giorgian", lastname: "De Arrascaeta", photo: "https://media.api-sports.io/football/players/1100.png" } }], paging: { current: 1, total: 2 }, errors: [] }));
+      if (url.includes("/players?team=127") && url.includes("page=2"))
+        // jogador que hoje está em outro clube: casado pelo nome completo, único no mercado
+        return new Response(JSON.stringify({ response: [{ player: { id: 55, name: "R. Caio", firstname: "Rodrigo Caio", lastname: "Coquette Russo", photo: "https://media.api-sports.io/football/players/55.png" } }], paging: { current: 2, total: 2 }, errors: [] }));
+      return new Response(JSON.stringify({ response: [], paging: { current: 1, total: 1 }, errors: [] }));
+    }) as unknown as typeof fetch;
+    let t = now;
+    for (let i = 0; i < 8; i++) await f.stepFotos(of, all as never, clubs2 as never, 2097, (t += 60_000), fake);
+    expect(urls[0]).toContain("/teams?country=Brazil");
+    expect(urls[1]).toContain("/teams?league=71&season=2024");
+    expect(urls[2]).toContain("/teams?league=72&season=2024");
+    expect(urls.some((u) => u.includes("/players?team=127&season=2024&page=2"))).toBe(true);
+    const m = f.withFotos(all as never);
+    expect(m.find((a) => a.id === 10)?.foto).toContain("1100.png");
+    expect(m.find((a) => a.id === 12)?.foto).toContain("55.png");
+    expect(f.fotosResumo(all as never)).toMatchObject({ modo: "temporada", temporadaFoto: 2024 });
+    // erro de plano no elenco não bloqueia o dia: só muda o caminho
+    expect(f.fotosResumo(all as never).erro).toBeNull();
+    delete process.env.API_FOOTBALL_KEY;
+  });
+
   it("erro de plano não é repetido: espera até o dia seguinte e explica em português", async () => {
     const e = await import("../src/server/escalacoes");
     process.env.API_FOOTBALL_KEY = "teste";

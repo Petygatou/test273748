@@ -37,7 +37,7 @@ export interface FotoProbe {
   comFoto: number;
   exemplo?: string;
   /** rostos vindos da API-Football (elencos lidos aos poucos) */
-  apiFootball?: { mapeadas: number; timesLidos: number; naoCasados: number; erro: string | null };
+  apiFootball?: ReturnType<typeof import("./fotosApiFootball")["fotosResumo"]>;
   /** o servidor do site conseguiu baixar a imagem de exemplo? */
   servidor: "ok" | "falhou" | "sem-foto";
   leitura: string;

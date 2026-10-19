@@ -303,6 +303,11 @@ const EVERY = Number(process.env.LINEUP_POLL_MS ?? 10 * 60_000);
 const MAX_TRIES = 7;
 
 export async function api<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<T> {
+  return (await apiPaged<T>(path, key, st, doFetch)).response;
+}
+
+/** Igual a `api`, mas devolve também a paginação (`/players` vem em páginas de 20). */
+export async function apiPaged<T>(path: string, key: string, st: OfficialState, doFetch: typeof fetch): Promise<{ response: T; paging?: { current: number; total: number } }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10_000);
   try {
@@ -310,11 +315,11 @@ export async function api<T>(path: string, key: string, st: OfficialState, doFet
     const rem = res.headers?.get?.("x-ratelimit-requests-remaining");
     if (rem != null && rem !== "" && Number.isFinite(Number(rem))) st.quota.restantes = Number(rem);
     if (!res.ok) throw new Error(`API-Football HTTP ${res.status}`);
-    const json = (await res.json()) as { response?: T; errors?: unknown };
+    const json = (await res.json()) as { response?: T; errors?: unknown; paging?: { current: number; total: number } };
     const errs = json.errors;
     if (errs && ((Array.isArray(errs) && errs.length) || (!Array.isArray(errs) && typeof errs === "object" && Object.keys(errs as object).length)))
       throw new Error(`API-Football: ${JSON.stringify(errs).slice(0, 160)}`);
-    return json.response as T;
+    return { response: json.response as T, paging: json.paging };
   } finally {
     clearTimeout(timer);
   }
