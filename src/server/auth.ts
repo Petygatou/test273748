@@ -8,7 +8,7 @@
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { deleteCookie, getCookie, setCookie } from "@tanstack/react-start/server";
+import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
 import { dataDir, db, newId, type AvatarKey, type UserRow } from "./db";
 
 const COOKIE = "cfc_session";
@@ -135,6 +135,7 @@ export function verifyUser(email: string, password: string): UserRow {
   const expected = Buffer.from(u ? u.hash : "0".repeat(128), "hex");
   const got = Buffer.from(hashPassword(password, u ? u.salt : "x"), "hex");
   if (!u || !timingSafeEqual(expected, got)) throw new Error("E-mail ou senha incorretos.");
+  if (u.bloqueado && !isEnvAdmin(u)) throw new Error("Esta conta foi bloqueada pelo administrador.");
   return u;
 }
 
@@ -189,15 +190,45 @@ export function readSessionToken(token: string | undefined | null, now = Date.no
   }
 }
 
+/** Admin definido por variável de ambiente: não pode ser bloqueado nem excluído pelo painel. */
+export function isEnvAdmin(u: Pick<UserRow, "email">) {
+  return adminEmails().includes(u.email);
+}
+
+/** Resumo curto do aparelho a partir do User-Agent (sem guardar o texto inteiro). */
+export function deviceFromUA(ua: string | undefined | null): string {
+  if (!ua) return "desconhecido";
+  const os = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "outro";
+  const br = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "navegador";
+  return `${os} · ${br}`;
+}
+
+function touch(u: UserRow) {
+  const now = Date.now();
+  if (!u.ultimoAcesso || now - new Date(u.ultimoAcesso).getTime() > 60_000) db.users.update(u.id, { ultimoAcesso: new Date(now).toISOString() }, true);
+}
+
 function userFromToken(token: string | undefined | null): UserRow | null {
   const t = readSessionToken(token);
   if (!t) return null;
   ensureAdminAccount();
-  return db.users.get(t.u) ?? db.users.find((x) => x.email === t.e) ?? null;
+  const u = db.users.get(t.u) ?? db.users.find((x) => x.email === t.e) ?? null;
+  if (!u) return null;
+  if (u.bloqueado && !isEnvAdmin(u)) return null;
+  touch(u);
+  return u;
 }
 
 export function startSession(user: UserRow) {
   const expira = new Date(Date.now() + SESSION_DAYS * 86400_000);
+  let ua: string | undefined;
+  try {
+    ua = getRequestHeader("user-agent");
+  } catch {
+    /* fora de uma requisição (testes) */
+  }
+  const agora = new Date().toISOString();
+  db.users.update(user.id, { logins: (user.logins ?? 0) + 1, ultimoLogin: agora, ultimoAcesso: agora, dispositivo: deviceFromUA(ua) }, true);
   setCookie(COOKIE, makeSessionToken(user), {
     httpOnly: true,
     sameSite: "lax",

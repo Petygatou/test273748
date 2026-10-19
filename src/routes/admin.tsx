@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Bell, ClipboardList, Megaphone, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { AskButton } from "../components/AskButton";
+import { AdminUsers } from "../components/AdminUsers";
 import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
 import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "provaveis" | "conteudo" | "alertas" | "dados";
+type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados";
 
 function AdminPage() {
   const auth = useAuth();
@@ -53,6 +54,7 @@ function AdminPage() {
             { value: "provaveis", label: "Prováveis" },
             { value: "conteudo", label: "Conteúdo" },
             { value: "alertas", label: "Alertas" },
+            { value: "usuarios", label: "Usuários" },
             { value: "dados", label: "Dados reais" },
           ]}
         />
@@ -60,6 +62,7 @@ function AdminPage() {
       {tabEff === "provaveis" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <Provaveis a={an.data.analysis} />)}
       {tabEff === "conteudo" && <Conteudo />}
       {tabEff === "dados" && <Dados meta={an.data?.meta} />}
+      {tabEff === "usuarios" && <AdminUsers />}
       {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
   );

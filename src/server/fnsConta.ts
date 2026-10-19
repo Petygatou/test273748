@@ -169,3 +169,34 @@ export const deleteAlertFn = createServerFn({ method: "POST" })
     deleteAlert(data.id);
     return { ok: true };
   });
+
+/* ------------------------------ gestão de usuários (admin) ------------------------------ */
+
+export const adminUsersFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { requireAdmin } = await import("./auth");
+  requireAdmin();
+  const { listUsers } = await import("./usuarios");
+  return listUsers();
+});
+
+export const adminUserDetailFn = createServerFn({ method: "GET" })
+  .validator((d: unknown) => ({ id: s(obj(d).id, 64) }))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    requireAdmin();
+    const { userDetail } = await import("./usuarios");
+    return userDetail(data.id);
+  });
+
+export const adminUserActionFn = createServerFn({ method: "POST" })
+  .validator((d: unknown) => {
+    const acao = s(obj(d).acao, 20);
+    if (acao !== "bloquear" && acao !== "desbloquear" && acao !== "excluir") throw new Error("Ação inválida.");
+    return { id: s(obj(d).id, 64), acao: acao as "bloquear" | "desbloquear" | "excluir" };
+  })
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    const admin = requireAdmin();
+    const { userAction } = await import("./usuarios");
+    return userAction(admin, data.id, data.acao);
+  });

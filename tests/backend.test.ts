@@ -501,3 +501,47 @@ describe("rostos da API-Football e sondagem da chave", () => {
     delete process.env.API_FOOTBALL_KEY;
   });
 });
+
+describe("gestão de usuários (painel ADM)", () => {
+  it("lista sem segredos, mostra atividade, bloqueia, desbloqueia e exclui com tudo", async () => {
+    const usuarios = await import("../src/server/usuarios");
+    const adm = auth.createUser("gestor@tropa.com", "senhagestor1", "Gestor");
+    db.users.update(adm.id, { admin: true });
+    const u = auth.createUser("fulano@tropa.com", "senhafulano1", "Fulano");
+    const p = community.createPost(db.users.get(adm.id)!, { texto: "enquete", poll: { pergunta: "Quem mita?", opcoes: ["A", "B"] } });
+    community.addComment(u, p.id, "eu mito");
+    community.toggleLike(u, p.id);
+    community.vote(u, p.id, 1);
+    db.lineups.put({ id: "l1", userId: u.id, nome: "Minha", rodada: 31, temporada: 2026, formation: "4-3-3", profile: "equilibrada", titulares: [], captainId: 0, reservas: [], custo: 110, xP: 70, criadoEm: new Date().toISOString() });
+    db.users.update(u.id, { ultimoAcesso: new Date().toISOString(), logins: 3, dispositivo: "Android · Chrome" });
+
+    const { usuarios: lista, resumo } = usuarios.listUsers();
+    const row = lista.find((x) => x.id === u.id)!;
+    expect(row).toMatchObject({ online: true, logins: 3, comentarios: 1, curtidas: 1, votos: 1, tropas: 1, dispositivo: "Android · Chrome" });
+    expect(JSON.stringify(lista)).not.toMatch(/hash|salt/);
+    expect(resumo.online).toBeGreaterThanOrEqual(1);
+    const det = usuarios.userDetail(u.id);
+    expect(det.atividade.votos[0]).toEqual({ pergunta: "Quem mita?", opcao: "B" });
+    expect(det.atividade.comentarios[0].texto).toBe("eu mito");
+    expect(JSON.stringify(det)).not.toMatch(/"hash"|"salt"/);
+
+    const admRow = db.users.get(adm.id)!;
+    usuarios.userAction(admRow, u.id, "bloquear");
+    expect(() => auth.verifyUser("fulano@tropa.com", "senhafulano1")).toThrow(/bloqueada/);
+    const tok = auth.makeSessionToken(u);
+    expect(auth.userFromRequest(new Request("http://x", { headers: { cookie: `cfc_session=${encodeURIComponent(tok)}` } }))).toBeNull();
+    usuarios.userAction(admRow, u.id, "desbloquear");
+    expect(auth.verifyUser("fulano@tropa.com", "senhafulano1").id).toBe(u.id);
+    expect(() => usuarios.userAction(admRow, adm.id, "excluir")).toThrow(/própria/);
+    usuarios.userAction(admRow, u.id, "excluir");
+    expect(db.users.get(u.id)).toBeUndefined();
+    expect(db.comments.filter((c) => c.userId === u.id)).toHaveLength(0);
+    expect(db.lineups.filter((l) => l.userId === u.id)).toHaveLength(0);
+  });
+
+  it("resume o aparelho sem guardar o texto inteiro", () => {
+    expect(auth.deviceFromUA("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36")).toBe("Android · Chrome");
+    expect(auth.deviceFromUA("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605 Version/17.0 Mobile/15E148 Safari/604.1")).toBe("iPhone/iPad · Safari");
+    expect(auth.deviceFromUA(undefined)).toBe("desconhecido");
+  });
+});
