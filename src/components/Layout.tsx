@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, ClipboardList, FlaskConical, House, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
+import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, House, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
@@ -9,6 +9,7 @@ import { analysisQuery, liveQuery, mudancasQuery } from "../lib/queries";
 import { useRealtime } from "../lib/realtime";
 import { Avatar } from "./avatars";
 import { GlobalSearch, type PageEntry } from "./GlobalSearch";
+import { TourProvider, useTour } from "./Tour";
 
 /** Todas as seções ficam à vista: nada importante escondido em menus. */
 const SECTIONS: PageEntry[] = [
@@ -28,6 +29,7 @@ const SECTIONS: PageEntry[] = [
 const EXTRA: PageEntry[] = [
   { to: "/estatisticas", label: "Duelo X1", Icon: BarChart3, keywords: "x1 comparar duelo versus", search: { tab: "x1" } },
   { to: "/modelo", label: "Precisão do modelo", Icon: FlaskConical, keywords: "modelo precisao backtest acerto" },
+  { to: "/guia", label: "Guia do site", Icon: CircleHelp, keywords: "guia ajuda tour tutorial como usar" },
 ];
 
 /** Atalhos da barra inferior no celular. */
@@ -113,6 +115,30 @@ function isActive(path: string, to: string) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
+  return (
+    <TourProvider>
+      <Shell>{children}</Shell>
+    </TourProvider>
+  );
+}
+
+function HelpButton() {
+  const tour = useTour();
+  return (
+    <button
+      type="button"
+      data-tour="ajuda"
+      onClick={tour.abrirConvite}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-line)] text-[var(--color-ink-3)] hover:border-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
+      aria-label="Guia do site e tour"
+      title="Guia do site e tour"
+    >
+      <CircleHelp size={18} />
+    </button>
+  );
+}
+
+function Shell({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const qc = useQueryClient();
   // o servidor avisa quando algo mudou (status de atleta, mercado, notícia): atualiza tudo sem recarregar
@@ -150,7 +176,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-[var(--color-line)] bg-[var(--color-page)]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-1">
           <Logo />
-          <nav className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Principal">
+          <nav data-tour="nav" className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Principal">
             {SECTIONS.map(({ to, label, Icon }) => {
               const active = isActive(path, to);
               return (
@@ -172,6 +198,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex-1 lg:hidden" />
           <button
             type="button"
+            data-tour="busca-global"
             onClick={() => setSearchOpen(true)}
             className="flex h-10 items-center gap-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 text-sm text-[var(--color-ink-3)] hover:border-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
             aria-label="Buscar atleta, clube ou página"
@@ -180,6 +207,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <span className="hidden sm:inline lg:hidden 2xl:inline">Buscar</span>
             <kbd className="hidden rounded border border-[var(--color-line)] px-1.5 text-[10px] sm:inline">/</kbd>
           </button>
+          <HelpButton />
           {auth.isAdmin && (
             <Link
               to="/admin"
@@ -196,7 +224,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </Link>
         </div>
         {/* celular: todas as seções numa faixa deslizável, sempre visível */}
-        <div ref={strip} className="flex gap-1 overflow-x-auto px-3 pb-2 scrollbar-none lg:hidden" role="navigation" aria-label="Seções">
+        <div ref={strip} data-tour="nav" className="flex gap-1 overflow-x-auto px-3 pb-2 scrollbar-none lg:hidden" role="navigation" aria-label="Seções">
           {SECTIONS.map(({ to, label, Icon }) => {
             const active = isActive(path, to);
             return (

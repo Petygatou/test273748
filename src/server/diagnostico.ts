@@ -38,6 +38,10 @@ export interface FotoProbe {
   exemplo?: string;
   /** rostos vindos da API-Football (elencos lidos aos poucos) */
   apiFootball?: ReturnType<typeof import("./fotosApiFootball")["fotosResumo"]>;
+  /** atletas do Cartola que continuam sem rosto real (nem foto oficial, nem da API-Football) */
+  semRosto?: Array<{ apelido: string; nome: string; clube: string; posicao: string }>;
+  /** nomes da API-Football que não casaram com nenhum atleta */
+  semPar?: Array<{ nome: string; time: string }>;
   /** o servidor do site conseguiu baixar a imagem de exemplo? */
   servidor: "ok" | "falhou" | "sem-foto";
   leitura: string;
@@ -50,10 +54,20 @@ export async function probeFotos(): Promise<FotoProbe> {
   const comFoto = data.athletes.filter((a) => a.foto).length;
   const { fotosResumo } = await import("./fotosApiFootball");
   const extra = fotosResumo(data.athletes);
+  const { fotosSemPar, withFotos } = await import("./fotosApiFootball");
+  const { POSITIONS } = await import("../engine/rules");
+  const semRosto = withFotos(data.athletes)
+    .filter((a) => !a.foto)
+    .map((a) => ({ apelido: a.apelido, nome: a.nome ?? "", clube: data.clubs[a.clubeId]?.nome ?? "?", posicao: POSITIONS[a.posicaoId]?.abbr ?? "?" }))
+    .sort((x, y) => x.clube.localeCompare(y.clube) || x.apelido.localeCompare(y.apelido))
+    .slice(0, 800);
+  const semPar = fotosSemPar();
   const exemplo = data.athletes.find((a) => a.foto)?.foto;
   if (!exemplo) {
     return {
       apiFootball: extra,
+      semRosto,
+      semPar,
       atletas: data.athletes.length,
       comFoto,
       servidor: "sem-foto",
@@ -65,6 +79,8 @@ export async function probeFotos(): Promise<FotoProbe> {
   const ok = res.status === 200;
   return {
     apiFootball: extra,
+    semRosto,
+    semPar,
     atletas: data.athletes.length,
     comFoto,
     exemplo,

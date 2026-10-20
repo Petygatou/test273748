@@ -44,7 +44,9 @@ function MyTeamPage() {
         <h1 className="font-display text-2xl font-extrabold">Meu Time</h1>
         <p className="text-sm text-[var(--color-ink-3)]">Seu time do Cartola lido da API oficial, comparado com a tropa ótima do motor para o seu patrimônio.</p>
       </div>
-      <CartolaConnect />
+      <div data-tour="meutime-conectar">
+        <CartolaConnect />
+      </div>
 
       {token && team.isLoading && <PageSkeleton />}
       {token && team.error && (

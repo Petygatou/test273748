@@ -17,11 +17,13 @@ import { Route as ComunidadeRouteImport } from './routes/comunidade'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as EscalacaoRouteImport } from './routes/escalacao'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
+import { Route as GuiaRouteImport } from './routes/guia'
 import { Route as LigasRouteImport } from './routes/ligas'
 import { Route as MeuTimeRouteImport } from './routes/meu-time'
 import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
 import { Route as ProvaveisRouteImport } from './routes/provaveis'
+import { Route as ApiAnaliseRouteImport } from './routes/api/analise'
 import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
 import { Route as ApiDiagnosticoRouteImport } from './routes/api/diagnostico'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
@@ -72,6 +74,11 @@ const EstatisticasRoute = EstatisticasRouteImport.update({
   path: '/estatisticas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GuiaRoute = GuiaRouteImport.update({
+  id: '/guia',
+  path: '/guia',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LigasRoute = LigasRouteImport.update({
   id: '/ligas',
   path: '/ligas',
@@ -95,6 +102,11 @@ const NoticiasRoute = NoticiasRouteImport.update({
 const ProvaveisRoute = ProvaveisRouteImport.update({
   id: '/provaveis',
   path: '/provaveis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnaliseRoute = ApiAnaliseRouteImport.update({
+  id: '/api/analise',
+  path: '/api/analise',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiComandanteRoute = ApiComandanteRouteImport.update({
@@ -152,11 +164,13 @@ export interface FileRoutesByFullPath {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
+  '/api/analise': typeof ApiAnaliseRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -176,11 +190,13 @@ export interface FileRoutesByTo {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
+  '/api/analise': typeof ApiAnaliseRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -201,11 +217,13 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
+  '/api/analise': typeof ApiAnaliseRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -227,11 +245,13 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
     | '/noticias'
     | '/provaveis'
+    | '/api/analise'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -251,11 +271,13 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
     | '/noticias'
     | '/provaveis'
+    | '/api/analise'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -275,11 +297,13 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
     | '/noticias'
     | '/provaveis'
+    | '/api/analise'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -300,11 +324,13 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   EscalacaoRoute: typeof EscalacaoRoute
   EstatisticasRoute: typeof EstatisticasRoute
+  GuiaRoute: typeof GuiaRoute
   LigasRoute: typeof LigasRoute
   MeuTimeRoute: typeof MeuTimeRoute
   ModeloRoute: typeof ModeloRoute
   NoticiasRoute: typeof NoticiasRoute
   ProvaveisRoute: typeof ProvaveisRoute
+  ApiAnaliseRoute: typeof ApiAnaliseRoute
   ApiComandanteRoute: typeof ApiComandanteRoute
   ApiDiagnosticoRoute: typeof ApiDiagnosticoRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -374,6 +400,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EstatisticasRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/guia': {
+      id: '/guia'
+      path: '/guia'
+      fullPath: '/guia'
+      preLoaderRoute: typeof GuiaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ligas': {
       id: '/ligas'
       path: '/ligas'
@@ -407,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/provaveis'
       fullPath: '/provaveis'
       preLoaderRoute: typeof ProvaveisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analise': {
+      id: '/api/analise'
+      path: '/api/analise'
+      fullPath: '/api/analise'
+      preLoaderRoute: typeof ApiAnaliseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/comandante': {
@@ -484,11 +524,13 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   EscalacaoRoute: EscalacaoRoute,
   EstatisticasRoute: EstatisticasRoute,
+  GuiaRoute: GuiaRoute,
   LigasRoute: LigasRoute,
   MeuTimeRoute: MeuTimeRoute,
   ModeloRoute: ModeloRoute,
   NoticiasRoute: NoticiasRoute,
   ProvaveisRoute: ProvaveisRoute,
+  ApiAnaliseRoute: ApiAnaliseRoute,
   ApiComandanteRoute: ApiComandanteRoute,
   ApiDiagnosticoRoute: ApiDiagnosticoRoute,
   ApiEventsRoute: ApiEventsRoute,

@@ -147,12 +147,13 @@ function teamTotal(xi: ProbableXI, live?: LiveData) {
   return ids.reduce((s, id) => s + (live.atletas[id]?.entrou ? live.atletas[id].pontos : 0), 0);
 }
 
-function MatchBlock({ a, f, live, match, oficial }: { a: RoundAnalysis; f: FixtureOdds; live?: LiveData; match?: LiveMatch; oficial?: boolean }) {
+function MatchBlock({ a, f, live, match, oficial, tour }: { a: RoundAnalysis; f: FixtureOdds; live?: LiveData; match?: LiveMatch; oficial?: boolean; tour?: boolean }) {
   const home = useMemo(() => probableXI(a.players, f.casaId), [a, f.casaId]);
   const away = useMemo(() => probableXI(a.players, f.foraId), [a, f.foraId]);
   const started = match?.status === "andamento" || match?.status === "encerrado";
   const [ch, cf] = [a.clubs[f.casaId], a.clubs[f.foraId]];
   return (
+    <div data-tour={tour ? "provaveis-campo" : undefined} className="min-w-0">
     <Card as="section" className="scroll-mt-28 p-3 sm:p-4">
       <div id={`jogo-${f.matchId}`} className="flex items-center gap-2">
         <ClubBadge club={ch} size={30} />
@@ -187,6 +188,7 @@ function MatchBlock({ a, f, live, match, oficial }: { a: RoundAnalysis; f: Fixtu
         <TeamPitch a={a} xi={away} live={live} started={started} total={teamTotal(away, live)} />
       </div>
     </Card>
+    </div>
   );
 }
 
@@ -279,7 +281,7 @@ function ProvaveisPage() {
         <span className="flex items-center gap-1"><Info size={12} /> Status oficial do Cartola + ajustes da equipe Tropa + minutos recentes</span>
       </div>
 
-      <nav className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Ir para o jogo">
+      <nav data-tour="provaveis-jogos" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Ir para o jogo">
         {a.fixtures.map((f) => (
           <a key={f.matchId} href={`#jogo-${f.matchId}`} className="chip shrink-0 gap-1">
             <ClubBadge club={a.clubs[f.casaId]} size={14} /> {a.clubs[f.casaId]?.abreviacao} x {a.clubs[f.foraId]?.abreviacao} <ClubBadge club={a.clubs[f.foraId]} size={14} />
@@ -290,8 +292,8 @@ function ProvaveisPage() {
       <Novidades items={mud.data?.mudancas ?? []} a={a} />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {fixtures.map((f) => (
-          <MatchBlock key={f.matchId} a={a} f={f} live={live} match={matches.get(f.matchId)} oficial={(mud.data?.status.escalacaoOficial.jogosOficiais ?? []).some(([x, y]) => x === a.clubs[f.casaId]?.abreviacao && y === a.clubs[f.foraId]?.abreviacao)} />
+        {fixtures.map((f, idx) => (
+          <MatchBlock key={f.matchId} tour={idx === 0} a={a} f={f} live={live} match={matches.get(f.matchId)} oficial={(mud.data?.status.escalacaoOficial.jogosOficiais ?? []).some(([x, y]) => x === a.clubs[f.casaId]?.abreviacao && y === a.clubs[f.foraId]?.abreviacao)} />
         ))}
       </div>
       {!fixtures.length && <Card className="p-6 text-center text-sm text-[var(--color-ink-3)]">Nenhum jogo em andamento agora.</Card>}

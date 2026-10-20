@@ -277,7 +277,7 @@ interface Probe {
   hosts: Array<{ host: string; ok: boolean; status?: number; ms: number; leitura: string; trecho?: string; server?: string }>;
   proxy: boolean;
   variaveis: Record<string, string | null>;
-  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string; apiFootball?: { mapeadas: number; timesLidos: number; timesTotal: number; naoCasados: number; modo: string; temporadaFoto: number | null; erro: string | null } } | null;
+  fotos: { atletas: number; comFoto: number; exemplo?: string; servidor: string; leitura: string; semRosto?: Array<{ apelido: string; nome: string; clube: string; posicao: string }>; semPar?: Array<{ nome: string; time: string }>; apiFootball?: { mapeadas: number; timesLidos: number; timesTotal: number; naoCasados: number; modo: string; temporadaFoto: number | null; erro: string | null } } | null;
   escalacao: {
     ligada: boolean;
     jogosComEscalacao: number;
@@ -380,6 +380,7 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
                   {probe.fotos.apiFootball.erro ? ` Erro: ${probe.fotos.apiFootball.erro}` : ""}
                 </p>
               )}
+              {probe.fotos.semRosto && probe.fotos.semRosto.length > 0 && <SemRosto lista={probe.fotos.semRosto} semPar={probe.fotos.semPar ?? []} />}
               {probe.fotos.exemplo && <code className="mt-1 block overflow-hidden rounded bg-black/30 p-1.5 text-[11px] break-all text-[var(--color-ink-3)]">{probe.fotos.exemplo}</code>}
             </div>
           )}
@@ -392,6 +393,64 @@ function Dados({ meta }: { meta?: { source: string; importadoEm?: string; rodada
             </Alert>
           )}
         </Card>
+      )}
+    </div>
+  );
+}
+
+function SemRosto({ lista, semPar }: { lista: Array<{ apelido: string; nome: string; clube: string; posicao: string }>; semPar: Array<{ nome: string; time: string }> }) {
+  const [aberto, setAberto] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const texto = () =>
+    ["ATLETAS DO CARTOLA SEM ROSTO REAL", ...lista.map((a) => `${a.clube} | ${a.posicao} | ${a.apelido}${a.nome ? ` (${a.nome})` : ""}`), "", "NOMES DA API-FOOTBALL SEM PAR NO CARTOLA", ...semPar.map((x) => `${x.time} | ${x.nome}`)].join("\n");
+  return (
+    <div className="mt-3 rounded-xl bg-[var(--color-surface-1)] p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button className="text-sm font-semibold underline" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
+          {lista.length} atletas ainda sem rosto real {aberto ? "(esconder)" : "(ver lista)"}
+        </button>
+        <button
+          className="btn btn-ghost px-2.5 py-1 text-xs"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(texto());
+              setCopiado(true);
+              setTimeout(() => setCopiado(false), 2000);
+            } catch {
+              /* sem permissão da área de transferência */
+            }
+          }}
+        >
+          {copiado ? "Copiado!" : "Copiar lista"}
+        </button>
+      </div>
+      {aberto && (
+        <div className="mt-2 grid gap-3 md:grid-cols-2">
+          <div>
+            <div className="mb-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-3)] uppercase">Do Cartola, sem rosto ({lista.length})</div>
+            <ul className="max-h-72 space-y-0.5 overflow-y-auto text-xs">
+              {lista.map((a, i) => (
+                <li key={i}>
+                  <span className="text-[var(--color-ink-3)]">{a.clube} · {a.posicao} ·</span> <b>{a.apelido}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="mb-1 text-[11px] font-bold tracking-wide text-[var(--color-ink-3)] uppercase">Da API-Football, sem par ({semPar.length})</div>
+            <ul className="max-h-72 space-y-0.5 overflow-y-auto text-xs">
+              {semPar.length ? (
+                semPar.map((x, i) => (
+                  <li key={i}>
+                    <span className="text-[var(--color-ink-3)]">{x.time} ·</span> <b>{x.nome}</b>
+                  </li>
+                ))
+              ) : (
+                <li className="text-[var(--color-ink-3)]">Nenhum ainda.</li>
+              )}
+            </ul>
+          </div>
+        </div>
       )}
     </div>
   );

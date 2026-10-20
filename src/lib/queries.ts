@@ -1,9 +1,20 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { fetchAnalysis, fetchBacktest, fetchLive, fetchMudancas, fetchNews } from "../server/fns";
 
+type AnalysisPayload = Awaited<ReturnType<typeof fetchAnalysis>>;
+
+/** No navegador: JSON leve com ETag (304 quando nada mudou). No servidor: server function. */
+async function fetchAnalysisJson(): Promise<AnalysisPayload> {
+  if (typeof window === "undefined") return fetchAnalysis();
+  const res = await fetch("/api/analise", { headers: { Accept: "application/json" } });
+  const body = (await res.json()) as AnalysisPayload & { error?: string };
+  if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+  return body;
+}
+
 export const analysisQuery = queryOptions({
   queryKey: ["analysis"],
-  queryFn: () => fetchAnalysis(),
+  queryFn: fetchAnalysisJson,
   // o servidor avisa por SSE quando algo muda; o intervalo é só rede de segurança
   staleTime: 30_000,
   gcTime: 60 * 60_000,

@@ -107,10 +107,29 @@ export function sliceSeason(data: SeasonData, r: number): SeasonData {
   };
 }
 
-export function runBacktest(
-  data: SeasonData,
-  opts: { fromRound?: number; toRound?: number; config?: Partial<ModelConfig>; lineups?: boolean; budget?: number } = {},
-): BacktestResult {
+type BacktestOpts = { fromRound?: number; toRound?: number; config?: Partial<ModelConfig>; lineups?: boolean; budget?: number };
+
+/** Roda até o fim, de uma vez (scripts e testes). */
+function drain<T>(g: Generator<void, T, void>): T {
+  let r = g.next();
+  while (!r.done) r = g.next();
+  return r.value;
+}
+
+/** Versão para o servidor: devolve a vez ao Node entre as rodadas, para o site não travar enquanto calcula. */
+async function drainAsync<T>(g: Generator<void, T, void>): Promise<T> {
+  let r = g.next();
+  while (!r.done) {
+    await new Promise((res) => setImmediate(res));
+    r = g.next();
+  }
+  return r.value;
+}
+
+export const runBacktest = (data: SeasonData, opts: BacktestOpts = {}) => drain(backtestSteps(data, opts));
+export const runBacktestAsync = (data: SeasonData, opts: BacktestOpts = {}) => drainAsync(backtestSteps(data, opts));
+
+function* backtestSteps(data: SeasonData, opts: BacktestOpts = {}): Generator<void, BacktestResult, void> {
   const last = data.rodadaAtual - 1;
   const from = Math.max(4, opts.fromRound ?? Math.max(4, last - 9));
   const to = Math.min(last, opts.toRound ?? last);
@@ -219,6 +238,7 @@ export function runBacktest(
     inside += rin;
     below += rbelow;
     above += rabove;
+    yield;
   }
 
   const N = all.y.length || 1;
@@ -282,7 +302,11 @@ export function tuneModel(
 /* ------------------------------------------------------------------------- */
 
 /** Mede o acerto das prováveis nas últimas rodadas encerradas, sem vazar o futuro. */
-export function runLineupBacktest(data: SeasonData, opts: { fromRound?: number; toRound?: number; config?: Partial<ModelConfig> } = {}): LineupAccuracy {
+type LineupOpts = { fromRound?: number; toRound?: number; config?: Partial<ModelConfig> };
+export const runLineupBacktest = (data: SeasonData, opts: LineupOpts = {}) => drain(lineupSteps(data, opts));
+export const runLineupBacktestAsync = (data: SeasonData, opts: LineupOpts = {}) => drainAsync(lineupSteps(data, opts));
+
+function* lineupSteps(data: SeasonData, opts: LineupOpts = {}): Generator<void, LineupAccuracy, void> {
   const last = data.rodadaAtual - 1;
   const from = Math.max(6, opts.fromRound ?? last - 9);
   const to = Math.min(last, opts.toRound ?? last);
@@ -310,6 +334,7 @@ export function runLineupBacktest(data: SeasonData, opts: { fromRound?: number; 
       lastEntered.set(c, [...xi.lines.gol, ...xi.lines.def, ...xi.lines.mei, ...xi.lines.ata].map((p) => p.atletaId));
     }
     rounds.push({ rodada: r, players: a.players, entered, clubsPlayed, lastEntered });
+    yield;
   }
   const out = lineupAccuracy(rounds);
   const comStatus = rounds.filter((r) => data.statusHistory?.[r.rodada]).length;

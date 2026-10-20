@@ -5,7 +5,10 @@
 import type { LineupAccuracy } from "../engine/lineup";
 import { generateDemoSeason } from "../data/demoSeason";
 import { buildRoundAnalysis } from "../engine/analysis";
-import { runBacktest, runLineupBacktest, type BacktestResult } from "../engine/backtest";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runBacktestAsync, runLineupBacktestAsync, type BacktestResult } from "../engine/backtest";
+import { dataDir, emit } from "./db";
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
 import { fotosMap, loadFotos, withFotos } from "./fotosApiFootball";
@@ -110,22 +113,85 @@ function overridesKey(o: Record<number, LineupOverride> | undefined) {
   return `${entries.length}:${h}`;
 }
 
-export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta }> {
+/** Última análise pronta: servida na hora enquanto a nova é calculada (ninguém espera o recálculo). */
+let lastAnalysis: { key: string; source: string; analysis: RoundAnalysis } | null = null;
+
+export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta; versao: string }> {
   const { data, meta } = await loadSeason();
   // chave pelo CONTEÚDO (status, preço, rodada, ajustes, notícias), não pelo horário da leitura
   const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}`;
-  const analysis = await cached(key, 10 * 60_000, async () => buildRoundAnalysis(data, { simulations: Number(env("SIMULATIONS") ?? 3000) }));
-  return { analysis, meta };
+  const compute = cached(key, 10 * 60_000, async () => {
+    // devolve a vez ao Node antes de começar, para responder quem já está esperando
+    await new Promise((r) => setImmediate(r));
+    const analysis = buildRoundAnalysis(data, { simulations: Number(env("SIMULATIONS") ?? 3000) });
+    const servidaVelha = lastAnalysis && lastAnalysis.key !== key;
+    lastAnalysis = { key, source: data.source, analysis };
+    // quem recebeu a versão anterior é avisado para buscar a nova
+    if (servidaVelha) emit("dados");
+    return analysis;
+  });
+  if (lastAnalysis && lastAnalysis.key !== key && lastAnalysis.source === data.source) {
+    void compute.catch(() => {});
+    return { analysis: lastAnalysis.analysis, meta, versao: lastAnalysis.key };
+  }
+  const analysis = await compute;
+  return { analysis, meta, versao: key };
 }
 
-export async function loadBacktest(): Promise<BacktestResult & { meta: SeasonMeta; provaveis: LineupAccuracy | null }> {
+/* ---------- precisão do modelo: pesada, calculada em segundo plano e guardada em disco ---------- */
+
+type BacktestPayload = BacktestResult & { provaveis: LineupAccuracy | null };
+const bgJobs = new Map<string, Promise<void>>();
+const memo = new Map<string, BacktestPayload>();
+const cacheFile = (key: string) => join(dataDir(), "cache", `${key.replace(/[^a-z0-9-]+/gi, "_")}.json`);
+
+function readDisk(key: string): BacktestPayload | null {
+  try {
+    return JSON.parse(readFileSync(cacheFile(key), "utf8")) as BacktestPayload;
+  } catch {
+    return null;
+  }
+}
+
+function writeDisk(key: string, v: BacktestPayload) {
+  try {
+    mkdirSync(join(dataDir(), "cache"), { recursive: true });
+    writeFileSync(cacheFile(key) + ".tmp", JSON.stringify(v));
+    renameSync(cacheFile(key) + ".tmp", cacheFile(key));
+  } catch {
+    /* disco somente leitura */
+  }
+}
+
+/**
+ * O teste de precisão muda só uma vez por rodada. Fica em memória e em disco;
+ * se ainda não existe, é calculado em segundo plano (sem travar o site) e os
+ * navegadores são avisados quando fica pronto.
+ */
+export async function loadBacktest(): Promise<Partial<BacktestResult> & { meta: SeasonMeta; provaveis: LineupAccuracy | null; calculando: boolean }> {
   const { data, meta } = await loadSeason();
-  const key = `backtest:${data.source}:${data.temporada}:${data.rodadaAtual}`;
-  const res = await cached(key, 12 * 3600_000, async () =>
-    runBacktest(data, { fromRound: Math.max(5, data.rodadaAtual - 10), config: { simulations: 400 } }),
-  );
-  const provaveis = await cached(`provaveis-acerto:${data.source}:${data.temporada}:${data.rodadaAtual}`, 12 * 3600_000, async () =>
-    data.rodadaAtual >= 8 ? runLineupBacktest(data) : null,
-  );
-  return { ...res, meta, provaveis };
+  const key = `backtest-v2-${data.source}-${data.temporada}-${data.rodadaAtual}`;
+  const hit = memo.get(key) ?? readDisk(key);
+  if (hit) {
+    memo.set(key, hit);
+    return { ...hit, meta, calculando: false };
+  }
+  if (!bgJobs.has(key)) {
+    bgJobs.set(
+      key,
+      (async () => {
+        try {
+          const res = await runBacktestAsync(data, { fromRound: Math.max(5, data.rodadaAtual - 10), config: { simulations: 300 } });
+          const provaveis = data.rodadaAtual >= 8 ? await runLineupBacktestAsync(data) : null;
+          const v = { ...res, provaveis };
+          memo.set(key, v);
+          writeDisk(key, v);
+          emit("dados");
+        } finally {
+          bgJobs.delete(key);
+        }
+      })().catch(() => {}),
+    );
+  }
+  return { meta, provaveis: null, calculando: true };
 }

@@ -83,7 +83,7 @@ function LivePage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
+        <div data-tour="aovivo">
           <h1 className="font-display flex items-center gap-2 text-2xl font-extrabold">
             <Radio size={22} className="text-[var(--color-critical-ink)]" /> Ao Vivo — Rodada {live.rodada}
           </h1>
