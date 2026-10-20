@@ -122,7 +122,7 @@ export const PASSOS: TourStep[] = [
     id: "escalar-estilo",
     capitulo: "escalar",
     to: "/escalacao",
-    alvo: "escalar-estilo",
+    alvo: "escalar-estilo-topo,escalar-estilo",
     titulo: "Seu estilo e suas cartoletas",
     texto: "Mitada arrisca mais, Equilibrada é a mais segura e Valorização busca ganhar cartoletas. A tropa é recalculada na hora.",
     experimente: "Troque o estilo e veja a tropa mudar.",

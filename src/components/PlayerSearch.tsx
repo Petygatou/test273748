@@ -112,6 +112,11 @@ export function PlayerSearch({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={(e) => {
+          // foco saiu do campo (Tab, outra janela abriu): fecha a lista
+          const para = e.relatedTarget as Node | null;
+          if (!para || (!lista.current?.contains(para) && !box.current?.contains(para))) setOpen(false);
+        }}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") {
             e.preventDefault();

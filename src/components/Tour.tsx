@@ -17,11 +17,16 @@ export const useTour = () => useContext(Ctx);
 type Rect = { top: number; left: number; width: number; height: number };
 const PAD = 8;
 
-/** Primeiro elemento visível marcado com data-tour={alvo} (há versões de celular e de computador). */
+/**
+ * Primeiro elemento visível marcado com data-tour={alvo}. O alvo pode listar opções em ordem
+ * de preferência ("topo-celular,padrao"): a versão de celular fica escondida no computador.
+ */
 function acharAlvo(alvo: string): HTMLElement | null {
-  for (const el of document.querySelectorAll<HTMLElement>(`[data-tour="${alvo}"]`)) {
-    const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden") return el;
+  for (const nome of alvo.split(",")) {
+    for (const el of document.querySelectorAll<HTMLElement>(`[data-tour="${nome}"]`)) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden") return el;
+    }
   }
   return null;
 }
@@ -138,10 +143,12 @@ function Spotlight({ passo, n, total, parcial, onIr, onFechar }: { passo: TourSt
   const [cardH, setCardH] = useState(180);
   const ultimo = n === total - 1;
 
-  // vai até a página do passo
+  // vai até a página do passo (só ao mudar de passo: se a pessoa navegar experimentando, não a puxamos de volta)
+  const pathRef = useRef(path);
+  pathRef.current = path;
   useEffect(() => {
-    if (path !== passo.to) void navigate({ to: passo.to, search: passo.search as never });
-  }, [passo, path, navigate]);
+    if (pathRef.current !== passo.to) void navigate({ to: passo.to, search: passo.search as never });
+  }, [passo, navigate]);
 
   // espera o elemento aparecer (a página pode estar carregando), rola até ele e acompanha a posição
   useEffect(() => {
@@ -187,8 +194,13 @@ function Spotlight({ passo, n, total, parcial, onIr, onFechar }: { passo: TourSt
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onFechar();
-      else if (e.key === "ArrowRight" || e.key === "Enter") ultimo ? onFechar() : onIr(n + 1);
+      if (e.key === "Escape") return onFechar();
+      // digitando num campo destacado ("Experimente"): setas e Enter são da pessoa, não do tour
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (e.defaultPrevented || t?.closest("input, textarea, select, [contenteditable=true]")) return;
+      // Enter num botão já vira clique nele; contar de novo pularia um passo
+      if (e.key === "Enter" && t?.closest("button, a")) return;
+      if (e.key === "ArrowRight" || e.key === "Enter") ultimo ? onFechar() : onIr(n + 1);
       else if (e.key === "ArrowLeft" && n > 0) onIr(n - 1);
     };
     window.addEventListener("keydown", onKey);

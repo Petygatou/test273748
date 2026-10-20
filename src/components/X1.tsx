@@ -108,7 +108,13 @@ export function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; 
   const [details, setDetails] = useState(false);
   const [editing, setEditing] = useState<"a" | "b" | null>(null);
   const pa = a.players.find((p) => p.atletaId === ida) ?? duels[0]?.a;
-  const pb = a.players.find((p) => p.atletaId === idb) ?? duels[0]?.b;
+  const pbEscolhido = a.players.find((p) => p.atletaId === idb && p.atletaId !== pa?.atletaId);
+  // sem B (ou B igual a A): o melhor da mesma posição que não seja o próprio A
+  const pb =
+    pbEscolhido ??
+    (pa && (ida != null || duels[0]?.a.atletaId !== pa.atletaId)
+      ? a.players.filter((p) => p.posicaoId === pa.posicaoId && p.atletaId !== pa.atletaId && p.matchId != null).sort((x, y) => y.xP - x.xP)[0]
+      : duels[0]?.b);
   if (!pa || !pb) return null;
 
   const diff = pa.xP - pb.xP;

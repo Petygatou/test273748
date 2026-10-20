@@ -59,19 +59,18 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
   const byId = useMemo(() => new Map(analysis.players.map((p) => [p.atletaId, p] as const)), [analysis]);
   const validIds = (ids: number[]) => ids.filter((id) => byId.has(id));
-  const req = useMemo(
-    () => ({
-      formation: settings.formation,
-      budget: settings.budget,
-      profile: settings.profile,
-      fixed: validIds(fixed),
-      banned: validIds(banned),
-      minPJogar: settings.minPJogar,
-      captainId: captainLock,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings, fixed, banned, captainLock, byId],
-  );
+  // a chave só muda quando o pedido muda de verdade: atualizações dos dados em segundo plano
+  // (status de atleta, mercado) não apagam as trocas que a pessoa fez à mão
+  const reqKey = JSON.stringify({
+    formation: settings.formation,
+    budget: settings.budget,
+    profile: settings.profile,
+    fixed: validIds(fixed),
+    banned: validIds(banned),
+    minPJogar: settings.minPJogar,
+    captainId: captainLock,
+  });
+  const req = useMemo(() => JSON.parse(reqKey) as Parameters<typeof optimizeLineup>[1], [reqKey]);
 
   const result = useMemo(() => {
     const t = performance.now();
@@ -96,7 +95,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
       });
       setSim(r);
     }, 30);
-    writeLocal(KEYS.lastLineup, {
+    // a tropa que a pessoa escolheu acompanhar (salva/enviada) não é trocada só por abrir o Montador
+    const atual = readLocal<{ rodada?: number; fixa?: boolean } | null>(KEYS.lastLineup, null);
+    if (!(atual?.fixa && atual.rodada === analysis.rodada)) writeLocal(KEYS.lastLineup, {
       rodada: analysis.rodada,
       titulares: lineup.slots.map((s) => s.atletaId),
       captainId: lineup.captainId,
@@ -124,8 +125,17 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
     setSelected(null);
   };
 
+  const acompanharAoVivo = (l: NonNullable<typeof lineup>) =>
+    writeLocal(KEYS.lastLineup, {
+      rodada: analysis.rodada,
+      titulares: l.slots.map((s) => s.atletaId),
+      captainId: l.captainId,
+      reservas: l.banco.map((b) => ({ atletaId: b.atletaId, posicaoId: b.posicaoId, luxo: b.luxo })),
+      fixa: true,
+    });
   const save = () => {
     if (!lineup) return;
+    acompanharAoVivo(lineup);
     const list = readLocal<SavedLineup[]>(KEYS.lineups, []);
     const item: SavedLineup = {
       id: `${Date.now()}`,
@@ -157,6 +167,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
   const sendToCartola = async () => {
     if (!lineup) return;
+    acompanharAoVivo(lineup);
     const token = readLocal<string>(KEYS.cartolaToken, "");
     if (!token) {
       setSavedMsg("Conecte sua conta do Cartola em Meu Time para enviar a tropa.");
@@ -227,16 +238,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                 Quanto você tem (C$)
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  id="budget"
-                  className="input tabular"
-                  type="number"
-                  min={60}
-                  max={400}
-                  step={0.01}
-                  value={settings.budget}
-                  onChange={(e) => update({ budget: Math.max(0, Number(e.target.value) || 0) })}
-                />
+                <BudgetInput value={settings.budget} onCommit={(budget) => update({ budget })} />
                 {[100, 120, 140].map((b) => (
                   <button key={b} className="btn btn-ghost px-2.5 py-2 text-xs" onClick={() => update({ budget: b })}>
                     {b}
@@ -275,7 +277,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         {/* ----------------------------- resultado ----------------------------- */}
         <div className="order-1 min-w-0 space-y-4 lg:order-2">
           {/* atalhos no celular: perfil e orçamento sem rolar até os ajustes */}
-          <div data-tour="escalar-estilo" className="flex flex-wrap items-center gap-2 lg:hidden">
+          <div data-tour="escalar-estilo-topo" className="flex flex-wrap items-center gap-2 lg:hidden">
             <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
             <div className="seg" role="group" aria-label="Orçamento">
               {[100, 120, 140].map((b) => (
@@ -569,6 +571,36 @@ function Locks({
 }
 
 /* ------------------------------ troca manual ------------------------------ */
+
+/**
+ * Campo de cartoletas com rascunho: dá para apagar e digitar outro valor sem a tropa
+ * ser recalculada (e salva) com 0 no meio do caminho.
+ */
+function BudgetInput({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const parse = (t: string) => Number(t.replace(",", "."));
+  const commit = () => {
+    const n = parse(draft);
+    if (Number.isFinite(n) && n > 0) onCommit(Math.min(400, Math.max(20, Math.round(n * 100) / 100)));
+    else setDraft(String(value));
+  };
+  return (
+    <input
+      id="budget"
+      className="input tabular"
+      inputMode="decimal"
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = parse(e.target.value);
+        if (Number.isFinite(n) && n >= 20 && n <= 400) onCommit(Math.round(n * 100) / 100);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+    />
+  );
+}
 
 function SwapSheet({
   analysis,

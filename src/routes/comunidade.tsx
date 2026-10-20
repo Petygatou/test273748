@@ -73,7 +73,10 @@ function CommunityPage() {
         <StoriesBar stories={stories} me={auth.me} onCreate={canPublish ? () => setComposeStory(true) : undefined} onOpen={setViewing} />
       </Card>
       {erro && <Alert tone="warning">{erro}</Alert>}
-      {canPublish && <Composer me={auth.me} onPublish={(p) => act(() => backend.createPost(p, auth.me))} />}
+      {canPublish && <Composer me={auth.me} onPublish={async (p) => {
+            await backend.createPost(p, auth.me);
+            await load();
+          }} />}
       {posts == null ? (
         <div className="space-y-3">
           {[0, 1].map((i) => (
@@ -175,7 +178,7 @@ function PostCard({ p, me, onLike, onVote, onComment, onDelete }: { p: Post; me:
           </button>
         )}
       </header>
-      {p.texto && <p className="px-3 pb-3 text-sm whitespace-pre-wrap text-[var(--color-ink-2)]">{p.texto}</p>}
+      {p.texto && <p className="px-3 pb-3 text-sm break-words whitespace-pre-wrap text-[var(--color-ink-2)]">{p.texto}</p>}
       {p.media && (p.media.kind === "image" ? <img src={p.media.url} alt="" className="max-h-[70dvh] w-full object-cover" loading="lazy" /> : <FeedVideo src={p.media.url} />)}
       {p.poll && (
         <div className="space-y-2 px-3 pt-3">
@@ -214,7 +217,7 @@ function PostCard({ p, me, onLike, onVote, onComment, onDelete }: { p: Post; me:
       )}
       <ul className="space-y-1.5 px-3 pb-2">
         {comments.map((c) => (
-          <li key={c.id} className="text-sm">
+          <li key={c.id} className="text-sm break-words">
             <span className="font-semibold">{c.author.nome}</span> <span className="text-[var(--color-ink-2)]">{c.texto}</span>
           </li>
         ))}

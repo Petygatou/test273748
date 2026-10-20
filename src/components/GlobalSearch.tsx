@@ -104,7 +104,7 @@ export function GlobalSearch({ pages, open, onClose }: { pages: PageEntry[]; ope
         <ul id="gs-list" role="listbox" className="max-h-[60vh] overflow-y-auto p-1.5">
           {!q && <li className="px-2 pt-1 pb-1 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">Atalhos e destaques da rodada</li>}
           {items.map((it, i) => (
-            <li key={it.kind === "page" ? `pg-${it.page.to}` : `pl-${it.p.atletaId}`} id={`gs-${i}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)}>
+            <li key={it.kind === "page" ? `pg-${it.page.label}` : `pl-${it.p.atletaId}`} id={`gs-${i}`} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)}>
               <button className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${i === active ? "bg-[var(--color-surface-3)]" : ""}`} onClick={() => go(it)}>
                 {it.kind === "page" ? (
                   <>

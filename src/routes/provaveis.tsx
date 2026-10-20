@@ -155,7 +155,7 @@ function MatchBlock({ a, f, live, match, oficial, tour }: { a: RoundAnalysis; f:
   return (
     <div data-tour={tour ? "provaveis-campo" : undefined} className="min-w-0">
     <Card as="section" className="scroll-mt-28 p-3 sm:p-4">
-      <div id={`jogo-${f.matchId}`} className="flex items-center gap-2">
+      <div id={`jogo-${f.matchId}`} className="flex scroll-mt-36 items-center gap-2">
         <ClubBadge club={ch} size={30} />
         <span className="font-display min-w-0 flex-1 truncate text-base font-bold">{ch?.nome}</span>
         <div className="text-center">
@@ -282,7 +282,7 @@ function ProvaveisPage() {
       </div>
 
       <nav data-tour="provaveis-jogos" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none" aria-label="Ir para o jogo">
-        {a.fixtures.map((f) => (
+        {fixtures.map((f) => (
           <a key={f.matchId} href={`#jogo-${f.matchId}`} className="chip shrink-0 gap-1">
             <ClubBadge club={a.clubs[f.casaId]} size={14} /> {a.clubs[f.casaId]?.abreviacao} x {a.clubs[f.foraId]?.abreviacao} <ClubBadge club={a.clubs[f.foraId]} size={14} />
           </a>
