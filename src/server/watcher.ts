@@ -12,7 +12,6 @@ import { STATUS_LABELS } from "../engine/rules";
 import { invalidate } from "./cache";
 import { emit } from "./db";
 import { probableXI } from "../engine/lineup";
-import { stepFotos } from "./fotosApiFootball";
 import { currentOfficialOverrides, fixturesSummary, medicaoResumo, newOfficialState, officialEnabled, persistOfficial, quotaStatus, stepOfficial, type OfficialState } from "./escalacoes";
 import { loadNews, type NewsItem } from "./news";
 
@@ -214,8 +213,8 @@ async function tick() {
       }
     }
 
-    // rostos reais: um elenco por minuto, só com cota sobrando
-    if (officialEnabled() && (await stepFotos(st.oficial, data.athletes, data.clubs, data.temporada))) mudou = true;
+    // rostos não são mais exibidos (o site usa a camisa do clube): a cota da API-Football
+    // fica inteira para as escalações oficiais
 
     void loadSeason;
     if (mudou) {
