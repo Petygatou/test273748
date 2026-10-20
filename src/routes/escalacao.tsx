@@ -214,6 +214,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
       <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
         {/* ----------------------------- controles ----------------------------- */}
         <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
+          <div data-tour="escalar-estilo">
           <Card className="space-y-4 p-4">
             <div>
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Seu estilo</div>
@@ -263,14 +264,17 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
               <input id="minp" type="range" min={0.3} max={0.9} step={0.05} value={settings.minPJogar} onChange={(e) => update({ minPJogar: Number(e.target.value) })} className="w-full accent-[var(--color-brand)]" />
             </div>
           </Card>
+          </div>
 
+          <div data-tour="escalar-travas">
           <Locks analysis={analysis} fixed={fixed} banned={banned} setFixed={setFixed} setBanned={setBanned} captainLock={captainLock} setCaptainLock={setCaptainLock} />
+          </div>
         </div>
 
         {/* ----------------------------- resultado ----------------------------- */}
         <div className="order-1 min-w-0 space-y-4 lg:order-2">
           {/* atalhos no celular: perfil e orçamento sem rolar até os ajustes */}
-          <div className="flex flex-wrap items-center gap-2 lg:hidden">
+          <div data-tour="escalar-estilo" className="flex flex-wrap items-center gap-2 lg:hidden">
             <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
             <div className="seg" role="group" aria-label="Orçamento">
               {[100, 120, 140].map((b) => (
@@ -322,7 +326,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                     )}
                   </div>
                 </div>
+                <div data-tour="escalar-campo">
                 <Pitch slots={lineup.slots} byId={byId} clubs={clubs} captainId={lineup.captainId} fixed={fixedSet} bench={lineup.banco} onSelect={setSelected} />
+                </div>
                 <p className="mt-2 text-xs text-[var(--color-ink-3)]">Toque em um atleta para trocar, fixar, banir ou torná-lo capitão.</p>
                 {savedMsg && (
                   <div className="mt-2">

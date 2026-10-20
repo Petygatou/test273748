@@ -44,7 +44,7 @@ function CaptainSpotlight({ p, alts, clubs }: { p?: PlayerProjection; alts: Play
   if (!p) return null;
   const opp = p.adversarioId != null ? clubs[p.adversarioId] : undefined;
   return (
-    <div className="animate-rise relative overflow-hidden rounded-[22px] border border-[var(--color-gold)]/30 bg-gradient-to-b from-[var(--color-gold)]/10 to-black/20 p-4 sm:p-5" style={{ ["--d" as string]: "120ms" }}>
+    <div data-tour="capitao" className="animate-rise relative overflow-hidden rounded-[22px] border border-[var(--color-gold)]/30 bg-gradient-to-b from-[var(--color-gold)]/10 to-black/20 p-4 sm:p-5" style={{ ["--d" as string]: "120ms" }}>
       <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest text-[var(--color-gold)] uppercase">
         <Crown size={14} /> Capitão da rodada
       </div>
@@ -193,8 +193,8 @@ function Home() {
                 <Countdown to={m.fechamento} />
               </div>
             )}
+            <div data-tour="busca-home" className="mt-5 max-w-xl">
             <PlayerSearch
-              className="mt-5 max-w-xl"
               inputClassName="h-12 rounded-2xl text-base"
               players={a.players}
               clubs={clubs}
@@ -204,13 +204,14 @@ function Home() {
               suggestionsLabel="Mais bem projetados da rodada"
               onSelect={(p) => navigate({ to: "/jogador/$id", params: { id: String(p.atletaId) } })}
             />
+            </div>
           </div>
           <CaptainSpotlight p={capitaes[0]} alts={capitaes.slice(1, 3)} clubs={clubs} />
         </div>
       </section>
 
       {/* atalhos */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Atalhos">
+      <section data-tour="atalhos" className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Atalhos">
         {actions.map((x, i) => (
           <Link
             key={x.label}
@@ -233,7 +234,7 @@ function Home() {
       </section>
 
       {/* destaques */}
-      <section>
+      <section data-tour="destaques">
         <SectionHead title="Destaques da rodada" hint="Quem deve pontuar mais. Toque para ver a ficha." to="/estatisticas" toLabel="Ver todos" />
         <div className="-mx-1 mb-3 overflow-x-auto px-1 scrollbar-none">
           <Seg

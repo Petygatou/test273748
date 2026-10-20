@@ -51,7 +51,7 @@ function StatsPage() {
           </Link>
         </p>
       </div>
-      <div className="seg max-w-full overflow-x-auto scrollbar-none" role="tablist" aria-label="Seções">
+      <div data-tour="stats-abas" className="seg max-w-full overflow-x-auto scrollbar-none" role="tablist" aria-label="Seções">
         {TABS.map(({ value, label, Icon }) => (
           <button key={value} role="tab" aria-selected={tab === value} aria-pressed={tab === value} onClick={() => navigate({ search: (s) => ({ ...s, tab: value }) })} className="flex items-center gap-1.5">
             <Icon size={14} aria-hidden /> {label}

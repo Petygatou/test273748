@@ -17,6 +17,7 @@ import { Route as ComunidadeRouteImport } from './routes/comunidade'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as EscalacaoRouteImport } from './routes/escalacao'
 import { Route as EstatisticasRouteImport } from './routes/estatisticas'
+import { Route as GuiaRouteImport } from './routes/guia'
 import { Route as LigasRouteImport } from './routes/ligas'
 import { Route as MeuTimeRouteImport } from './routes/meu-time'
 import { Route as ModeloRouteImport } from './routes/modelo'
@@ -71,6 +72,11 @@ const EscalacaoRoute = EscalacaoRouteImport.update({
 const EstatisticasRoute = EstatisticasRouteImport.update({
   id: '/estatisticas',
   path: '/estatisticas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaRoute = GuiaRouteImport.update({
+  id: '/guia',
+  path: '/guia',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LigasRoute = LigasRouteImport.update({
@@ -158,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
   '/estatisticas': typeof EstatisticasRoute
+  '/guia': typeof GuiaRoute
   '/ligas': typeof LigasRoute
   '/meu-time': typeof MeuTimeRoute
   '/modelo': typeof ModeloRoute
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
@@ -261,6 +271,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '/conta'
     | '/escalacao'
     | '/estatisticas'
+    | '/guia'
     | '/ligas'
     | '/meu-time'
     | '/modelo'
@@ -312,6 +324,7 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   EscalacaoRoute: typeof EscalacaoRoute
   EstatisticasRoute: typeof EstatisticasRoute
+  GuiaRoute: typeof GuiaRoute
   LigasRoute: typeof LigasRoute
   MeuTimeRoute: typeof MeuTimeRoute
   ModeloRoute: typeof ModeloRoute
@@ -385,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/estatisticas'
       fullPath: '/estatisticas'
       preLoaderRoute: typeof EstatisticasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guia': {
+      id: '/guia'
+      path: '/guia'
+      fullPath: '/guia'
+      preLoaderRoute: typeof GuiaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ligas': {
@@ -504,6 +524,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   EscalacaoRoute: EscalacaoRoute,
   EstatisticasRoute: EstatisticasRoute,
+  GuiaRoute: GuiaRoute,
   LigasRoute: LigasRoute,
   MeuTimeRoute: MeuTimeRoute,
   ModeloRoute: ModeloRoute,
