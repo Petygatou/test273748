@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Ban, Crown, Lock, SlidersHorizontal, RefreshCw, Save, Shuffle, Swords, Unlock, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { AskButton } from "../components/AskButton";
 import { Pitch } from "../components/Pitch";
 import { PlayerSearch } from "../components/PlayerSearch";
-import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, ProbBar, SectionTitle, Seg, StatTile } from "../components/ui";
+import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, ProbBar, SectionTitle, Seg, StatTile, useScrollLock } from "../components/ui";
 import { lineupFromIds, optimizeLineup, profileValue } from "../engine/optimizer";
 import { FORMATION_KEYS, type FormationKey } from "../engine/rules";
 import { simulateLineup, type LineupSimResult } from "../engine/simulate";
@@ -58,19 +59,18 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
   const byId = useMemo(() => new Map(analysis.players.map((p) => [p.atletaId, p] as const)), [analysis]);
   const validIds = (ids: number[]) => ids.filter((id) => byId.has(id));
-  const req = useMemo(
-    () => ({
-      formation: settings.formation,
-      budget: settings.budget,
-      profile: settings.profile,
-      fixed: validIds(fixed),
-      banned: validIds(banned),
-      minPJogar: settings.minPJogar,
-      captainId: captainLock,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [settings, fixed, banned, captainLock, byId],
-  );
+  // a chave só muda quando o pedido muda de verdade: atualizações dos dados em segundo plano
+  // (status de atleta, mercado) não apagam as trocas que a pessoa fez à mão
+  const reqKey = JSON.stringify({
+    formation: settings.formation,
+    budget: settings.budget,
+    profile: settings.profile,
+    fixed: validIds(fixed),
+    banned: validIds(banned),
+    minPJogar: settings.minPJogar,
+    captainId: captainLock,
+  });
+  const req = useMemo(() => JSON.parse(reqKey) as Parameters<typeof optimizeLineup>[1], [reqKey]);
 
   const result = useMemo(() => {
     const t = performance.now();
@@ -95,7 +95,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
       });
       setSim(r);
     }, 30);
-    writeLocal(KEYS.lastLineup, {
+    // a tropa que a pessoa escolheu acompanhar (salva/enviada) não é trocada só por abrir o Montador
+    const atual = readLocal<{ rodada?: number; fixa?: boolean } | null>(KEYS.lastLineup, null);
+    if (!(atual?.fixa && atual.rodada === analysis.rodada)) writeLocal(KEYS.lastLineup, {
       rodada: analysis.rodada,
       titulares: lineup.slots.map((s) => s.atletaId),
       captainId: lineup.captainId,
@@ -123,8 +125,17 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
     setSelected(null);
   };
 
+  const acompanharAoVivo = (l: NonNullable<typeof lineup>) =>
+    writeLocal(KEYS.lastLineup, {
+      rodada: analysis.rodada,
+      titulares: l.slots.map((s) => s.atletaId),
+      captainId: l.captainId,
+      reservas: l.banco.map((b) => ({ atletaId: b.atletaId, posicaoId: b.posicaoId, luxo: b.luxo })),
+      fixa: true,
+    });
   const save = () => {
     if (!lineup) return;
+    acompanharAoVivo(lineup);
     const list = readLocal<SavedLineup[]>(KEYS.lineups, []);
     const item: SavedLineup = {
       id: `${Date.now()}`,
@@ -156,6 +167,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
   const sendToCartola = async () => {
     if (!lineup) return;
+    acompanharAoVivo(lineup);
     const token = readLocal<string>(KEYS.cartolaToken, "");
     if (!token) {
       setSavedMsg("Conecte sua conta do Cartola em Meu Time para enviar a tropa.");
@@ -211,7 +223,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
+      <div className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)]">
         {/* ----------------------------- controles ----------------------------- */}
         <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
           <div data-tour="escalar-estilo">
@@ -226,16 +238,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
                 Quanto você tem (C$)
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  id="budget"
-                  className="input tabular"
-                  type="number"
-                  min={60}
-                  max={400}
-                  step={0.01}
-                  value={settings.budget}
-                  onChange={(e) => update({ budget: Math.max(0, Number(e.target.value) || 0) })}
-                />
+                <BudgetInput value={settings.budget} onCommit={(budget) => update({ budget })} />
                 {[100, 120, 140].map((b) => (
                   <button key={b} className="btn btn-ghost px-2.5 py-2 text-xs" onClick={() => update({ budget: b })}>
                     {b}
@@ -274,7 +277,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         {/* ----------------------------- resultado ----------------------------- */}
         <div className="order-1 min-w-0 space-y-4 lg:order-2">
           {/* atalhos no celular: perfil e orçamento sem rolar até os ajustes */}
-          <div data-tour="escalar-estilo" className="flex flex-wrap items-center gap-2 lg:hidden">
+          <div data-tour="escalar-estilo-topo" className="flex flex-wrap items-center gap-2 lg:hidden">
             <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
             <div className="seg" role="group" aria-label="Orçamento">
               {[100, 120, 140].map((b) => (
@@ -569,6 +572,36 @@ function Locks({
 
 /* ------------------------------ troca manual ------------------------------ */
 
+/**
+ * Campo de cartoletas com rascunho: dá para apagar e digitar outro valor sem a tropa
+ * ser recalculada (e salva) com 0 no meio do caminho.
+ */
+function BudgetInput({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  const parse = (t: string) => Number(t.replace(",", "."));
+  const commit = () => {
+    const n = parse(draft);
+    if (Number.isFinite(n) && n > 0) onCommit(Math.min(400, Math.max(20, Math.round(n * 100) / 100)));
+    else setDraft(String(value));
+  };
+  return (
+    <input
+      id="budget"
+      className="input tabular"
+      inputMode="decimal"
+      value={draft}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = parse(e.target.value);
+        if (Number.isFinite(n) && n >= 20 && n <= 400) onCommit(Math.round(n * 100) / 100);
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+    />
+  );
+}
+
 function SwapSheet({
   analysis,
   lineup,
@@ -594,6 +627,7 @@ function SwapSheet({
   onFix: (id: number) => void;
   onBan: (id: number) => void;
 }) {
+  useScrollLock();
   const byId = new Map(analysis.players.map((p) => [p.atletaId, p] as const));
   const cur = byId.get(selectedId)!;
   const isTitular = lineup.slots.some((s) => s.atletaId === selectedId);
@@ -610,7 +644,7 @@ function SwapSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`Opções para ${cur.apelido}`}>
       <button className="absolute inset-0 bg-black/60" aria-label="Fechar" onClick={onClose} />
       <div className="card absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-b-none p-4 md:inset-x-auto md:top-1/2 md:left-1/2 md:bottom-auto md:w-[560px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-b-[14px]">
@@ -672,6 +706,7 @@ function SwapSheet({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -172,7 +172,7 @@ function Shell({ children }: { children: ReactNode }) {
   const pages = [...SECTIONS, ...EXTRA, ...(auth.isAdmin ? [{ to: "/admin", label: "Painel ADM", Icon: Shield, keywords: "admin painel" }] : [])];
 
   return (
-    <div className="flex min-h-dvh flex-col pb-20 lg:pb-0">
+    <div className="flex min-h-dvh flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <header className="sticky top-0 z-30 border-b border-[var(--color-line)] bg-[var(--color-page)]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-1">
           <Logo />

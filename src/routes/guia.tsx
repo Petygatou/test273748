@@ -117,7 +117,7 @@ function GuiaPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <section className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div>
           <h2 className="font-display text-xl font-bold sm:text-2xl">Palavras que você vai ver</h2>
           <dl className="card mt-3 divide-y divide-[var(--color-line)]">

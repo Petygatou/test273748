@@ -161,9 +161,9 @@ function Mercado({ a }: { a: RoundAnalysis }) {
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-[var(--color-surface-2)] text-left">Atleta</th>
+              <th className="text-right" title="Pontos previstos (já descontada a chance de não jogar)">Pts</th>
               <th className="text-left">Jogo</th>
               <th className="text-right">C$</th>
-              <th className="text-right" title="Pontos previstos (já descontada a chance de não jogar)">Pts</th>
               <th className="text-right">Joga</th>
               <th className="min-w-[150px] text-left">Piso · Média · Teto</th>
               <th className="text-right">12+</th>
@@ -191,9 +191,9 @@ function Mercado({ a }: { a: RoundAnalysis }) {
                       </div>
                     </Link>
                   </td>
+                  <td className="text-right font-display font-bold text-[var(--color-gold)]">{fmt1(p.xP)}</td>
                   <td className="text-xs text-[var(--color-ink-2)]">{opp ? `${p.mando === "casa" ? "vs" : "@"} ${opp.abreviacao}` : "—"}</td>
                   <td className="text-right">{fmt2(p.preco)}</td>
-                  <td className="text-right font-display font-bold text-[var(--color-gold)]">{fmt1(p.xP)}</td>
                   <td className="text-right text-[var(--color-ink-2)]">{pct(p.pJogar)}</td>
                   <td>
                     <RangeBar p={p} showLabels={false} />

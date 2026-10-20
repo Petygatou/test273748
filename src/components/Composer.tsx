@@ -14,6 +14,7 @@ export function Composer({ me, onPublish, oficial = false }: { me: Author; onPub
   const [pergunta, setPergunta] = useState("");
   const [opcoes, setOpcoes] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
   const validPoll = pollOn && pergunta.trim() && opcoes.filter((o) => o.trim()).length >= 2;
   const canSend = (texto.trim() || file || validPoll) && !busy;
@@ -56,6 +57,7 @@ export function Composer({ me, onPublish, oficial = false }: { me: Author; onPub
                   if (f && f.size > 60 * 1024 * 1024) return alert("Arquivo acima de 60 MB.");
                   setFile(f);
                   setPreview(f ? URL.createObjectURL(f) : null);
+                  e.target.value = ""; // permite escolher o mesmo arquivo de novo
                 }}
               />
             </label>
@@ -67,6 +69,7 @@ export function Composer({ me, onPublish, oficial = false }: { me: Author; onPub
               disabled={!canSend}
               onClick={async () => {
                 setBusy(true);
+                setErro(null);
                 try {
                   await onPublish({ texto: texto.trim(), file, poll: validPoll ? { pergunta: pergunta.trim(), opcoes: opcoes.map((o) => o.trim()).filter(Boolean) } : null });
                   setTexto("");
@@ -75,6 +78,9 @@ export function Composer({ me, onPublish, oficial = false }: { me: Author; onPub
                   setPollOn(false);
                   setPergunta("");
                   setOpcoes(["", ""]);
+                } catch (e) {
+                  // mantém o rascunho para tentar de novo
+                  setErro(e instanceof Error ? e.message : "Não foi possível publicar. Tente de novo.");
                 } finally {
                   setBusy(false);
                 }
@@ -83,6 +89,11 @@ export function Composer({ me, onPublish, oficial = false }: { me: Author; onPub
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Publicar
             </button>
           </div>
+          {erro && (
+            <p className="text-xs text-[var(--color-critical-ink)]" role="alert">
+              {erro}
+            </p>
+          )}
         </div>
       </div>
     </Card>

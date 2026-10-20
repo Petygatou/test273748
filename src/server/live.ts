@@ -22,29 +22,48 @@ export interface LiveData {
 }
 
 export async function loadLive(analysis: RoundAnalysis, mercadoStatus: number): Promise<LiveData> {
-  if (analysis.source === "cartola" && mercadoStatus === 2) {
-    const [pont, part] = await Promise.all([getLivePontuados(), getLivePartidas()]);
-    const atletas: LiveData["atletas"] = {};
-    for (const [id, a] of Object.entries(pont.atletas ?? {})) {
-      atletas[Number(id)] = { pontos: a.pontuacao, scout: (a.scout ?? {}) as Record<string, number>, entrou: a.entrou_em_campo !== false };
-    }
-    return {
-      rodada: pont.rodada ?? analysis.rodada,
-      source: "cartola",
-      atualizadoEm: new Date().toISOString(),
-      partidas: (part.partidas ?? []).map((p) => ({
+  if (analysis.source === "demo") return demoLive(analysis);
+  // dados reais: nada de simulação. Com o mercado aberto a rodada ainda não começou —
+  // os jogos aparecem sem placar e sem parciais até o Cartola fechar o mercado.
+  if (mercadoStatus !== 2) return preRodada(analysis);
+  const [pont, part] = await Promise.all([getLivePontuados(), getLivePartidas()]);
+  const agora = Date.now();
+  const atletas: LiveData["atletas"] = {};
+  for (const [id, a] of Object.entries(pont.atletas ?? {})) {
+    atletas[Number(id)] = { pontos: a.pontuacao, scout: (a.scout ?? {}) as Record<string, number>, entrou: a.entrou_em_campo !== false };
+  }
+  return {
+    rodada: pont.rodada ?? analysis.rodada,
+    source: "cartola",
+    atualizadoEm: new Date().toISOString(),
+    partidas: (part.partidas ?? []).map((p) => {
+      const inicio = p.timestamp ? p.timestamp * 1000 : null;
+      // jogo cujo horário ainda não chegou nunca está "ao vivo" nem "encerrado", diga o que disser o feed
+      const futuro = inicio != null && inicio > agora;
+      const status: LiveMatch["status"] = futuro ? "pre" : p.status_transmissao_tr === "ENCERRADA" ? "encerrado" : p.status_transmissao_tr === "EM_ANDAMENTO" ? "andamento" : "pre";
+      return {
         matchId: p.partida_id,
         casaId: p.clube_casa_id,
         foraId: p.clube_visitante_id,
-        placarCasa: p.placar_oficial_mandante,
-        placarFora: p.placar_oficial_visitante,
-        status: p.status_transmissao_tr === "ENCERRADA" ? "encerrado" : p.status_transmissao_tr === "EM_ANDAMENTO" ? "andamento" : "pre",
-        data: p.timestamp ? new Date(p.timestamp * 1000).toISOString() : undefined,
-      })),
-      atletas,
-    };
-  }
-  return demoLive(analysis);
+        placarCasa: status === "pre" ? null : p.placar_oficial_mandante,
+        placarFora: status === "pre" ? null : p.placar_oficial_visitante,
+        status,
+        data: inicio != null ? new Date(inicio).toISOString() : undefined,
+      };
+    }),
+    atletas,
+  };
+}
+
+/** Rodada real que ainda não começou: jogos da rodada, sem placar e sem parciais. */
+function preRodada(analysis: RoundAnalysis): LiveData {
+  return {
+    rodada: analysis.rodada,
+    source: "cartola",
+    atualizadoEm: new Date().toISOString(),
+    partidas: analysis.fixtures.map((f) => ({ matchId: f.matchId, casaId: f.casaId, foraId: f.foraId, placarCasa: null, placarFora: null, status: "pre" as const, data: f.data })),
+    atletas: {},
+  };
 }
 
 /** Uma "rodada em andamento" plausível, sorteada a partir das próprias distribuições do modelo. */

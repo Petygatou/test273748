@@ -261,7 +261,7 @@ function AssistantPage() {
       )}
 
       <form
-        className="sticky bottom-[84px] z-20 flex gap-2 rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 p-2 backdrop-blur lg:bottom-4"
+        className="sticky bottom-[calc(84px+env(safe-area-inset-bottom))] z-20 flex gap-2 rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/95 p-2 backdrop-blur lg:bottom-4"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);

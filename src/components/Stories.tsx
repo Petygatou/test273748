@@ -1,5 +1,7 @@
+import { useScrollLock } from "./ui";
 import { Camera, Circle, Image as ImageIcon, Loader2, Plus, Square, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { STORY_FILTERS, type Author, type NewStory, type Story, type StoryFilter, type StoryText } from "../lib/community";
 import { timeAgo } from "../lib/format";
 import { Avatar } from "./avatars";
@@ -49,6 +51,7 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
 /* ------------------------------ visualizador ------------------------------ */
 
 export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[]; startAuthor: string; onClose: () => void }) {
+  useScrollLock();
   // agrupa por autor (na ordem em que aparecem na barra) e, dentro do grupo, por horário
   const authorOrder: string[] = [];
   for (const s of stories) if (!authorOrder.includes(s.author.id)) authorOrder.push(s.author.id);
@@ -69,7 +72,10 @@ export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[
       const t = setInterval(() => {
         const p = (Date.now() - start) / 5000;
         setProgress(Math.min(1, p));
-        if (p >= 1) next();
+        if (p >= 1) {
+          clearInterval(t);
+          next();
+        }
       }, 50);
       return () => clearInterval(t);
     }
@@ -87,41 +93,37 @@ export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[
   });
 
   function next() {
-    setIdx((i) => {
-      if (i + 1 >= ordered.length) {
-        onClose();
-        return i;
-      }
-      return i + 1;
-    });
+    if (idx + 1 >= ordered.length) onClose();
+    else setIdx(idx + 1);
   }
   function prev() {
     setIdx((i) => Math.max(0, i - 1));
   }
   if (!s) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95" role="dialog" aria-modal="true" aria-label={`Story de ${s.author.nome}`}>
       <div className="relative aspect-[9/16] h-full max-h-[100dvh] w-full max-w-[min(100vw,56.25dvh)] overflow-hidden bg-black [container-type:inline-size] sm:rounded-2xl">
         <StoryCanvas story={s} videoRef={videoRef} onVideoEnd={next} onVideoProgress={setProgress} autoPlay />
-        <div className="absolute inset-x-2 top-2 flex gap-1" aria-hidden>
+        <div className="absolute inset-x-2 top-2 z-10 flex gap-1" aria-hidden>
           {group.map((g, i) => (
             <div key={g.id} className="h-0.5 flex-1 overflow-hidden rounded bg-white/30">
               <div className="h-full bg-white" style={{ width: `${i < posInGroup ? 100 : i === posInGroup ? progress * 100 : 0}%` }} />
             </div>
           ))}
         </div>
-        <div className="absolute inset-x-3 top-5 flex items-center gap-2">
+        <div className="absolute inset-x-3 top-5 z-10 flex items-center gap-2">
           <Avatar k={s.author.avatar} size={30} />
           <span className="text-sm font-semibold text-white drop-shadow">{s.author.nome}</span>
           <span className="text-xs text-white/70">{timeAgo(s.criadoEm)}</span>
-          <button className="ml-auto text-white" onClick={onClose} aria-label="Fechar">
+          <button type="button" className="-m-2 ml-auto p-2 text-white" onClick={onClose} aria-label="Fechar">
             <X size={22} />
           </button>
         </div>
         <button className="absolute inset-y-0 left-0 w-1/3" onClick={prev} aria-label="Anterior" />
         <button className="absolute inset-y-0 right-0 w-2/3" onClick={next} aria-label="Próximo" />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -171,6 +173,7 @@ function StoryCanvas({
 /* ------------------------------ criação / editor ------------------------------ */
 
 export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onPublish: (s: NewStory) => Promise<void> }) {
+  useScrollLock();
   const [blob, setBlob] = useState<Blob | null>(null);
   const [kind, setKind] = useState<"image" | "video">("image");
   const [url, setUrl] = useState<string | null>(null);
@@ -202,7 +205,7 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
     setTextos((ts) => ts.map((t) => (t.id === dragging.current ? { ...t, x, y } : t)));
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/90 p-3" role="dialog" aria-modal="true" aria-label="Criar story">
       <div className="card mx-auto max-w-3xl p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -236,7 +239,7 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
         )}
         {camera && <CameraCapture onCancel={() => setCamera(false)} onCapture={useBlob} />}
         {blob && url && (
-          <div className="grid gap-4 md:grid-cols-[300px_1fr]">
+          <div className="grid gap-4 grid-cols-[minmax(0,1fr)] md:grid-cols-[300px_minmax(0,1fr)]">
             <div ref={stageRef} className="relative mx-auto aspect-[9/16] w-full max-w-[300px] touch-none overflow-hidden rounded-2xl bg-black [container-type:inline-size]" onPointerMove={onPointerMove} onPointerUp={() => (dragging.current = null)}>
               {kind === "image" ? (
                 <img src={url} alt="Prévia do story" className="h-full w-full object-cover" style={{ filter: STORY_FILTERS[filtro] }} />
@@ -330,7 +333,8 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

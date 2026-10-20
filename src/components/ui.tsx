@@ -1,7 +1,7 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Cross, Info, ShieldOff } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { kitFor } from "../lib/kits";
-import { Face } from "./Face";
+import { Shirt } from "./Shirt";
 import type { Club, PlayerProjection } from "../engine/types";
 import { factorPct, fmt1, posAbbr, statusLabel } from "../lib/format";
 
@@ -11,15 +11,15 @@ export function Card({ children, className = "", as: As = "div" }: { children: R
 
 export function SectionTitle({ title, subtitle, right, icon }: { title: string; subtitle?: string; right?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-3">
-      <div className="min-w-0">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+      <div className="min-w-0 flex-1 basis-56">
         <h2 className="font-display flex items-center gap-2 text-lg font-bold text-[var(--color-ink)]">
           {icon}
           {title}
         </h2>
         {subtitle && <p className="text-sm text-[var(--color-ink-3)]">{subtitle}</p>}
       </div>
-      {right}
+      {right && <div className="max-w-full shrink-0">{right}</div>}
     </div>
   );
 }
@@ -65,46 +65,9 @@ export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
   );
 }
 
-/**
- * Foto do atleta, rápida: o rosto ilustrado aparece na hora e a foto real
- * (reduzida pelo nosso servidor para o tamanho exato, em WebP e com cache de
- * 30 dias) surge por cima quando termina de carregar. Se falhar, tenta a
- * original uma vez; se falhar de novo, fica o rosto ilustrado.
- */
-export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId"> & { atletaId?: number; clubeId?: number }; size?: number }) {
-  const [attempt, setAttempt] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    setAttempt(0);
-    setLoaded(false);
-  }, [p.foto]);
-  const px = size * 2 <= 64 ? 64 : size * 2 <= 128 ? 128 : 192;
-  const sources = p.foto ? [`/api/foto?s=${px}&u=${encodeURIComponent(p.foto)}`, p.foto] : [];
-  const src = sources[attempt];
-  return (
-    <span className="relative inline-block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}>
-      <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />
-      {src && (
-        <img
-          key={src}
-          src={src}
-          alt={p.apelido}
-          width={size}
-          height={size}
-          className={`absolute inset-0 rounded-full bg-[var(--color-surface-3)] object-cover object-top transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
-          style={{ width: size, height: size }}
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-          onLoad={() => setLoaded(true)}
-          onError={() => {
-            setLoaded(false);
-            setAttempt((n) => n + 1);
-          }}
-        />
-      )}
-    </span>
-  );
+/** Ícone do atleta: a camisa do clube (sem foto). */
+export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "apelido" | "posicaoId"> & { foto?: string | null; atletaId?: number; clubeId?: number }; size?: number }) {
+  return <Shirt apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;
 }
 
 const STATUS_STYLE: Record<number, { cls: string; Icon: typeof Info }> = {
@@ -241,4 +204,17 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
       ))}
     </div>
   );
+}
+
+/** Trava a rolagem da página enquanto uma janela (modal, painel) está aberta. */
+export function useScrollLock(active = true) {
+  useEffect(() => {
+    if (!active) return;
+    const el = document.documentElement;
+    const antes = el.style.overflow;
+    el.style.overflow = "hidden";
+    return () => {
+      el.style.overflow = antes;
+    };
+  }, [active]);
 }

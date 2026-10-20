@@ -240,7 +240,7 @@ function SavedLineups() {
               </div>
               <div className="flex shrink-0 gap-1">
                 {l.rodada === rodada && (
-                  <Link to="/ao-vivo" className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas })}>
+                  <Link to="/ao-vivo" className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas, fixa: true })}>
                     <Radio size={13} /> Ao vivo
                   </Link>
                 )}
