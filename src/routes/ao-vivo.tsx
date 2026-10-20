@@ -79,6 +79,9 @@ function LivePage() {
     .sort((x, y) => y.v.pontos - x.v.pontos)
     .slice(0, 10);
   const encerrados = live.partidas.filter((m) => m.status === "encerrado").length;
+  const naoComecou = live.source === "cartola" && live.partidas.every((m) => m.status === "pre");
+  const inicio = live.partidas.map((m) => m.data).filter((d): d is string => Boolean(d)).sort()[0];
+  const primeiroJogo = inicio ? new Date(inicio).toLocaleString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : null;
 
   return (
     <div className="space-y-5">
@@ -113,6 +116,15 @@ function LivePage() {
           )}
         </div>
       </div>
+
+      {naoComecou && (
+        <Card className="flex items-center gap-3 p-4">
+          <Radio size={20} className="shrink-0 text-[var(--color-ink-3)]" aria-hidden />
+          <p className="text-sm text-[var(--color-ink-2)]">
+            A rodada {live.rodada} ainda não começou{primeiroJogo ? `: o primeiro jogo é ${primeiroJogo}` : ""}. Os placares e as parciais aparecem aqui assim que a bola rolar.
+          </p>
+        </Card>
+      )}
 
       {lineup ? (
         <>
