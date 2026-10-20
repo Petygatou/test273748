@@ -66,31 +66,45 @@ export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
 }
 
 /**
- * Foto oficial do atleta: tenta o CDN da Globo direto, depois pelo nosso
- * servidor (/api/foto) e, só se as duas falharem, usa o rosto ilustrado.
+ * Foto do atleta, rápida: o rosto ilustrado aparece na hora e a foto real
+ * (reduzida pelo nosso servidor para o tamanho exato, em WebP e com cache de
+ * 30 dias) surge por cima quando termina de carregar. Se falhar, tenta a
+ * original uma vez; se falhar de novo, fica o rosto ilustrado.
  */
 export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "foto" | "apelido" | "posicaoId"> & { atletaId?: number; clubeId?: number }; size?: number }) {
   const [attempt, setAttempt] = useState(0);
-  useEffect(() => setAttempt(0), [p.foto]);
-  const sources = p.foto ? [p.foto, `/api/foto?u=${encodeURIComponent(p.foto)}`] : [];
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setAttempt(0);
+    setLoaded(false);
+  }, [p.foto]);
+  const px = size * 2 <= 64 ? 64 : size * 2 <= 128 ? 128 : 192;
+  const sources = p.foto ? [`/api/foto?s=${px}&u=${encodeURIComponent(p.foto)}`, p.foto] : [];
   const src = sources[attempt];
-  if (src)
-    return (
-      <img
-        key={src}
-        src={src}
-        alt={p.apelido}
-        width={size}
-        height={size}
-        className="shrink-0 rounded-full bg-gradient-to-b from-[var(--color-surface-3)] to-[var(--color-surface-1)] object-cover object-top"
-        style={{ width: size, height: size }}
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onError={() => setAttempt((n) => n + 1)}
-      />
-    );
-  return <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;
+  return (
+    <span className="relative inline-block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}>
+      <Face atletaId={p.atletaId} apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />
+      {src && (
+        <img
+          key={src}
+          src={src}
+          alt={p.apelido}
+          width={size}
+          height={size}
+          className={`absolute inset-0 rounded-full bg-[var(--color-surface-3)] object-cover object-top transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+          style={{ width: size, height: size }}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setLoaded(false);
+            setAttempt((n) => n + 1);
+          }}
+        />
+      )}
+    </span>
+  );
 }
 
 const STATUS_STYLE: Record<number, { cls: string; Icon: typeof Info }> = {
