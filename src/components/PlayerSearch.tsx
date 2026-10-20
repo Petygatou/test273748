@@ -1,5 +1,6 @@
 import { Search, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import type { Club, PlayerProjection } from "../engine/types";
 import { cs, fmt1 } from "../lib/format";
 import { norm, searchPlayers } from "../lib/search";
@@ -65,12 +66,14 @@ export function PlayerSearch({
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const lista = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => (q.trim() ? searchPlayers(players, clubs, q, { filter, limit: 8 }) : (suggestions ?? []).slice(0, 8)), [players, clubs, q, filter, suggestions]);
   useEffect(() => setActive(0), [q]);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (box.current && !box.current.contains(t) && !lista.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -85,6 +88,7 @@ export function PlayerSearch({
     }
   };
   const show = open && (results.length > 0 || q.trim().length > 0);
+  const pos = useDropdownPosition(box, show);
 
   return (
     <div ref={box} className={`relative ${className}`}>
@@ -129,10 +133,10 @@ export function PlayerSearch({
           <X size={15} />
         </button>
       )}
-      {show && (
-        <div className="card absolute inset-x-0 top-full z-50 mt-1.5 overflow-hidden p-1 shadow-2xl shadow-black/50">
+      {show && pos && createPortal(
+        <div ref={lista} className="card fixed z-[80] flex flex-col overflow-hidden p-1 shadow-2xl shadow-black/50" style={pos}>
           {!q.trim() && suggestions?.length ? <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">{suggestionsLabel}</div> : null}
-          <ul id={`${id}-list`} role="listbox" className="max-h-[min(60vh,420px)] overflow-y-auto">
+          <ul id={`${id}-list`} role="listbox" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             {results.map((p, i) => (
               <li
                 key={p.atletaId}
@@ -164,8 +168,45 @@ export function PlayerSearch({
             ))}
             {q.trim() && !results.length && <li className="px-3 py-3 text-sm text-[var(--color-ink-3)]">Nada encontrado para “{q}”. Tente o clube ou a posição (ex.: “ata fla”).</li>}
           </ul>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
+}
+
+/**
+ * A lista de resultados fica numa camada própria, presa ao campo: assim nenhum card com
+ * overflow-hidden corta a lista. Abre para cima quando não há espaço embaixo (ex.: teclado do celular).
+ */
+function useDropdownPosition(anchor: RefObject<HTMLDivElement | null>, open: boolean) {
+  const [pos, setPos] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return setPos(null);
+    const update = () => {
+      const el = anchor.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const gap = 6;
+      // no celular a barra de atalhos fixa embaixo cobriria o fim da lista
+      const barra = document.querySelector<HTMLElement>('nav[aria-label="Atalhos"]');
+      const rodape = barra && barra.offsetParent ? barra.getBoundingClientRect().height : 0;
+      const below = vh - rodape - r.bottom - gap - 8;
+      const above = r.top - gap - 8;
+      const up = below < 220 && above > below;
+      const maxHeight = Math.min(440, Math.max(120, up ? above : below));
+      setPos({ left: r.left, width: r.width, maxHeight, ...(up ? { bottom: window.innerHeight - r.top + gap } : { top: r.bottom + gap }) });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+    };
+  }, [open, anchor]);
+  return pos;
 }

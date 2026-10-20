@@ -67,7 +67,7 @@ function ModelPage() {
             <StatTile label="Calibração do intervalo" value={pct(r.dentroIntervalo)} hint="dentro de piso–teto (alvo 70%)" />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
+          <div className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Card className="p-4">
               <SectionTitle title="Pontos reais por rodada" subtitle="Tropa ótima (C$ 120, perfil Equilibrada) montada sem saber quem ia jogar" />
               {rounds.length > 1 ? (
@@ -202,7 +202,7 @@ function ProvaveisAccuracy({ acc, demo }: { acc: LineupAccuracy; demo: boolean }
         title="Acerto das prováveis escalações"
         subtitle={`Dos 11 que apontamos em cada time, quantos entraram em campo · ${acc.timesAvaliados} escalações em ${last.length} rodadas`}
       />
-      <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
         <div className="rounded-2xl bg-[var(--color-surface-1)] p-4 text-center">
           <div className="font-display tabular text-5xl font-extrabold text-[var(--color-good-ink)]">{pct(acc.acerto, 1)}</div>
           <div className="mt-1 text-xs text-[var(--color-ink-3)]">de acerto</div>

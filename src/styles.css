@@ -295,11 +295,11 @@ table.data tbody tr:hover {
 
 @layer components {
   .animate-rise {
-    animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
     animation-delay: var(--d, 0ms);
   }
   .animate-page {
-    animation: page-in 0.32s ease-out both;
+    animation: page-in 0.32s ease-out backwards;
   }
   .animate-tick {
     animation: tick 0.35s ease-out;

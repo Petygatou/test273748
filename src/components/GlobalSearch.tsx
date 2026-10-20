@@ -7,7 +7,7 @@ import { cs, fmt1 } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
 import { matchScore, norm, searchPlayers } from "../lib/search";
 import { Highlight } from "./PlayerSearch";
-import { ClubBadge, PlayerPhoto, PosBadge } from "./ui";
+import { ClubBadge, PlayerPhoto, PosBadge, useScrollLock } from "./ui";
 
 export interface PageEntry {
   to: string;
@@ -24,6 +24,7 @@ type Item = { kind: "page"; page: PageEntry } | { kind: "player"; p: PlayerProje
  * com resultados enquanto digita.
  */
 export function GlobalSearch({ pages, open, onClose }: { pages: PageEntry[]; open: boolean; onClose: () => void }) {
+  useScrollLock(open);
   const { data } = useQuery(analysisQuery);
   const navigate = useNavigate();
   const [q, setQ] = useState("");

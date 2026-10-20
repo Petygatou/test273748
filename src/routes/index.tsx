@@ -176,7 +176,7 @@ function Home() {
 
       {/* topo */}
       <section className="hero-surface relative overflow-hidden p-5 sm:p-7">
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr] lg:items-center">
+        <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-center">
           <div className="animate-rise min-w-0">
             <span className="chip border-[var(--color-brand)]/40 text-[var(--color-brand)]">
               <span className={`h-1.5 w-1.5 rounded-full ${aberto ? "bg-[var(--color-good)]" : "bg-[var(--color-critical)]"} animate-pulse`} aria-hidden />
@@ -262,7 +262,7 @@ function Home() {
       </section>
 
       {/* listas */}
-      <section className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <section className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Card className="animate-rise p-4 sm:p-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-xl font-bold">Para ficar de olho</h2>

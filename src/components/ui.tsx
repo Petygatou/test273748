@@ -11,15 +11,15 @@ export function Card({ children, className = "", as: As = "div" }: { children: R
 
 export function SectionTitle({ title, subtitle, right, icon }: { title: string; subtitle?: string; right?: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-3">
-      <div className="min-w-0">
+    <div className="mb-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+      <div className="min-w-0 flex-1 basis-56">
         <h2 className="font-display flex items-center gap-2 text-lg font-bold text-[var(--color-ink)]">
           {icon}
           {title}
         </h2>
         {subtitle && <p className="text-sm text-[var(--color-ink-3)]">{subtitle}</p>}
       </div>
-      {right}
+      {right && <div className="max-w-full shrink-0">{right}</div>}
     </div>
   );
 }
@@ -241,4 +241,17 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
       ))}
     </div>
   );
+}
+
+/** Trava a rolagem da página enquanto uma janela (modal, painel) está aberta. */
+export function useScrollLock(active = true) {
+  useEffect(() => {
+    if (!active) return;
+    const el = document.documentElement;
+    const antes = el.style.overflow;
+    el.style.overflow = "hidden";
+    return () => {
+      el.style.overflow = antes;
+    };
+  }, [active]);
 }

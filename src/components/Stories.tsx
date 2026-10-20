@@ -1,5 +1,7 @@
+import { useScrollLock } from "./ui";
 import { Camera, Circle, Image as ImageIcon, Loader2, Plus, Square, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { STORY_FILTERS, type Author, type NewStory, type Story, type StoryFilter, type StoryText } from "../lib/community";
 import { timeAgo } from "../lib/format";
 import { Avatar } from "./avatars";
@@ -49,6 +51,7 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
 /* ------------------------------ visualizador ------------------------------ */
 
 export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[]; startAuthor: string; onClose: () => void }) {
+  useScrollLock();
   // agrupa por autor (na ordem em que aparecem na barra) e, dentro do grupo, por horário
   const authorOrder: string[] = [];
   for (const s of stories) if (!authorOrder.includes(s.author.id)) authorOrder.push(s.author.id);
@@ -99,7 +102,7 @@ export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[
     setIdx((i) => Math.max(0, i - 1));
   }
   if (!s) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95" role="dialog" aria-modal="true" aria-label={`Story de ${s.author.nome}`}>
       <div className="relative aspect-[9/16] h-full max-h-[100dvh] w-full max-w-[min(100vw,56.25dvh)] overflow-hidden bg-black [container-type:inline-size] sm:rounded-2xl">
         <StoryCanvas story={s} videoRef={videoRef} onVideoEnd={next} onVideoProgress={setProgress} autoPlay />
@@ -121,7 +124,8 @@ export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[
         <button className="absolute inset-y-0 left-0 w-1/3" onClick={prev} aria-label="Anterior" />
         <button className="absolute inset-y-0 right-0 w-2/3" onClick={next} aria-label="Próximo" />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -171,6 +175,7 @@ function StoryCanvas({
 /* ------------------------------ criação / editor ------------------------------ */
 
 export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onPublish: (s: NewStory) => Promise<void> }) {
+  useScrollLock();
   const [blob, setBlob] = useState<Blob | null>(null);
   const [kind, setKind] = useState<"image" | "video">("image");
   const [url, setUrl] = useState<string | null>(null);
@@ -202,7 +207,7 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
     setTextos((ts) => ts.map((t) => (t.id === dragging.current ? { ...t, x, y } : t)));
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/90 p-3" role="dialog" aria-modal="true" aria-label="Criar story">
       <div className="card mx-auto max-w-3xl p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -236,7 +241,7 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
         )}
         {camera && <CameraCapture onCancel={() => setCamera(false)} onCapture={useBlob} />}
         {blob && url && (
-          <div className="grid gap-4 md:grid-cols-[300px_1fr]">
+          <div className="grid gap-4 grid-cols-[minmax(0,1fr)] md:grid-cols-[300px_minmax(0,1fr)]">
             <div ref={stageRef} className="relative mx-auto aspect-[9/16] w-full max-w-[300px] touch-none overflow-hidden rounded-2xl bg-black [container-type:inline-size]" onPointerMove={onPointerMove} onPointerUp={() => (dragging.current = null)}>
               {kind === "image" ? (
                 <img src={url} alt="Prévia do story" className="h-full w-full object-cover" style={{ filter: STORY_FILTERS[filtro] }} />
@@ -330,7 +335,8 @@ export function StoryComposer({ onClose, onPublish }: { onClose: () => void; onP
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

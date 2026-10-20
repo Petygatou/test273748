@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ban, Heart, Lock, MessageCircle, Monitor, Search, Shield, Swords, Trash2, Unlock, Vote, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { AvatarKey } from "../lib/storage";
 import { cs, fmt1, timeAgo } from "../lib/format";
 import { useRealtime } from "../lib/realtime";
 import { norm } from "../lib/search";
 import { adminUserActionFn, adminUserDetailFn, adminUsersFn } from "../server/fnsConta";
 import { Avatar } from "./avatars";
-import { Alert, Card, Seg, StatTile } from "./ui";
+import { Alert, Card, Seg, StatTile, useScrollLock } from "./ui";
 
 const dataHora = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "—";
@@ -136,6 +137,7 @@ function Section({ title, icon, count, children }: { title: string; icon: React.
 }
 
 function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
+  useScrollLock();
   const qc = useQueryClient();
   const d = useQuery({ queryKey: ["admin-user", id], queryFn: () => adminUserDetailFn({ data: { id } }) });
   const [confirmar, setConfirmar] = useState(false);
@@ -159,7 +161,7 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
   };
 
   const u = d.data;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Detalhes do usuário">
       <button className="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Fechar" onClick={onClose} />
       <div className="card animate-rise relative max-h-[90dvh] w-full max-w-2xl overflow-y-auto p-4 sm:p-5">
@@ -274,7 +276,8 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

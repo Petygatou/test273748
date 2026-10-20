@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Ban, Crown, Lock, SlidersHorizontal, RefreshCw, Save, Shuffle, Swords, Unlock, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { AskButton } from "../components/AskButton";
 import { Pitch } from "../components/Pitch";
 import { PlayerSearch } from "../components/PlayerSearch";
-import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, ProbBar, SectionTitle, Seg, StatTile } from "../components/ui";
+import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, ProbBar, SectionTitle, Seg, StatTile, useScrollLock } from "../components/ui";
 import { lineupFromIds, optimizeLineup, profileValue } from "../engine/optimizer";
 import { FORMATION_KEYS, type FormationKey } from "../engine/rules";
 import { simulateLineup, type LineupSimResult } from "../engine/simulate";
@@ -211,7 +212,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[340px_1fr]">
+      <div className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)]">
         {/* ----------------------------- controles ----------------------------- */}
         <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
           <div data-tour="escalar-estilo">
@@ -594,6 +595,7 @@ function SwapSheet({
   onFix: (id: number) => void;
   onBan: (id: number) => void;
 }) {
+  useScrollLock();
   const byId = new Map(analysis.players.map((p) => [p.atletaId, p] as const));
   const cur = byId.get(selectedId)!;
   const isTitular = lineup.slots.some((s) => s.atletaId === selectedId);
@@ -610,7 +612,7 @@ function SwapSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`Opções para ${cur.apelido}`}>
       <button className="absolute inset-0 bg-black/60" aria-label="Fechar" onClick={onClose} />
       <div className="card absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-b-none p-4 md:inset-x-auto md:top-1/2 md:left-1/2 md:bottom-auto md:w-[560px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-b-[14px]">
@@ -672,6 +674,7 @@ function SwapSheet({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
