@@ -17,6 +17,7 @@ import { useAuth } from "../lib/auth";
 import { analysisQuery } from "../lib/queries";
 import { saveLineupFn } from "../server/fnsConta";
 import { saveToCartolaFn } from "../server/fnsCartola";
+import { tokenExpirado } from "../lib/cartolaToken";
 import { KEYS, readLocal, useLocal, writeLocal, type SavedLineup } from "../lib/storage";
 
 export const Route = createFileRoute("/escalacao")({
@@ -169,8 +170,8 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
     if (!lineup) return;
     acompanharAoVivo(lineup);
     const token = readLocal<string>(KEYS.cartolaToken, "");
-    if (!token) {
-      setSavedMsg("Conecte sua conta do Cartola em Meu Time para enviar a tropa.");
+    if (!token || tokenExpirado(token)) {
+      setSavedMsg(token ? "Seu acesso ao Cartola expirou (vale 1 hora). Em Meu Time, cole de novo a linha “time” copiada do Cartola." : "Conecte sua conta do Cartola em Meu Time para enviar a tropa.");
       return;
     }
     setSending(true);

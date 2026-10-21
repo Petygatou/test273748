@@ -19,3 +19,25 @@ export function extrairTokenCartola(texto: string): string | null {
   // só o token: uma "palavra" longa, sem espaços
   return /^[A-Za-z0-9._~+/=-]{20,}$/.test(t) ? t : null;
 }
+
+/**
+ * Quando o token do login novo (OIDC/JWT) expira, em ms — lido do próprio token, sem enviá-lo
+ * a lugar nenhum. O Cartola libera esse acesso por cerca de 1 hora. Token antigo: null.
+ */
+export function tokenExpiraEm(token: string): number | null {
+  const partes = token.replace(/^Bearer\s+/i, "").split(".");
+  if (partes.length !== 3) return null;
+  try {
+    const b64 = partes[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))) as { exp?: unknown };
+    return typeof json.exp === "number" ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Já expirou (ou expira no próximo meio minuto)? */
+export function tokenExpirado(token: string, agora = Date.now()): boolean {
+  const e = tokenExpiraEm(token);
+  return e != null && e <= agora + 30_000;
+}

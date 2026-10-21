@@ -1,13 +1,30 @@
 import { ClipboardPaste, KeyRound, Link2Off, MousePointerClick } from "lucide-react";
-import { useState } from "react";
-import { extrairTokenCartola } from "../lib/cartolaToken";
+import { useEffect, useState } from "react";
+import { extrairTokenCartola, tokenExpiraEm, tokenExpirado } from "../lib/cartolaToken";
 import { KEYS, useLocal } from "../lib/storage";
 import { Alert, Card, SectionTitle } from "./ui";
 
-/** Hook do token do Cartola (fica só neste navegador; o servidor não guarda). */
-export function useCartolaToken() {
-  return useLocal<string>(KEYS.cartolaToken, "");
+/**
+ * Hook do token do Cartola (fica só neste navegador; o servidor não guarda).
+ * Token do login novo vencido conta como "sem token": nada é enviado ao Cartola com ele.
+ */
+export function useCartolaToken(): [string, (v: string) => void, number | null] {
+  const [token, setToken] = useLocal<string>(KEYS.cartolaToken, "");
+  const [, tick] = useState(0);
+  const expira = token ? tokenExpiraEm(token) : null;
+  // reavalia quando chegar a hora de expirar
+  useEffect(() => {
+    if (!expira) return;
+    const ms = expira - Date.now() - 30_000;
+    if (ms <= 0) return;
+    const t = setTimeout(() => tick((n) => n + 1), Math.min(ms + 50, 2_147_000_000));
+    return () => clearTimeout(t);
+  }, [expira]);
+  const valido = token && !tokenExpirado(token) ? token : "";
+  return [valido, setToken, token && !valido ? expira : null];
 }
+
+const hora = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 const kbd = "rounded border border-[var(--color-line)] bg-[var(--color-surface-1)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--color-ink)]";
 
@@ -52,13 +69,15 @@ function PainelExemplo() {
 }
 
 export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
-  const [token, setToken] = useCartolaToken();
+  const [token, setToken, expirouEm] = useCartolaToken();
   const [draft, setDraft] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   if (token) {
+    const expira = tokenExpiraEm(token);
     return (
       <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--color-ink-2)]">
         <span className="chip border-[var(--color-good)]/40 text-[var(--color-good-ink)]">Conta do Cartola conectada</span>
+        {expira && <span className="text-xs text-[var(--color-ink-3)]">vale até {hora(expira)} (o Cartola libera por 1 hora; depois é só colar de novo)</span>}
         <button className="btn btn-ghost px-2.5 py-1.5 text-xs" onClick={() => setToken("")}>
           <Link2Off size={13} /> Desconectar
         </button>
@@ -71,6 +90,10 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
       setErro("Não encontramos o token nesse texto. Confira se copiou a linha “time” com “Copy as cURL” e cole tudo de novo.");
       return;
     }
+    if (tokenExpirado(t)) {
+      setErro(`Esse acesso já expirou às ${hora(tokenExpiraEm(t)!)}. No Cartola, aperte F5 e copie a linha “time” de novo — o novo vale por 1 hora.`);
+      return;
+    }
     setErro(null);
     setToken(t);
     setDraft("");
@@ -78,6 +101,11 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
   };
   return (
     <Card className="space-y-4 p-4">
+      {expirouEm && (
+        <Alert tone="warning">
+          Seu acesso ao Cartola expirou às {hora(expirouEm)}. O Cartola só libera por 1 hora de cada vez: no site do Cartola aperte F5, copie a linha “time” de novo (passo 4) e cole aqui.
+        </Alert>
+      )}
       <SectionTitle title="Conectar sua conta do Cartola" subtitle="Para ver seu time, suas ligas e escalar direto pelo site. Leva uns 2 minutos, uma vez só." icon={<KeyRound size={18} className="text-[var(--color-gold)]" />} />
 
       <ol className="space-y-3 text-sm text-[var(--color-ink-2)]">
@@ -100,7 +128,7 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
         <li className="flex gap-3">
           <span className="font-display flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand)] text-xs font-extrabold text-[#1a0a00]">3</span>
           <span>
-            No campo de filtro do painel, digite <kbd className={kbd}>auth/time</kbd> e aperte <kbd className={kbd}>F5</kbd> para recarregar a página. Vai aparecer uma linha chamada <b>time</b>.
+            No campo de filtro do painel, digite <kbd className={kbd}>auth/time</kbd> e aperte <kbd className={kbd}>F5</kbd> para recarregar a página. Vai aparecer uma linha chamada <b>time</b> (se aparecerem duas, qualquer uma serve).
           </span>
         </li>
         <li className="flex gap-3">
@@ -132,7 +160,7 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
           onPaste={(e) => {
             // colou o texto: conecta na hora se o token estiver nele
             const t = extrairTokenCartola(e.clipboardData.getData("text"));
-            if (t) {
+            if (t && !tokenExpirado(t)) {
               e.preventDefault();
               setErro(null);
               setToken(t);
@@ -157,7 +185,7 @@ export function CartolaConnect({ onConnected }: { onConnected?: () => void }) {
             <b className="text-[var(--color-ink-2)]">Vai usar no celular?</b> Faça os passos no computador, mande o texto copiado para você mesmo (WhatsApp, e-mail) e cole aqui no celular.
           </span>
         </p>
-        <p>O token fica só neste navegador e só é enviado ao Cartola quando você usa estas funções. Ele expira de tempos em tempos: se o seu time parar de carregar, é só repetir.</p>
+        <p>O token fica só neste navegador e só é enviado ao Cartola quando você usa estas funções. O Cartola libera esse acesso por 1 hora: depois disso é só copiar e colar de novo (passos 3 a 5).</p>
         <p>Nunca mande esse texto para outras pessoas: ele dá acesso à sua escalação.</p>
       </div>
     </Card>
