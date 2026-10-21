@@ -68,6 +68,7 @@ export interface StoryText {
 export interface Story {
   id: string;
   author: Author;
+  podeApagar?: boolean;
   media: Media;
   filtro: StoryFilter;
   textos: StoryText[];
@@ -96,13 +97,46 @@ export interface CommunityBackend {
   addComment(postId: string, texto: string): Promise<void>;
   vote(postId: string, option: number): Promise<void>;
   createStory(s: NewStory, author: Author): Promise<void>;
+  deleteStory(storyId: string): Promise<void>;
 }
 
-/** Envia uma foto/vídeo para o servidor e devolve a referência. */
-export async function uploadMedia(blob: Blob): Promise<Media> {
+let blobAtivo: Promise<boolean> | null = null;
+/** O armazenamento de arquivos da Vercel (Blob) está ligado nesta hospedagem? */
+function blobDisponivel(): Promise<boolean> {
+  blobAtivo ??= fetch("/api/upload")
+    .then((r) => r.json() as Promise<{ enabled?: boolean }>)
+    .then((j) => Boolean(j.enabled))
+    .catch(() => false);
+  return blobAtivo;
+}
+
+const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+
+/**
+ * Envia uma foto/vídeo e devolve a referência. Com o Vercel Blob ligado, o arquivo vai direto
+ * do navegador para o Blob (sem o limite de 4,5 MB das funções da Vercel); sem ele, vai para o
+ * nosso servidor (hospedagem com disco próprio).
+ */
+export async function uploadMedia(blob: Blob, onProgress?: (pct: number) => void): Promise<Media> {
   const body = blob.type.startsWith("image") ? await compressImage(blob) : blob;
-  const res = await fetch("/api/media", { method: "POST", headers: { "Content-Type": body.type || "application/octet-stream" }, body });
+  const type = (body.type || "application/octet-stream").split(";")[0];
+  const kind: Media["kind"] = type.startsWith("video") ? "video" : "image";
+  if (!EXT[type]) throw new Error("Formato não suportado (use JPG, PNG, WEBP, GIF, MP4, WEBM ou MOV).");
+  if (body.size > 60 * 1024 * 1024) throw new Error("Arquivo acima de 60 MB.");
+  if (await blobDisponivel()) {
+    const { upload } = await import("@vercel/blob/client");
+    const r = await upload(`tropa/${kind}.${EXT[type]}`, body, {
+      access: "public",
+      handleUploadUrl: "/api/upload",
+      contentType: type,
+      multipart: body.size > 8 * 1024 * 1024,
+      onUploadProgress: onProgress ? (e) => onProgress(e.percentage) : undefined,
+    });
+    return { url: r.url, kind };
+  }
+  const res = await fetch("/api/media", { method: "POST", headers: { "Content-Type": type }, body });
   const j = (await res.json().catch(() => ({}))) as { url?: string; kind?: Media["kind"]; error?: string };
+  if (res.status === 413) throw new Error("Arquivo grande demais para esta hospedagem. Na Vercel, ligue o armazenamento Blob (Storage → Blob) para enviar vídeos.");
   if (!res.ok || !j.url || !j.kind) throw new Error(j.error ?? `Falha no upload (HTTP ${res.status})`);
   return { url: j.url, kind: j.kind };
 }
@@ -144,6 +178,9 @@ export const serverBackend: CommunityBackend = {
   },
   async vote(postId, option) {
     await communityAction({ data: { action: "vote", payload: { postId, option } } });
+  },
+  async deleteStory(storyId) {
+    await communityAction({ data: { action: "deleteStory", payload: { storyId } } });
   },
   async createStory(st, author) {
     const media = await uploadMedia(st.blob);

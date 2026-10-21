@@ -12,7 +12,7 @@
  * A cada leitura do mercado gravamos um snapshot (preço/variação/status por
  * rodada): com o tempo isso calibra o MPV e a chance de jogar com dados reais.
  */
-import { normalizeFoto } from "./foto";
+import { aprenderSilhueta, camisaDoClube } from "./foto";
 import type { PositionId, Scouts } from "../engine/rules";
 import { normalizeHistoryScouts } from "../engine/rulesCheck";
 import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/types";
@@ -124,7 +124,6 @@ export const getLivePartidas = () => cached("cartola:partidas:live", 45_000, () 
 
 /* --------------------------- normalização --------------------------- */
 
-const foto = normalizeFoto;
 
 function toMatch(p: RawPartida, rodada: number): Match {
   const data = p.timestamp ? new Date(p.timestamp * 1000).toISOString() : p.partida_data ? new Date(p.partida_data.replace(" ", "T") + "-03:00").toISOString() : undefined;
@@ -152,13 +151,15 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
     clubs[c.id] = { id: c.id, nome: c.nome_fantasia || c.nome, abreviacao: c.abreviacao, escudo: c.escudos?.["60x60"] ?? c.escudos?.["45x45"] };
   }
 
+  // sem rostos: todo atleta usa a camisa (silhueta) que o Cartola mostra para o clube
+  for (const a of mercado.atletas) aprenderSilhueta(a.clube_id, a.posicao_id, a.foto);
   const athletes: Athlete[] = mercado.atletas
     .filter((a) => clubs[a.clube_id])
     .map((a) => ({
       id: a.atleta_id,
       apelido: a.apelido,
       nome: a.nome,
-      foto: foto(a.foto),
+      foto: camisaDoClube(a.clube_id, a.posicao_id),
       clubeId: a.clube_id,
       posicaoId: a.posicao_id as PositionId,
       statusId: a.status_id,

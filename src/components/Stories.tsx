@@ -1,5 +1,5 @@
 import { useScrollLock } from "./ui";
-import { Camera, Circle, Image as ImageIcon, Loader2, Plus, Square, Type, X } from "lucide-react";
+import { Camera, Circle, Image as ImageIcon, Loader2, Plus, Square, Trash2, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { STORY_FILTERS, type Author, type NewStory, type Story, type StoryFilter, type StoryText } from "../lib/community";
@@ -50,7 +50,7 @@ export function StoriesBar({ stories, me, onCreate, onOpen }: { stories: Story[]
 
 /* ------------------------------ visualizador ------------------------------ */
 
-export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[]; startAuthor: string; onClose: () => void }) {
+export function StoryViewer({ stories, startAuthor, onClose, onDelete }: { stories: Story[]; startAuthor: string; onClose: () => void; onDelete?: (id: string) => Promise<void> }) {
   useScrollLock();
   // agrupa por autor (na ordem em que aparecem na barra) e, dentro do grupo, por horário
   const authorOrder: string[] = [];
@@ -115,7 +115,21 @@ export function StoryViewer({ stories, startAuthor, onClose }: { stories: Story[
           <Avatar k={s.author.avatar} size={30} />
           <span className="text-sm font-semibold text-white drop-shadow">{s.author.nome}</span>
           <span className="text-xs text-white/70">{timeAgo(s.criadoEm)}</span>
-          <button type="button" className="-m-2 ml-auto p-2 text-white" onClick={onClose} aria-label="Fechar">
+          {s.podeApagar && onDelete && (
+            <button
+              type="button"
+              className="-m-2 ml-auto p-2 text-white"
+              aria-label="Apagar story"
+              onClick={async () => {
+                if (!confirm("Apagar este story?")) return;
+                await onDelete(s.id);
+                onClose();
+              }}
+            >
+              <Trash2 size={20} />
+            </button>
+          )}
+          <button type="button" className={`-m-2 p-2 text-white ${s.podeApagar && onDelete ? "ml-2" : "ml-auto"}`} onClick={onClose} aria-label="Fechar">
             <X size={22} />
           </button>
         </div>

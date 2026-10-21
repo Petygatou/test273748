@@ -24,7 +24,7 @@ export const CAPITULOS: Array<{ id: CapituloId; nome: string; resumo: string; to
     resumo: "Todas as seções à vista e uma busca que acha qualquer atleta, clube ou página.",
     to: "/",
     Icon: Compass,
-    passos: ["Use o menu do topo (no celular, a faixa e a barra de baixo).", "Aperte / ou Ctrl+K em qualquer página para buscar.", "O botão ? reabre este guia quando quiser."],
+    passos: ["No computador, o menu fica no topo; no celular, na barra de baixo (o botão Menu abre todo o resto).", "Aperte / ou Ctrl+K em qualquer página para buscar.", "O botão ? reabre este guia quando quiser."],
   },
   {
     id: "inicio",
@@ -83,7 +83,7 @@ export const PASSOS: TourStep[] = [
     to: "/",
     alvo: "nav",
     titulo: "Tudo à vista",
-    texto: "Cada ferramenta do Tropa tem seu lugar aqui. Nada fica escondido em menus.",
+    texto: "As ferramentas mais usadas ficam aqui. No celular, o botão Menu mostra todas as outras, cada uma com uma linha explicando o que faz.",
   },
   {
     id: "busca-home",

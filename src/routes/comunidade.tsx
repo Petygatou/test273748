@@ -105,7 +105,17 @@ function CommunityPage() {
           }}
         />
       )}
-      {viewing && <StoryViewer stories={stories} startAuthor={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <StoryViewer
+          stories={stories}
+          startAuthor={viewing}
+          onClose={() => setViewing(null)}
+          onDelete={async (id) => {
+            await backend.deleteStory(id);
+            await load();
+          }}
+        />
+      )}
     </div>
   );
 }

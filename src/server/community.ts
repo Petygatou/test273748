@@ -25,6 +25,7 @@ export interface PostView {
 export interface StoryView {
   id: string;
   author: Author;
+  podeApagar: boolean;
   media: MediaRef;
   filtro: string;
   textos: Array<{ id: string; texto: string; x: number; y: number; cor: string; tamanho: number }>;
@@ -39,30 +40,21 @@ function author(userId: string, oficial = false): Author {
   return { id: userId, nome: u?.nome ?? "Cartoleiro", avatar: u?.avatar ?? "aguia" };
 }
 
-function seedIfEmpty() {
-  if (db.posts.all().length) return;
-  db.posts.put({
-    id: newId(),
-    userId: "oficial",
-    oficial: true,
-    texto: "Bem-vindo à arena! Aqui os cartoleiros trocam leituras da rodada. Antes de duvidar do capitão, confira o backtest em Precisão do modelo 😉",
-    criadoEm: new Date().toISOString(),
-  });
-  db.posts.put({
-    id: newId(),
-    userId: "oficial",
-    oficial: true,
-    texto: "Enquete da rodada:",
-    poll: { pergunta: "Qual perfil você vai usar na sua tropa?", opcoes: ["Mitada", "Equilibrada", "Valorização"] },
-    criadoEm: new Date(Date.now() + 1).toISOString(),
-  });
-}
 
+/** Arquivo do nosso servidor (/media/…) ou do Vercel Blob da própria conta. */
+const urlDeMidia = (url: string) => {
+  if (url.startsWith("/media/")) return true;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && u.hostname.endsWith(".public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+};
 const isMedia = (m: unknown): m is MediaRef =>
-  !!m && typeof m === "object" && ["image", "video"].includes((m as MediaRef).kind) && typeof (m as MediaRef).url === "string" && (m as MediaRef).url.startsWith("/media/");
+  !!m && typeof m === "object" && ["image", "video"].includes((m as MediaRef).kind) && typeof (m as MediaRef).url === "string" && urlDeMidia((m as MediaRef).url);
 
 export function listPosts(viewer: UserRow | null, limit = 60): PostView[] {
-  seedIfEmpty();
   const posts = db.posts.all().sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)).slice(0, limit);
   const likes = db.likes.all();
   const comments = db.comments.all();
@@ -110,6 +102,7 @@ export function deletePost(u: UserRow, postId: string) {
   if (!p) return;
   if (p.userId !== u.id && !isAdmin(u)) throw new Error("Sem permissão.");
   db.posts.remove(postId);
+  if (p.media) apagarArquivo(p.media.url);
   db.likes.removeWhere((l) => l.postId === postId);
   db.comments.removeWhere((c) => c.postId === postId);
   db.votes.removeWhere((v) => v.postId === postId);
@@ -136,12 +129,12 @@ export function vote(u: UserRow, postId: string, option: number) {
   db.votes.put({ id: `${postId}:${u.id}`, postId, userId: u.id, option });
 }
 
-export function listStories(): StoryView[] {
+export function listStories(viewer: UserRow | null = null): StoryView[] {
   const cutoff = Date.now() - 24 * 3600_000;
   return db.stories
     .filter((s) => new Date(s.criadoEm).getTime() > cutoff)
     .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))
-    .map((s) => ({ id: s.id, author: author(s.userId, s.oficial), media: s.media, filtro: s.filtro, textos: s.textos, criadoEm: s.criadoEm }));
+    .map((s) => ({ id: s.id, author: author(s.userId, s.oficial), podeApagar: Boolean(viewer && (viewer.id === s.userId || isAdmin(viewer))), media: s.media, filtro: s.filtro, textos: s.textos, criadoEm: s.criadoEm }));
 }
 
 export function createStory(u: UserRow, input: { media?: unknown; filtro?: string; textos?: unknown; oficial?: boolean }) {
@@ -166,4 +159,18 @@ export function createStory(u: UserRow, input: { media?: unknown; filtro?: strin
   db.stories.put({ id: newId(), userId: u.id, oficial, media: input.media, filtro: String(input.filtro ?? "nenhum").slice(0, 20), textos, criadoEm: new Date().toISOString() });
   // limpeza: stories com mais de 3 dias
   db.stories.removeWhere((s) => Date.now() - new Date(s.criadoEm).getTime() > 3 * 86400_000);
+}
+
+export function deleteStory(u: UserRow, storyId: string) {
+  const st = db.stories.get(storyId);
+  if (!st) return;
+  if (st.userId !== u.id && !isAdmin(u)) throw new Error("Sem permissão.");
+  db.stories.remove(storyId);
+  apagarArquivo(st.media.url);
+}
+
+/** Remove o arquivo do Vercel Blob (os de /media/ ficam no disco; não fazem falta). */
+function apagarArquivo(url: string) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN || url.startsWith("/media/")) return;
+  void import("@vercel/blob").then(({ del }) => del(url)).catch((e) => console.error("[blob] falha ao apagar", e));
 }
