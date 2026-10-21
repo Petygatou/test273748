@@ -90,3 +90,22 @@ describe("chance de jogar aprendida", () => {
     expect(finalPlayProbability(model, f, { ...base, statusId: 7 })).toBeGreaterThan(finalPlayProbability(model, f, { ...base, statusId: 2 }));
   });
 });
+
+describe("token do Cartola colado pela pessoa", async () => {
+  const { extrairTokenCartola } = await import("../src/lib/cartolaToken");
+  const tk = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.abcDEF123_-xyz";
+  it("acha no Copy as cURL inteiro", () => {
+    const curl = `curl 'https://api.cartola.globo.com/auth/time' \\\n  -H 'accept: application/json' \\\n  -H 'authorization: Bearer ${tk}' \\\n  -H 'origin: https://cartola.globo.com'`;
+    expect(extrairTokenCartola(curl)).toBe(tk);
+  });
+  it("acha no Copy as fetch e no X-GLB-Token", () => {
+    expect(extrairTokenCartola(`fetch("https://api.cartola.globo.com/auth/time", { "headers": { "authorization": "Bearer ${tk}" } });`)).toBe(tk);
+    expect(extrairTokenCartola(`x-glb-token: ${tk}`)).toBe(tk);
+  });
+  it("aceita Bearer ou só o token, e recusa texto sem token", () => {
+    expect(extrairTokenCartola(`Bearer ${tk}`)).toBe(tk);
+    expect(extrairTokenCartola(`  ${tk}  `)).toBe(tk);
+    expect(extrairTokenCartola("curl 'https://api.cartola.globo.com/auth/time' -H 'accept: */*'")).toBeNull();
+    expect(extrairTokenCartola("oi")).toBeNull();
+  });
+});
