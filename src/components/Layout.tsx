@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, House, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
 import { countdown, timeAgo } from "../lib/format";
@@ -9,6 +9,7 @@ import { analysisQuery, liveQuery, mudancasQuery } from "../lib/queries";
 import { useRealtime } from "../lib/realtime";
 import { Avatar } from "./avatars";
 import { GlobalSearch, type PageEntry } from "./GlobalSearch";
+import { useScrollLock } from "./ui";
 import { TourProvider, useTour } from "./Tour";
 
 /** Todas as seções ficam à vista: nada importante escondido em menus. */
@@ -32,8 +33,26 @@ const EXTRA: PageEntry[] = [
   { to: "/guia", label: "Guia do site", Icon: CircleHelp, keywords: "guia ajuda tour tutorial como usar" },
 ];
 
-/** Atalhos da barra inferior no celular. */
-const MOBILE = ["/", "/escalacao", "/provaveis", "/ao-vivo", "/estatisticas"];
+/** Celular: só a barra de baixo — 4 atalhos principais + Menu com todo o resto. */
+const MOBILE = ["/", "/escalacao", "/provaveis", "/ao-vivo"];
+
+/** Uma linha sobre cada seção, para o Menu do celular. */
+const HINTS: Record<string, string> = {
+  "/": "Resumo da rodada e capitão",
+  "/escalacao": "Monte a melhor tropa",
+  "/provaveis": "Quem deve jogar em cada time",
+  "/estatisticas": "Mercado, confrontos e cedência",
+  "/ao-vivo": "Parciais e placares",
+  "/meu-time": "Seu time do Cartola",
+  "/ligas": "Classificação das suas ligas",
+  "/noticias": "Lesões, desfalques e voltas",
+  "/comunidade": "Feed e stories",
+  "/assistente": "Pergunte ao Comandante",
+  "/modelo": "Quanto o Tropa acerta",
+  "/guia": "Aprenda a usar o site",
+  "/conta": "Entrar, perfil e tropas salvas",
+  "/admin": "Usuários e publicações",
+};
 
 function Logo() {
   return (
@@ -110,6 +129,52 @@ function DemoNotice() {
   );
 }
 
+/** Menu do celular: todas as seções numa grade, com uma linha explicando cada uma. */
+function MobileMenu({ path, isAdmin, onClose }: { path: string; isAdmin: boolean; onClose: () => void }) {
+  useScrollLock();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const itens: PageEntry[] = [
+    ...SECTIONS.filter((s) => !MOBILE.includes(s.to)),
+    ...EXTRA.filter((e) => e.to !== "/estatisticas"),
+    { to: "/conta", label: "Minha conta", Icon: Users, keywords: "" },
+    ...(isAdmin ? [{ to: "/admin", label: "Painel ADM", Icon: Shield, keywords: "" }] : []),
+  ];
+  return (
+    <div className="fixed inset-0 z-30 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+      <button type="button" className="tour-fade absolute inset-0 bg-black/60" aria-label="Fechar menu" onClick={onClose} />
+      <div className="tour-pop absolute inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] max-h-[75dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--color-line)] bg-[var(--color-surface-1)] p-4 shadow-2xl shadow-black/60">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--color-surface-3)]" aria-hidden />
+        <div className="grid grid-cols-2 gap-2">
+          {itens.map(({ to, label, Icon, search }) => {
+            const active = isActive(path, to) && !search;
+            return (
+              <Link
+                key={label}
+                to={to}
+                search={search as never}
+                onClick={onClose}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-start gap-2.5 rounded-2xl border p-3 ${active ? "border-[var(--color-brand)]/50 bg-[var(--color-brand)]/10" : "border-[var(--color-line)] bg-[var(--color-surface-2)]"}`}
+              >
+                <Icon size={18} className="mt-0.5 shrink-0 text-[var(--color-brand)]" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-sm leading-tight font-bold">{label}</span>
+                  {HINTS[to] && !search && <span className="mt-0.5 block text-[11px] leading-snug text-[var(--color-ink-3)]">{HINTS[to]}</span>}
+                  {search && <span className="mt-0.5 block text-[11px] leading-snug text-[var(--color-ink-3)]">Compare dois atletas</span>}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function isActive(path: string, to: string) {
   return to === "/" ? path === "/" : path.startsWith(to);
 }
@@ -149,7 +214,7 @@ function Shell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navegando = useRouterState({ select: (s) => s.status === "pending" });
   const [searchOpen, setSearchOpen] = useState(false);
-  const strip = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // atalhos de teclado: "/" ou Ctrl/Cmd+K abrem a busca
   useEffect(() => {
@@ -163,10 +228,9 @@ function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  useEffect(() => setSearchOpen(false), [path]);
-  // mantém a seção atual visível na faixa de navegação do celular
   useEffect(() => {
-    strip.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+    setSearchOpen(false);
+    setMenuOpen(false);
   }, [path]);
 
   const pages = [...SECTIONS, ...EXTRA, ...(auth.isAdmin ? [{ to: "/admin", label: "Painel ADM", Icon: Shield, keywords: "admin painel" }] : [])];
@@ -223,25 +287,6 @@ function Shell({ children }: { children: ReactNode }) {
             {!auth.user && auth.ready && <span className="hidden text-sm font-semibold text-[var(--color-ink-2)] sm:inline">Entrar</span>}
           </Link>
         </div>
-        {/* celular: todas as seções numa faixa deslizável, sempre visível */}
-        <div ref={strip} data-tour="nav" className="flex gap-1 overflow-x-auto px-3 pb-2 scrollbar-none lg:hidden" role="navigation" aria-label="Seções">
-          {SECTIONS.map(({ to, label, Icon }) => {
-            const active = isActive(path, to);
-            return (
-              <Link
-                key={to}
-                to={to}
-                aria-current={active ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-                  active ? "bg-[var(--color-brand)] text-[#1a0a00]" : "bg-[var(--color-surface-2)] text-[var(--color-ink-2)]"
-                }`}
-              >
-                <Icon size={14} aria-hidden />
-                {label}
-              </Link>
-            );
-          })}
-        </div>
       </header>
 
       <div className="mx-auto w-full max-w-7xl px-4 pt-3">
@@ -268,21 +313,33 @@ function Shell({ children }: { children: ReactNode }) {
         </div>
       </footer>
 
-      {/* celular: atalhos fixos */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden" aria-label="Atalhos">
+      {/* celular: a única navegação — 4 atalhos + Menu */}
+      <nav data-tour="nav" className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden" aria-label="Atalhos">
         <div className="mx-auto grid max-w-lg grid-cols-5">
           {MOBILE.map((to) => {
             const s = SECTIONS.find((x) => x.to === to)!;
-            const active = isActive(path, to);
+            const active = isActive(path, to) && !menuOpen;
             return (
               <Link key={to} to={to} aria-current={active ? "page" : undefined} className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold">
                 <s.Icon size={21} aria-hidden className={active ? "text-[var(--color-brand)]" : "text-[var(--color-ink-3)]"} />
-                <span className={active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}>{s.label === "Estatísticas" ? "Stats" : s.label}</span>
+                <span className={active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}>{s.label}</span>
               </Link>
             );
           })}
+          {(() => {
+            // Menu fica aceso quando a página atual não é um dos 4 atalhos
+            const fora = !MOBILE.some((to) => isActive(path, to));
+            const aceso = menuOpen || fora;
+            return (
+              <button type="button" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} className="flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold">
+                <LayoutGrid size={21} aria-hidden className={aceso ? "text-[var(--color-brand)]" : "text-[var(--color-ink-3)]"} />
+                <span className={aceso ? "text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}>Menu</span>
+              </button>
+            );
+          })()}
         </div>
       </nav>
+      {menuOpen && <MobileMenu path={path} isAdmin={auth.isAdmin} onClose={() => setMenuOpen(false)} />}
 
       <GlobalSearch pages={pages} open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>

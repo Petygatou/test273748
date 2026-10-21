@@ -11,7 +11,7 @@ import { runBacktestAsync, runLineupBacktestAsync, type BacktestResult } from ".
 import { dataDir, emit } from "./db";
 import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
-import { fotosMap, loadFotos, withFotos } from "./fotosApiFootball";
+import { fotosMap, loadFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
 import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
@@ -88,7 +88,7 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   const { data, motivo, importadoEm } = await loadRawSeason();
   loadFotos(data.temporada);
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const merged: SeasonData = { ...data, athletes: data.source === "cartola" ? withFotos(data.athletes) : data.athletes, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  const merged: SeasonData = { ...data, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {

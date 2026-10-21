@@ -1,5 +1,5 @@
 import { AlertTriangle, Ban, CheckCircle2, CircleHelp, Cross, Info, ShieldOff } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { kitFor } from "../lib/kits";
 import { Shirt } from "./Shirt";
 import type { Club, PlayerProjection } from "../engine/types";
@@ -65,9 +65,41 @@ export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {
   );
 }
 
-/** Ícone do atleta: a camisa do clube (sem foto). */
+/**
+ * Ícone do atleta: a camisa do clube que o próprio Cartola usa (servida pelo nosso servidor,
+ * reduzida e em cache). Enquanto carrega, ou se o Cartola não tiver a do clube, fica uma
+ * camisa desenhada nas cores do time.
+ */
 export function PlayerPhoto({ p, size = 40 }: { p: Pick<PlayerProjection, "apelido" | "posicaoId"> & { foto?: string | null; atletaId?: number; clubeId?: number }; size?: number }) {
-  return <Shirt apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />;
+  const [falhou, setFalhou] = useState(false);
+  const [carregou, setCarregou] = useState(false);
+  useEffect(() => {
+    setFalhou(false);
+    setCarregou(false);
+  }, [p.foto]);
+  const px = size * 2 <= 64 ? 64 : size * 2 <= 128 ? 128 : 192;
+  const src = p.foto && !falhou ? `/api/foto?s=${px}&u=${encodeURIComponent(p.foto)}` : null;
+  return (
+    <span className="relative inline-block shrink-0 overflow-hidden rounded-full" style={{ width: size, height: size }}>
+      <Shirt apelido={p.apelido} clubeId={p.clubeId} posicaoId={p.posicaoId} size={size} />
+      {src && (
+        <img
+          key={src}
+          src={src}
+          alt={p.apelido}
+          width={size}
+          height={size}
+          className={`absolute inset-0 rounded-full bg-[var(--color-surface-3)] object-contain transition-opacity duration-300 ${carregou ? "opacity-100" : "opacity-0"}`}
+          style={{ width: size, height: size }}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setCarregou(true)}
+          onError={() => setFalhou(true)}
+        />
+      )}
+    </span>
+  );
 }
 
 const STATUS_STYLE: Record<number, { cls: string; Icon: typeof Info }> = {

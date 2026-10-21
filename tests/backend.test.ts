@@ -85,7 +85,9 @@ describe("API do Cartola", () => {
       time: { time_id: 99, nome: "Time do Mito", nome_cartola: "Cartoleiro", slug: "time-do-mito", url_escudo_png: "https://x/e.png" },
     });
     expect(t.time).toMatchObject({ timeId: 99, nome: "Time do Mito", slug: "time-do-mito" });
-    expect(t.atletas[0]).toMatchObject({ atletaId: 1, preco: 12.3, foto: "https://x/220x220/a.png" });
+    expect(t.atletas[0]).toMatchObject({ atletaId: 1, preco: 12.3 });
+    // sem rostos: o atleta só leva a camisa do clube (aqui o Cartola não mandou nenhuma)
+    expect(t.atletas[0].foto).toBeUndefined();
     expect(t).toMatchObject({ capitaoId: 1, esquemaId: 3, patrimonio: 140.5, pontosRodada: 77.1, pontosCampeonato: 1500.2 });
     const l = conta.parseLeagueDetail({
       liga: { liga_id: 5, nome: "Liga dos Amigos", slug: "amigos" },
@@ -151,6 +153,19 @@ describe("fotos oficiais", () => {
     expect(isAllowedFoto("https://globo.com.evil.com/a.png")).toBeNull();
     expect(isAllowedFoto("http://s.sde.globo.com/a.png")).toBeNull();
     expect(isAllowedFoto("http://127.0.0.1/a.png")).toBeNull();
+  });
+
+  it("todo atleta usa a camisa do clube que o Cartola manda (nunca o rosto)", async () => {
+    const { aprenderSilhueta, camisaDoClube } = await import("../src/server/foto");
+    // um atleta com rosto e outro sem: o Cartola manda a silhueta só para o segundo
+    aprenderSilhueta(266, 5, "https://s.sde.globo.com/media/organizations/2026/04/01/FORMATO/rosto.png");
+    aprenderSilhueta(266, 4, "http://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/FORMATO.png");
+    expect(camisaDoClube(266, 5)).toBe("https://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/220x220.png");
+    expect(camisaDoClube(266, 1)).toBe("https://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/220x220.png");
+    // técnico: usa a do clube enquanto o Cartola não mandar uma própria
+    expect(camisaDoClube(266, 6)).toBe("https://s3.glbimg.com/v1/AUTH_58d/clubes_2026/silhuetas/FLU/220x220.png");
+    // clube sem silhueta conhecida: sem imagem (o site desenha a camisa nas cores do time)
+    expect(camisaDoClube(999, 5)).toBeUndefined();
   });
 
   it("repassa a imagem e recusa o que não é imagem", async () => {

@@ -6,7 +6,7 @@
  * Autenticados (token do próprio cartoleiro): meu time, minhas ligas, liga
  * por slug e salvar a escalação direto no Cartola.
  */
-import { normalizeFoto } from "./foto";
+import { aprenderSilhueta, camisaDoClube } from "./foto";
 import { FORMATIONS, type FormationKey } from "../engine/rules";
 import { cached } from "./cache";
 import { cartola } from "./cartolaHttp";
@@ -63,7 +63,6 @@ export interface LeagueDetail {
 type Raw = Record<string, unknown>;
 const num = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : typeof x === "string" && x.trim() !== "" && !Number.isNaN(Number(x)) ? Number(x) : null);
 const str = (x: unknown): string => (typeof x === "string" ? x : x == null ? "" : String(x));
-const foto = (u: unknown) => normalizeFoto(typeof u === "string" ? u : undefined);
 
 export function parseTeamSummary(r: Raw): TeamSummary {
   return {
@@ -77,6 +76,9 @@ export function parseTeamSummary(r: Raw): TeamSummary {
 }
 
 function parseAthlete(a: Raw): TeamAthlete {
+  const clubeId = num(a.clube_id) ?? 0;
+  const posicaoId = num(a.posicao_id) ?? 0;
+  aprenderSilhueta(clubeId, posicaoId, typeof a.foto === "string" ? a.foto : undefined);
   return {
     atletaId: num(a.atleta_id) ?? 0,
     apelido: str(a.apelido),
@@ -84,7 +86,8 @@ function parseAthlete(a: Raw): TeamAthlete {
     clubeId: num(a.clube_id) ?? 0,
     preco: num(a.preco_num) ?? 0,
     pontos: num(a.pontos_num),
-    foto: foto(a.foto),
+    // sem rostos: a camisa do clube no Cartola
+    foto: camisaDoClube(clubeId, posicaoId),
   };
 }
 

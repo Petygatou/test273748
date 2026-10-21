@@ -19,6 +19,27 @@ export function normalizeFoto(url?: string | null): string | undefined {
   return /^https:\/\//i.test(u) ? u : undefined;
 }
 
+/** A silhueta (camisa) que o Cartola usa quando não tem a foto, já normalizada; senão undefined. */
+export function silhuetaFoto(url?: string | null): string | undefined {
+  if (!url || typeof url !== "string") return undefined;
+  const u = url.trim().replace("FORMATO", "220x220").replace(/^http:\/\//i, "https://");
+  return /\/silhuetas?\//i.test(u) && /^https:\/\//i.test(u) ? u : undefined;
+}
+
+/**
+ * Camisa do Cartola por clube (e outra para técnico, se o Cartola mandar), aprendida das
+ * próprias respostas da API: todo atleta do clube passa a usar essa imagem, em vez de rosto.
+ */
+const silhuetas = new Map<string, string>();
+const chave = (clubeId: number, posicaoId?: number) => `${clubeId}:${posicaoId === 6 ? "tec" : "jog"}`;
+export function aprenderSilhueta(clubeId: number, posicaoId: number | undefined, raw?: string | null) {
+  const s = silhuetaFoto(raw);
+  if (s && !silhuetas.has(chave(clubeId, posicaoId))) silhuetas.set(chave(clubeId, posicaoId), s);
+}
+export function camisaDoClube(clubeId: number, posicaoId?: number): string | undefined {
+  return silhuetas.get(chave(clubeId, posicaoId)) ?? silhuetas.get(chave(clubeId, 1));
+}
+
 export function isAllowedFoto(raw: string): URL | null {
   try {
     const u = new URL(raw);

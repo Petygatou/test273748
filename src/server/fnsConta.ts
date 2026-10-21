@@ -107,14 +107,14 @@ export const fetchFeed = createServerFn({ method: "GET" }).handler(async () => {
   const { currentUser } = await import("./auth");
   const { listPosts, listStories } = await import("./community");
   const u = currentUser();
-  return { posts: listPosts(u), stories: listStories() };
+  return { posts: listPosts(u), stories: listStories(u) };
 });
 
 export const communityAction = createServerFn({ method: "POST" })
   .validator((d: unknown) => {
     const o = obj(d);
     const action = s(o.action, 20);
-    if (!["post", "delete", "like", "comment", "vote", "story"].includes(action)) throw new Error("Ação inválida.");
+    if (!["post", "delete", "like", "comment", "vote", "story", "deleteStory"].includes(action)) throw new Error("Ação inválida.");
     return { action, payload: obj(o.payload) };
   })
   .handler(async ({ data }) => {
@@ -137,6 +137,9 @@ export const communityAction = createServerFn({ method: "POST" })
         break;
       case "vote":
         c.vote(u, s(p.postId, 60), Number(p.option));
+        break;
+      case "deleteStory":
+        c.deleteStory(u, s(p.storyId, 60));
         break;
       case "story":
         c.createStory(u, { media: p.media, filtro: s(p.filtro, 20), textos: p.textos, oficial: Boolean(p.oficial) });

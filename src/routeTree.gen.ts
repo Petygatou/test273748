@@ -31,6 +31,7 @@ import { Route as ApiFotoRouteImport } from './routes/api/foto'
 import { Route as ApiImportarRouteImport } from './routes/api/importar'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiSaudeRouteImport } from './routes/api/saude'
+import { Route as ApiUploadRouteImport } from './routes/api/upload'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 import { Route as MediaFileRouteImport } from './routes/media/$file'
 
@@ -144,6 +145,11 @@ const ApiSaudeRoute = ApiSaudeRouteImport.update({
   path: '/api/saude',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
   id: '/jogador/$id',
   path: '/jogador/$id',
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
+  '/api/upload': typeof ApiUploadRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
+  '/api/upload': typeof ApiUploadRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/api/importar': typeof ApiImportarRoute
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
+  '/api/upload': typeof ApiUploadRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/api/importar'
     | '/api/media'
     | '/api/saude'
+    | '/api/upload'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesByTo: FileRoutesByTo
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/api/importar'
     | '/api/media'
     | '/api/saude'
+    | '/api/upload'
     | '/jogador/$id'
     | '/media/$file'
   id:
@@ -311,6 +322,7 @@ export interface FileRouteTypes {
     | '/api/importar'
     | '/api/media'
     | '/api/saude'
+    | '/api/upload'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesById: FileRoutesById
@@ -338,6 +350,7 @@ export interface RootRouteChildren {
   ApiImportarRoute: typeof ApiImportarRoute
   ApiMediaRoute: typeof ApiMediaRoute
   ApiSaudeRoute: typeof ApiSaudeRoute
+  ApiUploadRoute: typeof ApiUploadRoute
   JogadorIdRoute: typeof JogadorIdRoute
   MediaFileRoute: typeof MediaFileRoute
 }
@@ -498,6 +511,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSaudeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jogador/$id': {
       id: '/jogador/$id'
       path: '/jogador/$id'
@@ -538,6 +558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiImportarRoute: ApiImportarRoute,
   ApiMediaRoute: ApiMediaRoute,
   ApiSaudeRoute: ApiSaudeRoute,
+  ApiUploadRoute: ApiUploadRoute,
   JogadorIdRoute: JogadorIdRoute,
   MediaFileRoute: MediaFileRoute,
 }
@@ -546,10 +567,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }
