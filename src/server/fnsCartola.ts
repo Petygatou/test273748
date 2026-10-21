@@ -15,7 +15,7 @@ function friendly(err: unknown): never {
   if (/fetch failed|ENOTFOUND|ECONNREFUSED|aborted|HTTP 403/i.test(msg) && !/auth/i.test(msg)) {
     throw new Error("A API do Cartola não respondeu (fora do ar ou bloqueada na rede do servidor).");
   }
-  if (/HTTP 401|não autorizado|nao autorizado/i.test(msg)) throw new Error("Token do Cartola recusado: gere um novo e conecte de novo.");
+  if (/HTTP 401|não autorizado|nao autorizado/i.test(msg)) throw new Error("O Cartola não aceitou o acesso (ele vale só 1 hora). No site do Cartola aperte F5, copie a linha “time” de novo e cole aqui.");
   throw err instanceof Error ? err : new Error(msg);
 }
 

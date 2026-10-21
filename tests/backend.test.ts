@@ -118,12 +118,13 @@ describe("API do Cartola", () => {
     );
     const r = await http.cartola<{ ok: boolean }>("/auth/time", { token: "a".repeat(40) });
     expect(r.ok).toBe(true);
-    expect(http.activeHost()).toBe(http.CARTOLA_HOSTS[1]);
+    expect(calls.at(-1)!.url.startsWith(http.CARTOLA_HOSTS[1])).toBe(true);
+    // token antigo: só o cabeçalho antigo (o Bearer é do login novo)
     expect(calls.at(-1)!.headers["X-GLB-Token"]).toBe("a".repeat(40));
-    expect(calls.at(-1)!.headers.Authorization).toBe(`Bearer ${"a".repeat(40)}`);
+    expect(calls.at(-1)!.headers.Authorization).toBeUndefined();
   });
 
-  it("não troca de host em erro de autenticação", async () => {
+  it("em erro de autenticação tenta cada host uma vez só e então desiste", async () => {
     let n = 0;
     vi.stubGlobal(
       "fetch",
@@ -133,7 +134,7 @@ describe("API do Cartola", () => {
       }),
     );
     await expect(http.cartola("/auth/time", { token: "b".repeat(40) })).rejects.toThrow(/Não autorizado/);
-    expect(n).toBe(1);
+    expect(n).toBe(http.CARTOLA_HOSTS.length);
   });
 });
 
@@ -571,5 +572,51 @@ describe("notícias", () => {
     expect(a.resumo).toBe("");
     expect(b.resumo).toBe("Texto & resumo de verdade.");
     expect(JSON.stringify([a, b])).not.toMatch(/<a|href|news\.google\.com\/rss/);
+  });
+});
+
+describe("login novo do Cartola (OIDC)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = (exp: number) => `${b64({ alg: "RS256", typ: "JWT" })}.${b64({ exp, iat: exp - 3600 })}.assinatura_falsa`;
+
+  it("manda Bearer + x-glb-auth: oidc, começa pelo host novo e cai para o outro em 401", async () => {
+    const tk = jwt(Math.floor(Date.now() / 1000) + 3600);
+    const chamadas: Array<{ url: string; h: Record<string, string> }> = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      const h = init.headers as Record<string, string>;
+      chamadas.push({ url, h });
+      // o host novo recusa nesta simulação; o outro aceita — precisa tentar os dois
+      if (url.startsWith("https://api.cartola.globo.com")) return new Response(JSON.stringify({ mensagem: "não autorizado" }), { status: 401 });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    });
+    const r = await http.cartola<{ ok: boolean }>("/auth/time", { token: tk });
+    expect(r.ok).toBe(true);
+    expect(chamadas[0].url).toBe("https://api.cartola.globo.com/auth/time");
+    expect(chamadas[0].h.Authorization).toBe(`Bearer ${tk}`);
+    expect(chamadas[0].h["x-glb-auth"]).toBe("oidc");
+    expect(chamadas[0].h["x-glb-app"]).toBe("cartola_web");
+    expect(chamadas[0].h["X-GLB-Token"]).toBeUndefined();
+    expect(chamadas.at(-1)!.url).toBe("https://api.cartolafc.globo.com/auth/time");
+  });
+
+  it("token antigo (GLBID) continua indo em X-GLB-Token", async () => {
+    let h: Record<string, string> = {};
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      h = init.headers as Record<string, string>;
+      return new Response("{}", { status: 200 });
+    });
+    await http.cartola("/auth/time", { token: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" });
+    expect(h["X-GLB-Token"]).toBe("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4");
+    expect(h.Authorization).toBeUndefined();
+  });
+
+  it("lê a validade do token (1 hora) e sabe quando venceu", async () => {
+    const { tokenExpiraEm, tokenExpirado } = await import("../src/lib/cartolaToken");
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    expect(tokenExpiraEm(jwt(exp))).toBe(exp * 1000);
+    expect(tokenExpirado(jwt(exp))).toBe(false);
+    expect(tokenExpirado(jwt(Math.floor(Date.now() / 1000) - 10))).toBe(true);
+    expect(tokenExpiraEm("token-antigo-sem-pontos-1234567890")).toBeNull();
   });
 });
