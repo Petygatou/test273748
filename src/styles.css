@@ -411,3 +411,36 @@ table.data tbody tr:hover {
     animation: none;
   }
 }
+
+/* coração dos dois toques na foto (Instagram) */
+.heart-burst svg {
+  animation: heart-burst 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes heart-burst {
+  0% {
+    opacity: 0;
+    scale: 0.3;
+  }
+  15% {
+    opacity: 1;
+    scale: 1.15;
+  }
+  30% {
+    scale: 0.95;
+  }
+  45% {
+    scale: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heart-burst svg {
+    animation-duration: 0.01s;
+  }
+}

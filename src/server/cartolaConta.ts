@@ -157,6 +157,23 @@ export async function searchLeagues(q: string): Promise<LeagueSummary[]> {
   return (Array.isArray(raw) ? raw : []).map(parseLeagueSummary).slice(0, 30);
 }
 
+/** Termos comuns em nomes de liga: buscados no Cartola para montar as "ligas em destaque". */
+const TERMOS_DESTAQUE = ["cartola", "brasil", "liga", "amigos", "galera", "futebol"];
+
+/**
+ * Ligas em destaque: as maiores ligas que a busca oficial do Cartola devolve para termos
+ * comuns. Dados reais da API (nada inventado), guardados por 6 horas.
+ */
+export async function popularLeagues(): Promise<LeagueSummary[]> {
+  return cached("cartola:ligas:destaque", 6 * 3600_000, async () => {
+    const res = await Promise.allSettled(TERMOS_DESTAQUE.map((t) => searchLeagues(t)));
+    const porSlug = new Map<string, LeagueSummary>();
+    for (const r of res) if (r.status === "fulfilled") for (const l of r.value) if (l.slug && !porSlug.has(l.slug)) porSlug.set(l.slug, l);
+    if (!porSlug.size && res.every((r) => r.status === "rejected")) throw (res[0] as PromiseRejectedResult).reason;
+    return [...porSlug.values()].sort((a, b) => (b.totalTimes ?? 0) - (a.totalTimes ?? 0)).slice(0, 12);
+  });
+}
+
 export interface Esquema {
   esquemaId: number;
   nome: string;

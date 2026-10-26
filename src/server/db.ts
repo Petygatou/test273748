@@ -272,7 +272,10 @@ export interface PostRow {
   userId: string;
   oficial: boolean;
   texto: string;
+  /** posts antigos: uma mídia só */
   media?: MediaRef;
+  /** carrossel: várias fotos/vídeos, na ordem escolhida */
+  midias?: MediaRef[];
   poll?: { pergunta: string; opcoes: string[] };
   criadoEm: string;
 }

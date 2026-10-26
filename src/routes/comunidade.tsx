@@ -1,8 +1,9 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { BadgeCheck, Heart, MessageCircle, Trash2, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { BadgeCheck, Heart, MessageCircle, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Avatar } from "../components/avatars";
 import { Composer } from "../components/Composer";
+import { MediaCarousel } from "../components/MediaCarousel";
 import { StoriesBar, StoryComposer, StoryViewer } from "../components/Stories";
 import { Alert, Card } from "../components/ui";
 import { useAuth } from "../lib/auth";
@@ -122,50 +123,6 @@ function CommunityPage() {
 
 /* ------------------------------ post ------------------------------ */
 
-function FeedVideo({ src }: { src: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
-  // reprodução automática muda ao entrar na tela; áudio só com o clique do usuário
-  useEffect(() => {
-    const v = ref.current;
-    if (!v || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => (e.isIntersecting ? v.play().catch(() => {}) : v.pause()), { threshold: 0.6 });
-    io.observe(v);
-    return () => io.disconnect();
-  }, []);
-  return (
-    <div className="relative">
-      <video
-        ref={ref}
-        src={src}
-        muted={muted}
-        loop
-        playsInline
-        preload="metadata"
-        className="max-h-[70dvh] w-full bg-black object-contain"
-        onClick={() => {
-          const v = ref.current!;
-          setMuted(false);
-          v.muted = false;
-          void v.play();
-        }}
-      />
-      <button
-        className="absolute right-2 bottom-2 rounded-full bg-black/70 p-1.5 text-white"
-        onClick={() => {
-          const v = ref.current!;
-          v.muted = !muted;
-          setMuted(!muted);
-          if (!v.muted) void v.play();
-        }}
-        aria-label={muted ? "Ativar áudio" : "Silenciar"}
-      >
-        {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-      </button>
-    </div>
-  );
-}
-
 function PostCard({ p, me, onLike, onVote, onComment, onDelete }: { p: Post; me: Author; onLike: () => void; onVote: (i: number) => void; onComment: (t: string) => void; onDelete: () => void }) {
   const [comment, setComment] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -189,7 +146,11 @@ function PostCard({ p, me, onLike, onVote, onComment, onDelete }: { p: Post; me:
         )}
       </header>
       {p.texto && <p className="px-3 pb-3 text-sm break-words whitespace-pre-wrap text-[var(--color-ink-2)]">{p.texto}</p>}
-      {p.media && (p.media.kind === "image" ? <img src={p.media.url} alt="" className="max-h-[70dvh] w-full object-cover" loading="lazy" /> : <FeedVideo src={p.media.url} />)}
+      {(() => {
+        const midias = p.midias?.length ? p.midias : p.media ? [p.media] : [];
+        // dois toques na foto só curtem (nunca descurtem), como no Instagram
+        return midias.length ? <MediaCarousel midias={midias} onDoubleLike={() => !p.liked && onLike()} /> : null;
+      })()}
       {p.poll && (
         <div className="space-y-2 px-3 pt-3">
           <div className="text-sm font-semibold">{p.poll.pergunta}</div>

@@ -13,7 +13,7 @@
  */
 import { decayWeight } from "./math";
 import { ALL_POSITIONS, PLAYER_POSITIONS, type PositionId, type ScoutKey } from "./rules";
-import type { CedenciaCell, CedenciaRow, Match, PlayerRound } from "./types";
+import { CEDENCIA_JANELAS, type CedenciaCell, type CedenciaJanela, type CedenciaRecorte, type CedenciaRow, type Match, type PlayerRound } from "./types";
 
 export interface GameContext {
   opp: number;
@@ -62,24 +62,42 @@ export function computeCedencia(
   const casa = new Map<number, Record<PositionId, Acc>>();
   const fora = new Map<number, Record<PositionId, Acc>>();
   const last5 = new Map<number, Record<PositionId, Acc>>();
+  type Rec = "geral" | "casa" | "fora";
+  const janelas = new Map<number, Record<CedenciaJanela, Record<Rec, Record<PositionId, Acc>>>>();
   for (const c of clubIds) {
     geral.set(c, emptyCells());
     casa.set(c, emptyCells());
     fora.set(c, emptyCells());
     last5.set(c, emptyCells());
+    const j = {} as Record<CedenciaJanela, Record<Rec, Record<PositionId, Acc>>>;
+    for (const n of CEDENCIA_JANELAS) j[n] = { geral: emptyCells(), casa: emptyCells(), fora: emptyCells() };
+    janelas.set(c, j);
   }
 
-  // últimas 5 rodadas disputadas por clube
-  const roundsByClub = new Map<number, number[]>();
+  // rodadas disputadas por clube: todas, só em casa e só fora (mais recentes primeiro)
+  const roundsByClub = new Map<number, Record<Rec, number[]>>();
   for (const m of matches) {
     if (m.rodada >= currentRound || m.golsCasa == null) continue;
-    for (const c of [m.casaId, m.foraId]) {
-      if (!roundsByClub.has(c)) roundsByClub.set(c, []);
-      roundsByClub.get(c)!.push(m.rodada);
+    for (const [c, rec] of [
+      [m.casaId, "casa"],
+      [m.foraId, "fora"],
+    ] as const) {
+      if (!roundsByClub.has(c)) roundsByClub.set(c, { geral: [], casa: [], fora: [] });
+      const r = roundsByClub.get(c)!;
+      r.geral.push(m.rodada);
+      r[rec].push(m.rodada);
     }
   }
+  for (const r of roundsByClub.values()) for (const k of ["geral", "casa", "fora"] as const) r[k].sort((a, b) => b - a);
+  /** rodada está entre os últimos N jogos do clube naquele recorte? */
+  const recente = (c: number, rec: Rec, n: number, rodada: number) => {
+    const rs = roundsByClub.get(c)?.[rec];
+    if (!rs) return false;
+    const i = rs.indexOf(rodada);
+    return i >= 0 && i < n;
+  };
   const last5Set = new Map<number, Set<number>>();
-  for (const [c, rs] of roundsByClub) last5Set.set(c, new Set(rs.sort((a, b) => b - a).slice(0, 5)));
+  for (const [c, rs] of roundsByClub) last5Set.set(c, new Set(rs.geral.slice(0, 5)));
 
   const league = emptyCells();
   // contagem de scouts cedidos: opp → pos → scout
@@ -105,6 +123,13 @@ export function computeCedencia(
     // mando do ADVERSÁRIO: se o atleta jogou fora, o adversário cedeu em casa
     add(g.home ? fora.get(opp)! : casa.get(opp)!, w);
     if (last5Set.get(opp)?.has(pr.rodada)) add(last5.get(opp)!, 1);
+    // janelas recentes: sem peso de recência (cada um dos N jogos vale igual)
+    const recMando: Rec = g.home ? "fora" : "casa";
+    const jan = janelas.get(opp)!;
+    for (const n of CEDENCIA_JANELAS) {
+      if (recente(opp, "geral", n, pr.rodada)) add(jan[n].geral, 1);
+      if (recente(opp, recMando, n, pr.rodada)) add(jan[n][recMando], 1);
+    }
     add(league, w);
 
     if (p !== 6) {
@@ -165,14 +190,22 @@ export function computeCedencia(
     shareResidual.set(c, res);
   }
 
-  const rows: CedenciaRow[] = clubIds.map((c) => ({
-    clubeId: c,
-    geral: toCells(geral.get(c)!, true),
-    casa: toCells(casa.get(c)!, true),
-    fora: toCells(fora.get(c)!, true),
-    ultimos5: toCells(last5.get(c)!, false),
-    scouts: shareResidual.get(c) ?? {},
-  }));
+  const rows: CedenciaRow[] = clubIds.map((c) => {
+    const jan = {} as Record<CedenciaJanela, CedenciaRecorte>;
+    for (const n of CEDENCIA_JANELAS) {
+      const j = janelas.get(c)![n];
+      jan[n] = { geral: toCells(j.geral, false), casa: toCells(j.casa, false), fora: toCells(j.fora, false) };
+    }
+    return {
+      clubeId: c,
+      geral: toCells(geral.get(c)!, true),
+      casa: toCells(casa.get(c)!, true),
+      fora: toCells(fora.get(c)!, true),
+      ultimos5: toCells(last5.get(c)!, false),
+      janelas: jan,
+      scouts: shareResidual.get(c) ?? {},
+    };
+  });
 
   return { rows, ligaMedias, shareResidual };
 }

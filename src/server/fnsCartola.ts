@@ -33,6 +33,11 @@ export const searchLeaguesFn = createServerFn({ method: "GET" })
     return searchLeagues(data.q).catch(friendly);
   });
 
+export const popularLeaguesFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { popularLeagues } = await import("./cartolaConta");
+  return popularLeagues().catch(friendly);
+});
+
 export const fetchTeamFn = createServerFn({ method: "GET" })
   .validator((d: unknown) => ({ id: Number(obj(d).id) || undefined, slug: s(obj(d).slug, 120) || undefined, rodada: Number(obj(d).rodada) || undefined }))
   .handler(async ({ data }) => {

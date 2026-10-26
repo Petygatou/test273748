@@ -217,3 +217,56 @@ describe("pontuação", () => {
     expect(SCORING.SG).toBe(5);
   });
 });
+
+
+describe("cedência por janela e vs Adversário", () => {
+  it("janelas de 3, 5 e 10 jogos crescem em amostra e respeitam o mando", () => {
+    for (const r of analysis.cedencia) {
+      for (const pos of [2, 3, 4, 5] as const) {
+        const j3 = r.janelas[3].geral[pos].jogos;
+        const j5 = r.janelas[5].geral[pos].jogos;
+        const j10 = r.janelas[10].geral[pos].jogos;
+        expect(j3).toBeLessThanOrEqual(j5);
+        expect(j5).toBeLessThanOrEqual(j10);
+        expect(j10).toBeLessThanOrEqual(r.geral[pos].jogos);
+        // casa + fora dos últimos N nunca passam do total de atuações do recorte geral da temporada
+        expect(r.janelas[5].casa[pos].jogos).toBeLessThanOrEqual(r.casa[pos].jogos);
+        expect(r.janelas[5].fora[pos].jogos).toBeLessThanOrEqual(r.fora[pos].jogos);
+      }
+    }
+  });
+
+  it("vs Adversário lista jogo a jogo quem da posição enfrentou o time, com mando e placar reais", async () => {
+    const { vsAdversario } = await import("../src/server/vsAdversario");
+    const adv = analysis.fixtures[0].foraId;
+    const r = vsAdversario(data, adv, 5);
+    const jogados = data.matches.filter((m) => m.rodada < data.rodadaAtual && m.golsCasa != null && (m.casaId === adv || m.foraId === adv));
+    expect(r.jogos).toHaveLength(jogados.length);
+    expect(r.jogos.map((j) => j.rodada)).toEqual([...r.jogos.map((j) => j.rodada)].sort((x, y) => y - x)); // mais recentes primeiro
+    for (const j of r.jogos) {
+      const m = jogados.find((x) => x.rodada === j.rodada)!;
+      // mando é de quem enfrentou: adversário fora → quem enfrentou estava em casa
+      expect(j.mando).toBe(m.foraId === adv ? "casa" : "fora");
+      expect(j.clubeId).toBe(m.foraId === adv ? m.casaId : m.foraId);
+      for (const at of j.atletas) {
+        const h = data.history.find((x) => x.atletaId === at.atletaId && x.rodada === j.rodada)!;
+        expect(h.posicaoId).toBe(5);
+        expect(h.clubeId).toBe(j.clubeId);
+      }
+    }
+    expect(r.mediaLiga).toBeGreaterThan(0);
+  });
+
+  it("chance de marcar 1, 2 e 3+ gols sai da matriz de placares e é coerente", async () => {
+    const { golsTime } = await import("../src/lib/derive");
+    for (const f of analysis.fixtures) {
+      const g = golsTime(f, true);
+      expect(g.marca1).toBeGreaterThanOrEqual(g.marca2);
+      expect(g.marca2).toBeGreaterThanOrEqual(g.marca3);
+      expect(g.marca3).toBeGreaterThanOrEqual(0);
+      expect(g.over15).toBeGreaterThanOrEqual(g.over25);
+      // marcar pelo menos 1 = adversário não ficar com SG
+      expect(Math.abs(g.marca1 - (1 - f.sgFora))).toBeLessThan(0.02);
+    }
+  });
+});

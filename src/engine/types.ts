@@ -179,12 +179,26 @@ export interface CedenciaCell {
   jogos: number;
 }
 
+/** Janelas de jogos recentes da cedência (últimos N jogos do time que cede). */
+export const CEDENCIA_JANELAS = [3, 5, 10] as const;
+export type CedenciaJanela = (typeof CEDENCIA_JANELAS)[number];
+
+export interface CedenciaRecorte {
+  geral: Record<PositionId, CedenciaCell>;
+  /** só os jogos em que o time que cede jogou em casa */
+  casa: Record<PositionId, CedenciaCell>;
+  /** só os jogos em que o time que cede jogou fora */
+  fora: Record<PositionId, CedenciaCell>;
+}
+
 export interface CedenciaRow {
   clubeId: number;
   geral: Record<PositionId, CedenciaCell>;
   casa: Record<PositionId, CedenciaCell>;
   fora: Record<PositionId, CedenciaCell>;
   ultimos5: Record<PositionId, CedenciaCell>;
+  /** Últimos 3, 5 e 10 jogos do time (no geral, só em casa e só fora). */
+  janelas: Record<CedenciaJanela, CedenciaRecorte>;
   /** Fatores de cedência por scout (shrunk), por posição. */
   scouts: Partial<Record<PositionId, Partial<Record<ScoutKey, number>>>>;
 }

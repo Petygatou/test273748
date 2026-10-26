@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowDownUp, BookOpen, Grid3x3, Scale, Search, Shield, Swords, Table } from "lucide-react";
+import { ArrowDownUp, BookOpen, Columns3, Grid3x3, Scale, Search, Shield, Swords, Table } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SERIES_A, SERIES_B, divergingColor } from "../components/charts";
 import { OutcomeBar } from "../components/FixtureCard";
+import { Sheet } from "../components/Sheet";
+import { VsAdversario } from "../components/VsAdversario";
 import { X1 } from "../components/X1";
-import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, RangeBar, SectionTitle, Seg, StatusPill } from "../components/ui";
+import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import { ALL_POSITIONS, POSITIONS, SCORING, SCOUT_LABELS, type PositionId, type ScoutKey } from "../engine/rules";
 import type { CedenciaCell, PlayerProjection, RoundAnalysis } from "../engine/types";
-import { confrontoFor } from "../lib/derive";
+import { confrontoFor, golsTime, type GolsTime } from "../lib/derive";
 import { cs, fmt1, fmt2, pct, posAbbr, signed } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
+import { COLUNAS, COLUNAS_PADRAO, GRUPOS, timesNoJogo } from "../lib/mercadoColunas";
 import { searchPlayers } from "../lib/search";
+import { KEYS, useLocal } from "../lib/storage";
 
 type Tab = "mercado" | "x1" | "confrontos" | "cedencia" | "times" | "glossario";
 const TABS: Array<{ value: Tab; label: string; Icon: typeof Table }> = [
@@ -70,47 +74,32 @@ function StatsPage() {
 
 /* ================================ MERCADO ================================ */
 
-type SortKey = "xP" | "cb" | "teto" | "piso" | "pAcima12" | "valorizacaoEsperada" | "mpv" | "regularidade" | "preco" | "media" | "posse";
-const SORTS: Array<{ value: SortKey; label: string }> = [
-  { value: "xP", label: "Pontos previstos" },
-  { value: "cb", label: "Custo-benefício" },
-  { value: "teto", label: "Teto" },
-  { value: "piso", label: "Piso" },
-  { value: "pAcima12", label: "Chance 12+" },
-  { value: "valorizacaoEsperada", label: "Valorização" },
-  { value: "mpv", label: "Menor MPV" },
-  { value: "regularidade", label: "Regularidade" },
-  { value: "media", label: "Média" },
-  { value: "preco", label: "Preço" },
-  { value: "posse", label: "% escalado" },
-];
-
-function sortValue(p: PlayerProjection, k: SortKey) {
-  if (k === "cb") return p.preco > 0 ? p.xP / p.preco : 0;
-  if (k === "mpv") return -p.mpv;
-  if (k === "posse") return p.posse ?? -1;
-  return p[k] as number;
-}
-
 function Mercado({ a }: { a: RoundAnalysis }) {
   const [pos, setPos] = useState<"all" | `${PositionId}`>("all");
   const [onlyLikely, setOnlyLikely] = useState(true);
   const [club, setClub] = useState<number | "all">("all");
   const [maxPrice, setMaxPrice] = useState(30);
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<SortKey>("xP");
+  const [sort, setSort] = useState("xP");
   const [limit, setLimit] = useState(40);
+  const [visiveis, setVisiveis] = useLocal<string[]>(KEYS.mercadoCols, COLUNAS_PADRAO);
+  const [painel, setPainel] = useState(false);
+  const ctx = useMemo(() => ({ a, times: timesNoJogo(a.fixtures) }), [a]);
+  const cols = COLUNAS.filter((c) => visiveis.includes(c.id));
+  const sortCol = COLUNAS.find((c) => c.id === sort) ?? COLUNAS[0];
   const rows = useMemo(() => {
     const hits = q.trim() ? new Set(searchPlayers(a.players, a.clubs, q, { limit: 5000 }).map((p) => p.atletaId)) : null;
+    const v = (p: PlayerProjection) => sortCol.valor(p, ctx) ?? (sortCol.asc ? Infinity : -Infinity);
     return a.players
       .filter((p) => (pos === "all" ? true : p.posicaoId === Number(pos)))
       .filter((p) => (onlyLikely ? p.pJogar >= 0.5 && p.matchId != null : true))
       .filter((p) => (club === "all" ? true : p.clubeId === club))
       .filter((p) => p.preco <= maxPrice)
       .filter((p) => (hits ? hits.has(p.atletaId) : true))
-      .sort((x, y) => sortValue(y, sort) - sortValue(x, sort));
-  }, [a, pos, onlyLikely, club, maxPrice, q, sort]);
+      .sort((x, y) => (sortCol.asc ? v(x) - v(y) : v(y) - v(x)));
+  }, [a, pos, onlyLikely, club, maxPrice, q, sortCol, ctx]);
   const clubs = Object.values(a.clubs).sort((x, y) => x.nome.localeCompare(y.nome));
+  const alterna = (id: string) => setVisiveis(visiveis.includes(id) ? visiveis.filter((x) => x !== id) : [...visiveis, id]);
 
   return (
     <Card className="p-3 sm:p-4">
@@ -125,7 +114,40 @@ function Mercado({ a }: { a: RoundAnalysis }) {
           <label className="chip cursor-pointer">
             <input type="checkbox" checked={onlyLikely} onChange={(e) => setOnlyLikely(e.target.checked)} className="accent-[var(--color-brand)]" /> Só quem deve jogar
           </label>
+          <button type="button" className={`chip ${painel ? "border-[var(--color-brand)]/50 text-[var(--color-brand)]" : ""}`} aria-expanded={painel} onClick={() => setPainel((v) => !v)}>
+            <Columns3 size={13} aria-hidden /> Colunas ({cols.length})
+          </button>
         </div>
+        {painel && (
+          <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-semibold text-[var(--color-ink-2)]">Escolha as colunas:</span>
+              <button type="button" className="chip py-0.5" onClick={() => setVisiveis(COLUNAS_PADRAO)}>
+                Padrão
+              </button>
+              <button type="button" className="chip py-0.5" onClick={() => setVisiveis(COLUNAS.map((c) => c.id))}>
+                Todas ({COLUNAS.length})
+              </button>
+              <button type="button" className="chip py-0.5" onClick={() => setVisiveis(["xP", "jogo", "preco"])}>
+                Mínimo
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {GRUPOS.map((g) => (
+                <fieldset key={g}>
+                  <legend className="mb-1 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">{g}</legend>
+                  <div className="flex flex-wrap gap-1">
+                    {COLUNAS.filter((c) => c.grupo === g).map((c) => (
+                      <label key={c.id} title={c.titulo} className={`chip cursor-pointer py-0.5 text-[11px] ${visiveis.includes(c.id) ? "border-[var(--color-brand)]/50 text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>
+                        <input type="checkbox" className="accent-[var(--color-brand)]" checked={visiveis.includes(c.id)} onChange={() => alterna(c.id)} /> {c.rotulo}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="relative sm:col-span-1">
             <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
@@ -145,10 +167,10 @@ function Mercado({ a }: { a: RoundAnalysis }) {
           </label>
           <label className="flex items-center gap-2">
             <ArrowDownUp size={15} className="shrink-0 text-[var(--color-ink-3)]" aria-hidden />
-            <select className="input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Ordenar por">
-              {SORTS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  Ordenar: {s.label}
+            <select className="input" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Ordenar por">
+              {COLUNAS.filter((c) => c.id !== "jogo").map((c) => (
+                <option key={c.id} value={c.id}>
+                  Ordenar: {c.rotulo === "Piso · Média · Teto" ? "Teto" : c.rotulo} — {c.titulo.split(" (")[0]}
                 </option>
               ))}
             </select>
@@ -161,57 +183,49 @@ function Mercado({ a }: { a: RoundAnalysis }) {
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-[var(--color-surface-2)] text-left">Atleta</th>
-              <th className="text-right" title="Pontos previstos (já descontada a chance de não jogar)">Pts</th>
-              <th className="text-left">Jogo</th>
-              <th className="text-right">C$</th>
-              <th className="text-right">Joga</th>
-              <th className="min-w-[150px] text-left">Piso · Média · Teto</th>
-              <th className="text-right">12+</th>
-              <th className="text-right" title="Mínimo para valorizar">MPV</th>
-              <th className="text-right" title="Variação esperada de preço">Val.</th>
-              <th className="text-right">Média</th>
-              <th className="text-right" title="% de jogos com 3+ pontos">Reg.</th>
+              {cols.map((c) => (
+                <th key={c.id} title={c.titulo} className={c.className?.includes("text-left") ? "text-left" : "text-right"}>
+                  {c.id === "jogo" ? (
+                    c.rotulo
+                  ) : (
+                    <button type="button" onClick={() => setSort(c.id)} aria-pressed={sort === c.id} className={`whitespace-nowrap ${sort === c.id ? "text-[var(--color-brand)]" : ""}`}>
+                      {c.rotulo}
+                      {sort === c.id ? (c.asc ? " ↑" : " ↓") : ""}
+                    </button>
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="tabular">
-            {rows.slice(0, limit).map((p) => {
-              const opp = p.adversarioId != null ? a.clubs[p.adversarioId] : undefined;
-              return (
-                <tr key={p.atletaId}>
-                  <td className="sticky left-0 z-10 bg-[var(--color-surface-2)]">
-                    <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className="flex items-center gap-2">
-                      <PlayerPhoto p={p} size={28} />
-                      <div className="min-w-0">
-                        <div className="max-w-[130px] truncate font-semibold">{p.apelido}</div>
-                        <div className="flex items-center gap-1">
-                          <PosBadge pos={p.posicaoId} />
-                          <ClubBadge club={a.clubs[p.clubeId]} size={14} />
-                          {p.statusId !== 7 && <StatusPill status={p.statusId} compact />}
-                        </div>
+            {rows.slice(0, limit).map((p) => (
+              <tr key={p.atletaId}>
+                <td className="sticky left-0 z-10 bg-[var(--color-surface-2)]">
+                  <Link to="/jogador/$id" params={{ id: String(p.atletaId) }} className="flex items-center gap-2">
+                    <PlayerPhoto p={p} size={28} />
+                    <div className="min-w-0">
+                      <div className="max-w-[130px] truncate font-semibold">{p.apelido}</div>
+                      <div className="flex items-center gap-1">
+                        <PosBadge pos={p.posicaoId} />
+                        <ClubBadge club={a.clubs[p.clubeId]} size={14} />
+                        {p.statusId !== 7 && <StatusPill status={p.statusId} compact />}
                       </div>
-                    </Link>
+                    </div>
+                  </Link>
+                </td>
+                {cols.map((c) => (
+                  <td key={c.id} className={`${c.className?.includes("text-left") ? "" : "text-right"} ${c.className ?? ""} ${sort === c.id ? "bg-[var(--color-brand)]/5" : ""}`}>
+                    {c.render(p, ctx)}
                   </td>
-                  <td className="text-right font-display font-bold text-[var(--color-gold)]">{fmt1(p.xP)}</td>
-                  <td className="text-xs text-[var(--color-ink-2)]">{opp ? `${p.mando === "casa" ? "vs" : "@"} ${opp.abreviacao}` : "—"}</td>
-                  <td className="text-right">{fmt2(p.preco)}</td>
-                  <td className="text-right text-[var(--color-ink-2)]">{pct(p.pJogar)}</td>
-                  <td>
-                    <RangeBar p={p} showLabels={false} />
-                  </td>
-                  <td className="text-right">{pct(p.pAcima12)}</td>
-                  <td className="text-right">{fmt1(p.mpv)}</td>
-                  <td className={`text-right ${p.valorizacaoEsperada >= 0 ? "text-[var(--color-good-ink)]" : "text-[var(--color-critical-ink)]"}`}>{signed(p.valorizacaoEsperada)}</td>
-                  <td className="text-right text-[var(--color-ink-2)]">{fmt2(p.media)}</td>
-                  <td className="text-right text-[var(--color-ink-2)]">{p.regularidade}%</td>
-                </tr>
-              );
-            })}
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-ink-3)]">
         <span>
-          {Math.min(limit, rows.length)} de {rows.length} atletas · faixa: piso P15, mediana, teto P85 (simulação)
+          {Math.min(limit, rows.length)} de {rows.length} atletas · toque no título da coluna para ordenar · passe o dedo/mouse no título para ver o que é
         </span>
         {rows.length > limit && (
           <button className="btn btn-ghost px-3 py-1.5 text-xs" onClick={() => setLimit((l) => l + 40)}>
@@ -225,29 +239,49 @@ function Mercado({ a }: { a: RoundAnalysis }) {
 
 /* ================================ CONFRONTOS ================================ */
 
+type ConfSort = "pVitoria" | "marca1" | "marca2" | "marca3" | "xgPro" | "xgContra" | "sg" | "sofre2" | "venceDe2";
+const CONF_COLS: Array<{ k: ConfSort; label: string; title: string; asc?: boolean }> = [
+  { k: "pVitoria", label: "Vitória", title: "Chance de vencer o jogo" },
+  { k: "marca1", label: "Marca 1+", title: "Chance de marcar pelo menos 1 gol" },
+  { k: "marca2", label: "Marca 2+", title: "Chance de marcar mais de um gol (2 ou mais)" },
+  { k: "marca3", label: "Marca 3+", title: "Chance de marcar 3 ou mais gols" },
+  { k: "xgPro", label: "xG pró", title: "Gols esperados a favor" },
+  { k: "xgContra", label: "xG contra", title: "Gols esperados contra", asc: true },
+  { k: "sg", label: "SG", title: "Chance de não sofrer gol (saldo de gols no Cartola)" },
+  { k: "sofre2", label: "Sofre 2+", title: "Chance de sofrer 2 ou mais gols", asc: true },
+  { k: "venceDe2", label: "Vence por 2+", title: "Chance de vencer com 2 ou mais gols de diferença" },
+];
+
 function Confrontos({ a }: { a: RoundAnalysis }) {
+  const [sort, setSort] = useState<ConfSort>("pVitoria");
+  const col = CONF_COLS.find((c) => c.k === sort)!;
+  const valor = (t: { c: ReturnType<typeof confrontoFor>; g: GolsTime }, k: ConfSort) => (k in t.c ? (t.c as unknown as Record<string, number>)[k] : (t.g as unknown as Record<string, number>)[k]);
   const teams = a.fixtures
     .flatMap((f) => [
       { club: f.casaId, opp: f.foraId, home: true, f },
       { club: f.foraId, opp: f.casaId, home: false, f },
     ])
-    .map((t) => ({ ...t, c: confrontoFor(t.f, t.home) }))
-    .sort((x, y) => y.c.pVitoria - x.c.pVitoria);
+    .map((t) => ({ ...t, c: confrontoFor(t.f, t.home), g: golsTime(t.f, t.home) }))
+    .sort((x, y) => (col.asc ? valor(x, sort) - valor(y, sort) : valor(y, sort) - valor(x, sort)));
   const cls = { Fácil: "text-[var(--color-good-ink)] border-[var(--color-good)]/40", Neutro: "", "Alto risco": "text-[var(--color-critical-ink)] border-[var(--color-critical)]/40" } as const;
   return (
     <div className="space-y-4">
       <Card className="p-3 sm:p-4">
-        <SectionTitle title="Matriz de confrontos" subtitle="Cada time na rodada: chance de vitória, gols esperados a favor e contra, chance de SG e classificação" />
+        <SectionTitle title="Matriz de confrontos" subtitle="Cada time na rodada: vitória, chance de marcar 1, 2 ou 3+ gols, gols esperados, SG e mais. Toque no título de uma coluna para ordenar." />
         <div className="overflow-x-auto">
           <table className="data w-full text-sm">
             <thead>
               <tr>
-                <th className="text-left">Time</th>
+                <th className="sticky left-0 z-10 bg-[var(--color-surface-2)] text-left">Time</th>
                 <th className="text-left">Adversário</th>
-                <th className="text-right">Vitória</th>
-                <th className="text-right">xG pró</th>
-                <th className="text-right">xG contra</th>
-                <th className="text-right">SG</th>
+                {CONF_COLS.map((c) => (
+                  <th key={c.k} className="text-right" title={c.title}>
+                    <button type="button" onClick={() => setSort(c.k)} aria-pressed={sort === c.k} className={`whitespace-nowrap ${sort === c.k ? "text-[var(--color-brand)]" : ""}`}>
+                      {c.label}
+                      {sort === c.k ? (c.asc ? " ↑" : " ↓") : ""}
+                    </button>
+                  </th>
+                ))}
                 <th className="text-left">Classificação</th>
                 <th className="text-left">Próximos 4 (vitória %)</th>
               </tr>
@@ -255,8 +289,8 @@ function Confrontos({ a }: { a: RoundAnalysis }) {
             <tbody className="tabular">
               {teams.map((t) => (
                 <tr key={t.club}>
-                  <td>
-                    <span className="flex items-center gap-2 font-semibold">
+                  <td className="sticky left-0 z-10 bg-[var(--color-surface-2)]">
+                    <span className="flex items-center gap-2 font-semibold whitespace-nowrap">
                       <ClubBadge club={a.clubs[t.club]} size={20} /> {a.clubs[t.club]?.nome}
                     </span>
                   </td>
@@ -265,10 +299,15 @@ function Confrontos({ a }: { a: RoundAnalysis }) {
                       {t.home ? "vs" : "@"} <ClubBadge club={a.clubs[t.opp]} size={16} /> {a.clubs[t.opp]?.abreviacao}
                     </span>
                   </td>
-                  <td className="text-right font-semibold">{pct(t.c.pVitoria)}</td>
-                  <td className="text-right">{fmt2(t.c.xgPro)}</td>
-                  <td className="text-right">{fmt2(t.c.xgContra)}</td>
-                  <td className="text-right">{pct(t.c.sg)}</td>
+                  {CONF_COLS.map((c) => {
+                    const v = valor(t, c.k);
+                    const isXg = c.k === "xgPro" || c.k === "xgContra";
+                    return (
+                      <td key={c.k} className={`text-right ${sort === c.k ? "font-bold text-[var(--color-ink)]" : c.k === "pVitoria" || c.k === "marca2" ? "font-semibold" : ""}`}>
+                        {isXg ? fmt2(v) : pct(v)}
+                      </td>
+                    );
+                  })}
                   <td>
                     <span className={`chip ${cls[t.c.label]}`}>{t.c.label}</span>
                   </td>
@@ -295,7 +334,7 @@ function Confrontos({ a }: { a: RoundAnalysis }) {
           </table>
         </div>
         <p className="mt-2 text-xs text-[var(--color-ink-3)]">
-          Fácil: vitória ≥ 50% e xG contra ≤ 1,15. Alto risco: vitória &lt; 25% ou xG contra ≥ 1,6. Próximos jogos: laranja = sequência favorável, azul = difícil.
+          Marca 2+ = chance de o time fazer mais de um gol no jogo. Fácil: vitória ≥ 50% e xG contra ≤ 1,15. Alto risco: vitória &lt; 25% ou xG contra ≥ 1,6. Próximos jogos: laranja = sequência favorável, azul = difícil.
         </p>
       </Card>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -314,6 +353,28 @@ function Confrontos({ a }: { a: RoundAnalysis }) {
             <div className="mt-2">
               <OutcomeBar f={f} />
             </div>
+            {(() => {
+              const gc = golsTime(f, true);
+              const gf = golsTime(f, false);
+              const itens = [
+                { r: "Ambos marcam", v: gc.ambos },
+                { r: "+1,5 gols", v: gc.over15 },
+                { r: "+2,5 gols", v: gc.over25 },
+                { r: `${a.clubs[f.casaId]?.abreviacao} 2+`, v: gc.marca2 },
+                { r: `${a.clubs[f.foraId]?.abreviacao} 2+`, v: gf.marca2 },
+                { r: "Placar provável", t: `${f.placarProvavel[0]} x ${f.placarProvavel[1]}` },
+              ];
+              return (
+                <div className="mt-2 grid grid-cols-3 gap-1 text-center">
+                  {itens.map((it) => (
+                    <div key={it.r} className="rounded-md bg-[var(--color-surface-1)] px-1 py-1">
+                      <div className="truncate text-[9px] font-semibold tracking-wide text-[var(--color-ink-3)] uppercase">{it.r}</div>
+                      <div className="tabular text-xs font-bold">{"t" in it ? it.t : pct(it.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Card>
         ))}
       </div>
@@ -361,33 +422,52 @@ function ScoreGrid({ m }: { m: number[][] }) {
 /* ================================ CEDÊNCIA ================================ */
 
 function Cedencia({ a }: { a: RoundAnalysis }) {
-  const [view, setView] = useState<"geral" | "casa" | "fora" | "ultimos5">("geral");
+  const [mando, setMando] = useState<"geral" | "casa" | "fora">("geral");
+  const [janela, setJanela] = useState<"temporada" | "3" | "5" | "10">("temporada");
   const [sortPos, setSortPos] = useState<PositionId>(5);
+  const [aberta, setAberta] = useState<{ clubeId: number; pos: PositionId } | null>(null);
   const oppOf = new Map<number, { opp: number; home: boolean }>();
   for (const f of a.fixtures) {
     oppOf.set(f.casaId, { opp: f.foraId, home: true });
     oppOf.set(f.foraId, { opp: f.casaId, home: false });
   }
-  const rows = [...a.cedencia].sort((x, y) => y[view][sortPos].fator - x[view][sortPos].fator);
+  // recorte escolhido: temporada (com peso de recência) ou últimos N jogos, no mando escolhido
+  const cellOf = (r: (typeof a.cedencia)[number], p: PositionId): CedenciaCell =>
+    janela === "temporada" ? r[mando][p] : (r.janelas?.[Number(janela) as 3 | 5 | 10]?.[mando][p] ?? r[mando][p]);
+  const rows = [...a.cedencia].sort((x, y) => cellOf(y, sortPos).fator - cellOf(x, sortPos).fator);
   return (
     <Card className="p-3 sm:p-4">
       <SectionTitle
         title="Matriz de cedência posicional"
-        subtitle="Quanto cada time CEDE de pontos por atleta de cada posição, relativo à média da liga (com shrinkage bayesiano)"
-        right={
-          <Seg
-            label="Recorte"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "geral", label: "Geral" },
-              { value: "casa", label: "Em casa" },
-              { value: "fora", label: "Fora" },
-              { value: "ultimos5", label: "Últ. 5" },
-            ]}
-          />
-        }
+        subtitle="Quanto cada time CEDE de pontos por atleta de cada posição, relativo à média da liga. Toque num número para ver quem fez esses pontos."
       />
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Seg
+          label="Mando de quem cede"
+          value={mando}
+          onChange={setMando}
+          options={[
+            { value: "geral", label: "Geral" },
+            { value: "casa", label: "Em casa" },
+            { value: "fora", label: "Fora" },
+          ]}
+        />
+        <Seg
+          label="Período"
+          value={janela}
+          onChange={setJanela}
+          options={[
+            { value: "temporada", label: "Temporada" },
+            { value: "3", label: "Últ. 3" },
+            { value: "5", label: "Últ. 5" },
+            { value: "10", label: "Últ. 10" },
+          ]}
+        />
+        <span className="text-xs text-[var(--color-ink-3)]">
+          {janela === "temporada" ? "Temporada inteira, com peso maior para os jogos recentes" : `Últimos ${janela} jogos de cada time`}
+          {mando === "geral" ? "" : mando === "casa" ? ", só jogando em casa" : ", só jogando fora"}.
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full border-separate border-spacing-[2px] text-sm">
           <thead>
@@ -423,16 +503,19 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
                     )}
                   </td>
                   {ALL_POSITIONS.map((p) => {
-                    const cell: CedenciaCell = r[view][p];
+                    const cell: CedenciaCell = cellOf(r, p);
                     const col = divergingColor(cell.fator);
                     return (
-                      <td
-                        key={p}
-                        className="tabular min-w-[54px] rounded-[4px] px-1 py-1.5 text-center text-xs font-semibold"
-                        style={{ background: col.bg, color: col.fg }}
-                        title={`${a.clubs[r.clubeId]?.nome} cede ${fmt2(cell.pontos)} pts por ${POSITIONS[p].name.toLowerCase()} (${cell.jogos} amostras) — fator ${fmt2(cell.fator)}`}
-                      >
-                        {fmt1(cell.pontos)}
+                      <td key={p} className="rounded-[4px] p-0" style={{ background: col.bg, color: col.fg }}>
+                        <button
+                          type="button"
+                          onClick={() => setAberta({ clubeId: r.clubeId, pos: p })}
+                          className="tabular block w-full min-w-[54px] rounded-[4px] px-1 py-1.5 text-center text-xs font-semibold hover:ring-2 hover:ring-white/40 focus-visible:ring-2"
+                          title={`${a.clubs[r.clubeId]?.nome} cede ${fmt2(cell.pontos)} pts por ${POSITIONS[p].name.toLowerCase()} (${cell.jogos} atuações) — ${signed((cell.fator - 1) * 100, 0)}% vs liga. Toque para ver quem pontuou.`}
+                        >
+                          {fmt1(cell.pontos)}
+                          {janela !== "temporada" && <span className="block text-[9px] font-normal opacity-70">{cell.jogos} at.</span>}
+                        </button>
                       </td>
                     );
                   })}
@@ -452,8 +535,25 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-5 rounded-sm" style={{ background: divergingColor(1.3).bg }} aria-hidden /> cede mais (bom para quem enfrenta)
         </span>
-        <span>Números = pontos médios cedidos por atleta da posição. Clique na posição para ordenar.</span>
+        <span>Números = pontos médios cedidos por atleta da posição. Toque na posição para ordenar e no número para ver jogo a jogo quem pontuou.</span>
       </div>
+      {aberta && (
+        <Sheet
+          title={`Quem enfrentou o ${a.clubs[aberta.clubeId]?.nome ?? "time"}`}
+          subtitle={`${POSITIONS[aberta.pos].plural} que jogaram contra o ${a.clubs[aberta.clubeId]?.nome}, jogo a jogo`}
+          icon={<ClubBadge club={a.clubs[aberta.clubeId]} size={26} />}
+          onClose={() => setAberta(null)}
+        >
+          <VsAdversario
+            a={a}
+            adversarioId={aberta.clubeId}
+            posicaoId={aberta.pos}
+            // quem cede em casa = quem enfrentou estava fora
+            mandoInicial={mando === "casa" ? "fora" : mando === "fora" ? "casa" : "todos"}
+            periodoInicial={janela === "temporada" ? "todos" : janela}
+          />
+        </Sheet>
+      )}
     </Card>
   );
 }
@@ -543,6 +643,24 @@ function Glossario() {
           <p className="mt-1 text-sm text-[var(--color-ink-2)]">{g.def}</p>
         </Card>
       ))}
+      <Card className="p-4 md:col-span-2">
+        <h3 className="font-display font-bold">Siglas das colunas do Mercado</h3>
+        <div className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          {GRUPOS.map((g) => (
+            <div key={g}>
+              <div className="mb-1 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">{g}</div>
+              <dl className="space-y-1 text-sm">
+                {COLUNAS.filter((c) => c.grupo === g).map((c) => (
+                  <div key={c.id} className="flex gap-2">
+                    <dt className="w-24 shrink-0 font-semibold text-[var(--color-ink)]">{c.rotulo}</dt>
+                    <dd className="text-[var(--color-ink-2)]">{c.titulo}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
+      </Card>
       <Card className="p-4 md:col-span-2">
         <h3 className="font-display font-bold">Tabela de pontuação usada pelo motor</h3>
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-4">

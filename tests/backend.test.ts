@@ -69,6 +69,22 @@ describe("comunidade", () => {
     community.deletePost(a, p.id);
     expect(db.likes.filter((l) => l.postId === p.id)).toHaveLength(0);
   });
+  it("post com várias fotos/vídeos (carrossel), na ordem, até 10", () => {
+    const a = db.users.find((u) => u.email === "admin@exemplo.com")!;
+    const fotos = Array.from({ length: 12 }, (_, i) => ({ kind: i === 1 ? "video" : "image", url: `/media/0000000${i}-0000-0000-0000-000000000000.jpg` }));
+    const p = community.createPost(a, { texto: "galeria", midias: [{ kind: "image", url: "https://evil/x.png" }, ...fotos] });
+    const view = community.listPosts(a).find((x) => x.id === p.id)!;
+    expect(view.midias).toHaveLength(10); // limite
+    expect(view.midias[0].url).toBe(fotos[0].url); // externa descartada, ordem mantida
+    expect(view.midias[1].kind).toBe("video");
+    expect(view.media?.url).toBe(fotos[0].url); // capa, para quem lê o formato antigo
+    // post antigo, de uma mídia só, aparece como carrossel de 1
+    const antigo = community.createPost(a, { texto: "antigo", media: { kind: "image", url: "/media/x.jpg" } });
+    expect(community.listPosts(a).find((x) => x.id === antigo.id)!.midias).toEqual([{ kind: "image", url: "/media/x.jpg" }]);
+    // Vercel Blob da conta é aceito
+    const blob = community.createPost(a, { texto: "blob", midias: [{ kind: "image", url: "https://abc.public.blob.vercel-storage.com/tropa/image-x.jpg" }] });
+    expect(community.listPosts(a).find((x) => x.id === blob.id)!.midias).toHaveLength(1);
+  });
 });
 
 describe("API do Cartola", () => {
@@ -618,5 +634,27 @@ describe("login novo do Cartola (OIDC)", () => {
     expect(tokenExpirado(jwt(exp))).toBe(false);
     expect(tokenExpirado(jwt(Math.floor(Date.now() / 1000) - 10))).toBe(true);
     expect(tokenExpiraEm("token-antigo-sem-pontos-1234567890")).toBeNull();
+  });
+});
+
+
+describe("ligas em destaque", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("junta buscas reais do Cartola, sem repetir, das maiores para as menores", async () => {
+    const conta = await import("../src/server/cartolaConta");
+    const { invalidate } = await import("../src/server/cache");
+    invalidate("cartola:ligas");
+    vi.stubGlobal("fetch", async (url: string) => {
+      const q = new URL(url).searchParams.get("q") ?? "";
+      const base = [
+        { liga_id: 1, nome: "Liga Brasil", slug: "liga-brasil", total_times_liga: 5000 },
+        { liga_id: 2, nome: `Liga ${q}`, slug: `liga-${q}`, total_times_liga: q.length * 10 },
+      ];
+      return new Response(JSON.stringify(base), { status: 200 });
+    });
+    const r = await conta.popularLeagues();
+    expect(r[0].slug).toBe("liga-brasil");
+    expect(new Set(r.map((l) => l.slug)).size).toBe(r.length);
+    for (let i = 1; i < r.length; i++) expect((r[i - 1].totalTimes ?? 0) >= (r[i].totalTimes ?? 0)).toBe(true);
   });
 });
