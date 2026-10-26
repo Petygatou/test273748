@@ -124,7 +124,7 @@ export const communityAction = createServerFn({ method: "POST" })
     const p = data.payload;
     switch (data.action) {
       case "post":
-        c.createPost(u, { texto: s(p.texto), media: p.media, poll: p.poll as { pergunta?: string; opcoes?: string[] } | null, oficial: Boolean(p.oficial) });
+        c.createPost(u, { texto: s(p.texto, 2000), media: p.media, midias: p.midias, poll: p.poll as { pergunta?: string; opcoes?: string[] } | null, oficial: Boolean(p.oficial) });
         break;
       case "delete":
         c.deletePost(u, s(p.postId, 60));

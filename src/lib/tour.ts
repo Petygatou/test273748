@@ -56,7 +56,7 @@ export const CAPITULOS: Array<{ id: CapituloId; nome: string; resumo: string; to
     resumo: "Mercado completo, comparação lado a lado, confrontos e o que cada time cede.",
     to: "/estatisticas",
     Icon: BarChart3,
-    passos: ["Mercado: ordene e filtre todos os atletas.", "Duelo X1: compare dois atletas em dúvida.", "Cedência: veja quem entrega pontos para cada posição."],
+    passos: ["Mercado: escolha as colunas (mais de 40 métricas) e toque no título para ordenar.", "Confrontos: chance de cada time vencer e de marcar 1, 2 ou 3+ gols.", "Cedência: filtre por casa/fora e últimos 3, 5 ou 10 jogos; toque no número para ver quem pontuou."],
   },
   {
     id: "aovivo",

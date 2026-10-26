@@ -14,6 +14,7 @@ export interface PostView {
   author: Author;
   texto: string;
   media?: MediaRef;
+  midias: MediaRef[];
   poll?: { pergunta: string; opcoes: string[]; votos: number[]; meuVoto: number | null };
   likes: number;
   liked: boolean;
@@ -66,7 +67,8 @@ export function listPosts(viewer: UserRow | null, limit = 60): PostView[] {
       id: p.id,
       author: author(p.userId, p.oficial),
       texto: p.texto,
-      media: p.media,
+      media: p.midias?.[0] ?? p.media,
+      midias: p.midias?.length ? p.midias : p.media ? [p.media] : [],
       poll: p.poll
         ? { ...p.poll, votos: p.poll.opcoes.map((_, i) => pv.filter((v) => v.option === i).length), meuVoto: viewer ? pv.find((v) => v.userId === viewer.id)?.option ?? null : null }
         : undefined,
@@ -82,9 +84,13 @@ export function listPosts(viewer: UserRow | null, limit = 60): PostView[] {
   });
 }
 
-export function createPost(u: UserRow, input: { texto?: string; media?: unknown; poll?: { pergunta?: string; opcoes?: string[] } | null; oficial?: boolean }) {
+export const MAX_MIDIAS_POST = 10;
+
+export function createPost(u: UserRow, input: { texto?: string; media?: unknown; midias?: unknown; poll?: { pergunta?: string; opcoes?: string[] } | null; oficial?: boolean }) {
   const texto = String(input.texto ?? "").slice(0, 2000).trim();
-  const media = isMedia(input.media) ? input.media : undefined;
+  const lista = Array.isArray(input.midias) ? input.midias : input.media ? [input.media] : [];
+  const midias = lista.filter(isMedia).slice(0, MAX_MIDIAS_POST).map((m) => ({ kind: m.kind, url: m.url }));
+  const media = midias[0];
   let poll: { pergunta: string; opcoes: string[] } | undefined;
   if (input.poll && input.poll.pergunta) {
     const opcoes = (input.poll.opcoes ?? []).map((o) => String(o).trim().slice(0, 60)).filter(Boolean).slice(0, 4);
@@ -94,7 +100,7 @@ export function createPost(u: UserRow, input: { texto?: string; media?: unknown;
   if (!texto && !media && !poll) throw new Error("Publicação vazia.");
   const oficial = Boolean(input.oficial);
   if (oficial && !isAdmin(u)) throw new Error("Só o administrador publica como oficial.");
-  return db.posts.put({ id: newId(), userId: u.id, oficial, texto, media, poll, criadoEm: new Date().toISOString() });
+  return db.posts.put({ id: newId(), userId: u.id, oficial, texto, media, midias: midias.length ? midias : undefined, poll, criadoEm: new Date().toISOString() });
 }
 
 export function deletePost(u: UserRow, postId: string) {
@@ -102,7 +108,7 @@ export function deletePost(u: UserRow, postId: string) {
   if (!p) return;
   if (p.userId !== u.id && !isAdmin(u)) throw new Error("Sem permissão.");
   db.posts.remove(postId);
-  if (p.media) apagarArquivo(p.media.url);
+  for (const m of p.midias?.length ? p.midias : p.media ? [p.media] : []) apagarArquivo(m.url);
   db.likes.removeWhere((l) => l.postId === postId);
   db.comments.removeWhere((c) => c.postId === postId);
   db.votes.removeWhere((v) => v.postId === postId);

@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { useDebounced } from "../lib/search";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Search, Trophy } from "lucide-react";
-import { useState } from "react";
+import { Clock, Loader2, Search, Sparkles, Star, Trophy, Users, X } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import { CartolaConnect, useCartolaToken } from "../components/CartolaConnect";
+import { Highlight } from "../components/PlayerSearch";
 import { Alert, Card, PageSkeleton, SectionTitle, Seg } from "../components/ui";
 import { cs, fmt1 } from "../lib/format";
-import { leagueFn, searchLeaguesFn } from "../server/fnsCartola";
+import { norm, useDebounced } from "../lib/search";
+import { KEYS, useLocal } from "../lib/storage";
+import type { LeagueSummary } from "../server/cartolaConta";
+import { leagueFn, myLeaguesFn, popularLeaguesFn, searchLeaguesFn } from "../server/fnsCartola";
 
 type Ordem = "campeonato" | "rodada" | "mes" | "turno";
 
@@ -19,10 +22,7 @@ function LeaguesPage() {
   const { slug } = Route.useSearch();
   const navigate = useNavigate({ from: "/ligas" });
   const [token] = useCartolaToken();
-  const [q, setQ] = useState("");
-  const term = useDebounced(q.trim(), 350);
   const [ordem, setOrdem] = useState<Ordem>("campeonato");
-  const search = useQuery({ queryKey: ["ligas-busca", term], queryFn: () => searchLeaguesFn({ data: { q: term } }), enabled: term.length >= 2, retry: false });
   const league = useQuery({ queryKey: ["liga", slug, ordem, token.slice(-12)], queryFn: () => leagueFn({ data: { token, slug: slug!, ordem } }), enabled: Boolean(slug && token), retry: false });
 
   return (
@@ -33,33 +33,7 @@ function LeaguesPage() {
         </h1>
         <p className="text-sm text-[var(--color-ink-3)]">Busque ligas do Cartola e acompanhe a classificação.</p>
       </div>
-      <Card className="p-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
-            <input className="input pl-9" placeholder="Digite o nome da liga" autoComplete="off" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar liga" />
-          </div>
-        </div>
-        {search.error && (
-          <div className="mt-2">
-            <Alert tone="warning">{search.error instanceof Error ? search.error.message : "Busca indisponível"}</Alert>
-          </div>
-        )}
-        {search.data && (
-          <ul className="mt-2 divide-y divide-[var(--color-line)]">
-            {search.data.map((l) => (
-              <li key={l.slug}>
-                <button className="flex w-full items-center gap-2 py-2 text-left hover:text-[var(--color-brand)]" onClick={() => navigate({ search: { slug: l.slug } })}>
-                  {l.imagem && <img src={l.imagem} alt="" width={28} height={28} className="rounded" />}
-                  <span className="flex-1 truncate text-sm font-semibold">{l.nome}</span>
-                  {l.totalTimes != null && <span className="text-xs text-[var(--color-ink-3)]">{l.totalTimes} times</span>}
-                </button>
-              </li>
-            ))}
-            {!search.data.length && <li className="py-2 text-sm text-[var(--color-ink-3)]">Nenhuma liga encontrada.</li>}
-          </ul>
-        )}
-      </Card>
+      <LigaBusca token={token} onEscolher={(l) => navigate({ search: { slug: l.slug } })} />
 
       {slug && !token && (
         <>
@@ -123,5 +97,155 @@ function LeaguesPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+/**
+ * Busca de ligas: já abre mostrando ligas (suas, recentes e em destaque no Cartola) e filtra
+ * a cada letra digitada; a partir de 2 letras também busca no Cartola. Setas + Enter escolhem.
+ */
+function LigaBusca({ token, onEscolher }: { token: string; onEscolher: (l: LeagueSummary) => void }) {
+  const [q, setQ] = useState("");
+  const [ativo, setAtivo] = useState(0);
+  const termo = useDebounced(q.trim(), 250);
+  const [recentes, setRecentes] = useLocal<LeagueSummary[]>(KEYS.ligasRecentes, []);
+  const minhas = useQuery({ queryKey: ["minhas-ligas", token.slice(-12)], queryFn: () => myLeaguesFn({ data: { token } }), enabled: Boolean(token), retry: false, staleTime: 5 * 60_000 });
+  const destaque = useQuery({ queryKey: ["ligas-destaque"], queryFn: () => popularLeaguesFn(), retry: false, staleTime: 60 * 60_000 });
+  const busca = useQuery({ queryKey: ["ligas-busca", termo], queryFn: () => searchLeaguesFn({ data: { q: termo } }), enabled: termo.length >= 2, retry: false, staleTime: 10 * 60_000 });
+
+  const escolher = (l: LeagueSummary) => {
+    setRecentes([l, ...recentes.filter((r) => r.slug !== l.slug)].slice(0, 8));
+    setQ("");
+    onEscolher(l);
+  };
+
+  // com texto: primeiro o que já conhecemos (filtra na hora), depois o que o Cartola devolver
+  const secoes = useMemo(() => {
+    const n = norm(q.trim());
+    const conhecidas = [...(minhas.data ?? []), ...recentes, ...(destaque.data ?? [])];
+    if (!n) {
+      return [
+        { titulo: "Suas ligas", Icon: Star, itens: minhas.data ?? [] },
+        { titulo: "Abertas recentemente", Icon: Clock, itens: recentes },
+        { titulo: "Em destaque no Cartola", Icon: Sparkles, itens: destaque.data ?? [] },
+      ].filter((s) => s.itens.length);
+    }
+    const vistos = new Set<string>();
+    const unico = (l: LeagueSummary) => (vistos.has(l.slug) ? false : (vistos.add(l.slug), true));
+    const locais = conhecidas.filter((l) => norm(l.nome).includes(n) && unico(l));
+    const remotas = termo.length >= 2 && termo === q.trim() ? (busca.data ?? []).filter(unico) : [];
+    return [
+      { titulo: "Sugestões", Icon: Star, itens: locais },
+      { titulo: "No Cartola", Icon: Search, itens: remotas },
+    ].filter((s) => s.itens.length);
+  }, [q, termo, minhas.data, recentes, destaque.data, busca.data]);
+  const lista = secoes.flatMap((s) => s.itens);
+  const buscando = q.trim().length >= 2 && (termo !== q.trim() || busca.isFetching);
+
+  let idx = -1;
+  return (
+    <Card className="p-4">
+      <div className="relative">
+        <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--color-ink-3)]" aria-hidden />
+        <input
+          className="input h-12 pr-10 pl-9 text-base"
+          placeholder="Digite o nome da liga"
+          autoComplete="off"
+          spellCheck={false}
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setAtivo(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setAtivo((i) => Math.min(lista.length - 1, i + 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setAtivo((i) => Math.max(0, i - 1));
+            } else if (e.key === "Enter" && lista[ativo]) {
+              e.preventDefault();
+              escolher(lista[ativo]);
+            } else if (e.key === "Escape") setQ("");
+          }}
+          aria-label="Buscar liga"
+          role="combobox"
+          aria-expanded={lista.length > 0}
+          aria-controls="ligas-lista"
+        />
+        <span className="absolute top-1/2 right-3 -translate-y-1/2 text-[var(--color-ink-3)]">
+          {buscando ? (
+            <Loader2 size={16} className="animate-spin" aria-label="Buscando" />
+          ) : q ? (
+            <button type="button" onClick={() => setQ("")} aria-label="Limpar busca" className="hover:text-[var(--color-ink)]">
+              <X size={16} />
+            </button>
+          ) : null}
+        </span>
+      </div>
+      {busca.error && q.trim().length >= 2 && !buscando && (
+        <div className="mt-2">
+          {secoes.length ? (
+            <p className="text-xs text-[var(--color-ink-3)]">A busca do Cartola não respondeu agora; mostrando as ligas que você já conhece.</p>
+          ) : (
+            <Alert tone="warning">{busca.error instanceof Error ? busca.error.message : "Busca indisponível"}</Alert>
+          )}
+        </div>
+      )}
+      <div id="ligas-lista" role="listbox" className="mt-3 space-y-3">
+        {secoes.map((sec) => (
+          <div key={sec.titulo}>
+            <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold tracking-wider text-[var(--color-ink-3)] uppercase">
+              <sec.Icon size={12} aria-hidden /> {sec.titulo}
+            </div>
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {sec.itens.map((l) => {
+                idx++;
+                const i = idx;
+                return (
+                  <li key={`${sec.titulo}:${l.slug}`} role="option" aria-selected={i === ativo}>
+                    <LigaItem l={l} q={q} ativo={i === ativo && q.length > 0} onClick={() => escolher(l)} onHover={() => setAtivo(i)} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+        {!secoes.length && q.trim().length >= 2 && !buscando && <p className="text-sm text-[var(--color-ink-3)]">Nenhuma liga encontrada para “{q}”.</p>}
+        {!secoes.length && !q && (destaque.isLoading || minhas.isLoading) && <div className="skeleton h-24" />}
+        {!secoes.length && !q && !destaque.isLoading && !minhas.isLoading && (
+          <p className="text-sm text-[var(--color-ink-3)]">Digite o nome da liga para buscar no Cartola.{!token && " Conecte sua conta em Meu Time para ver as suas ligas aqui."}</p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function LigaItem({ l, q, ativo, onClick, onHover }: { l: LeagueSummary; q: string; ativo: boolean; onClick: () => void; onHover: () => void }): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={onHover}
+      className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-colors ${ativo ? "border-[var(--color-brand)]/50 bg-[var(--color-brand)]/10" : "border-[var(--color-line)] bg-[var(--color-surface-1)] hover:border-[var(--color-ink-3)]"}`}
+    >
+      {l.imagem ? (
+        <img src={l.imagem} alt="" width={32} height={32} loading="lazy" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+      ) : (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-gold)]/15 text-[var(--color-gold)]">
+          <Trophy size={15} aria-hidden />
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{q.trim() ? <Highlight text={l.nome} q={q} /> : l.nome}</span>
+        {l.descricao && <span className="block truncate text-[11px] text-[var(--color-ink-3)]">{l.descricao}</span>}
+      </span>
+      {l.totalTimes != null && (
+        <span className="tabular flex shrink-0 items-center gap-1 text-[11px] text-[var(--color-ink-3)]">
+          <Users size={12} aria-hidden /> {l.totalTimes.toLocaleString("pt-BR")}
+        </span>
+      )}
+    </button>
   );
 }

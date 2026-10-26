@@ -37,6 +37,8 @@ export interface Post {
   author: Author;
   texto: string;
   media?: Media;
+  /** todas as mídias do post (carrossel); posts antigos têm uma só */
+  midias?: Media[];
   poll?: Poll;
   likes: number;
   liked: boolean;
@@ -77,9 +79,14 @@ export interface Story {
 
 export interface NewPost {
   texto: string;
-  file?: File | null;
+  /** fotos e vídeos do carrossel, na ordem (até 10) */
+  files?: File[];
   poll?: { pergunta: string; opcoes: string[] } | null;
+  /** progresso do envio: arquivo atual (1..n), total e % do arquivo atual */
+  onProgress?: (atual: number, total: number, pct: number) => void;
 }
+
+export const MAX_MIDIAS_POST = 10;
 
 export interface NewStory {
   blob: Blob;
@@ -164,8 +171,14 @@ export const serverBackend: CommunityBackend = {
     return { posts: r.posts as Post[], stories: r.stories as Story[] };
   },
   async createPost(p, author) {
-    const media = p.file ? await uploadMedia(p.file) : undefined;
-    await communityAction({ data: { action: "post", payload: { texto: p.texto, media, poll: p.poll ?? null, oficial: Boolean(author.oficial) } } });
+    const files = (p.files ?? []).slice(0, MAX_MIDIAS_POST);
+    const midias: Media[] = [];
+    // um de cada vez: mantém a ordem e mostra o progresso arquivo a arquivo
+    for (let i = 0; i < files.length; i++) {
+      p.onProgress?.(i + 1, files.length, 0);
+      midias.push(await uploadMedia(files[i], (pct) => p.onProgress?.(i + 1, files.length, pct)));
+    }
+    await communityAction({ data: { action: "post", payload: { texto: p.texto, midias, poll: p.poll ?? null, oficial: Boolean(author.oficial) } } });
   },
   async deletePost(postId) {
     await communityAction({ data: { action: "delete", payload: { postId } } });

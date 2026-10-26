@@ -4,8 +4,9 @@ import { Ban, Lock, Scale, Unlock } from "lucide-react";
 import { AskButton } from "../components/AskButton";
 import { RoundBars, SERIES_A, divergingColor } from "../components/charts";
 import { FixtureCard } from "../components/FixtureCard";
+import { VsAdversario } from "../components/VsAdversario";
 import { Alert, Card, ClubBadge, ErrorBox, FactorChip, PageSkeleton, PlayerPhoto, PosBadge, ProbBar, RangeBar, SectionTitle, StatTile, StatusPill } from "../components/ui";
-import { SCOUT_LABELS } from "../engine/rules";
+import { POSITIONS, SCOUT_LABELS } from "../engine/rules";
 import { compactPlayer } from "../lib/derive";
 import { cs, fmt1, fmt2, pct, posName, signed } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
@@ -97,6 +98,17 @@ function PlayerPage() {
         />
       </div>
 
+      {p.adversarioId != null && opp && (
+        <Card className="p-4">
+          <SectionTitle
+            title={`vs Adversário: quem já enfrentou o ${opp.nome}`}
+            subtitle={`${POSITIONS[p.posicaoId].plural} que jogaram contra o ${opp.nome}, jogo a jogo — mesma posição do ${p.apelido}, que joga ${p.mando === "casa" ? "em casa" : "fora"}`}
+            icon={<ClubBadge club={opp} size={20} />}
+          />
+          <VsAdversario key={`${p.adversarioId}:${p.posicaoId}`} a={a} adversarioId={p.adversarioId} posicaoId={p.posicaoId} mandoInicial={p.mando === "casa" ? "casa" : "fora"} nomeReferencia={p.apelido} />
+        </Card>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="p-4">
           <SectionTitle title="O que pode acontecer" subtitle={`Em ${a.config.simulations.toLocaleString("pt-BR")} jogos simulados, se ele entrar em campo`} />
@@ -152,18 +164,27 @@ function PlayerPage() {
               <div className="mb-1.5 text-xs font-semibold text-[var(--color-ink-3)] uppercase">
                 Quanto o {opp?.nome} costuma dar para {posName(p.posicaoId).toLowerCase()}s
               </div>
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                {(["geral", "casa", "fora", "ultimos5"] as const).map((k) => {
-                  const cell = ced[k][p.posicaoId];
-                  const col = divergingColor(cell.fator);
-                  return (
-                    <div key={k} className="rounded-lg p-2" style={{ background: col.bg, color: col.fg }}>
-                      <div className="text-[10px] font-semibold uppercase opacity-80">{{ geral: "Geral", casa: "Em casa", fora: "Fora", ultimos5: "Últ. 5" }[k]}</div>
-                      <div className="font-display tabular text-lg font-bold">{fmt1(cell.pontos)}</div>
-                      <div className="tabular text-[10px] opacity-80">{signed((cell.fator - 1) * 100, 0)}%</div>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-3 gap-2 text-center text-xs sm:grid-cols-5">
+                {(() => {
+                  // o adversário joga com o mando oposto ao do atleta
+                  const advMando = p.mando === "casa" ? "fora" : "casa";
+                  const itens = [
+                    { k: "temp", rotulo: "Temporada", cell: ced.geral[p.posicaoId] },
+                    { k: "mando", rotulo: advMando === "casa" ? `${opp?.abreviacao} em casa` : `${opp?.abreviacao} fora`, cell: ced[advMando][p.posicaoId] },
+                    ...([3, 5, 10] as const).map((n) => ({ k: `u${n}`, rotulo: `Últ. ${n}`, cell: ced.janelas?.[n]?.geral[p.posicaoId] })),
+                  ];
+                  return itens.map(({ k, rotulo, cell }) => {
+                    if (!cell) return null;
+                    const col = divergingColor(cell.fator);
+                    return (
+                      <div key={k} className="rounded-lg p-2" style={{ background: col.bg, color: col.fg }} title={`${cell.jogos} atuações na amostra`}>
+                        <div className="truncate text-[10px] font-semibold uppercase opacity-80">{rotulo}</div>
+                        <div className="font-display tabular text-lg font-bold">{fmt1(cell.pontos)}</div>
+                        <div className="tabular text-[10px] opacity-80">{signed((cell.fator - 1) * 100, 0)}%</div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}

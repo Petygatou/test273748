@@ -12,6 +12,49 @@ export function confrontoFor(f: FixtureOdds, home: boolean): { label: Confronto;
   return { label, pVitoria, xgPro, xgContra, sg };
 }
 
+/** Probabilidades de gols de um time no jogo, tiradas da matriz de placares do modelo. */
+export interface GolsTime {
+  /** marcar pelo menos 1, 2 e 3 gols */
+  marca1: number;
+  marca2: number;
+  marca3: number;
+  /** sofrer 2 ou mais */
+  sofre2: number;
+  /** vencer por 2+ gols de diferença */
+  venceDe2: number;
+  /** ambos marcam (do jogo) */
+  ambos: number;
+  /** jogo com 3+ gols (mais de 2,5) */
+  over25: number;
+  /** jogo com 2+ gols (mais de 1,5) */
+  over15: number;
+}
+
+export function golsTime(f: FixtureOdds, home: boolean): GolsTime {
+  const m = f.scoreMatrix;
+  let total = 0;
+  const acc = { marca1: 0, marca2: 0, marca3: 0, sofre2: 0, venceDe2: 0, ambos: 0, over25: 0, over15: 0 };
+  for (let i = 0; i < m.length; i++) {
+    for (let j = 0; j < (m[i]?.length ?? 0); j++) {
+      const p = m[i][j];
+      total += p;
+      const pro = home ? i : j;
+      const contra = home ? j : i;
+      if (pro >= 1) acc.marca1 += p;
+      if (pro >= 2) acc.marca2 += p;
+      if (pro >= 3) acc.marca3 += p;
+      if (contra >= 2) acc.sofre2 += p;
+      if (pro - contra >= 2) acc.venceDe2 += p;
+      if (i >= 1 && j >= 1) acc.ambos += p;
+      if (i + j >= 3) acc.over25 += p;
+      if (i + j >= 2) acc.over15 += p;
+    }
+  }
+  // a matriz é truncada em poucos gols: normaliza pelo que ela cobre
+  const k = total > 0 ? 1 / total : 0;
+  return Object.fromEntries(Object.entries(acc).map(([key, v]) => [key, v * k])) as unknown as GolsTime;
+}
+
 export function topBy(players: PlayerProjection[], key: (p: PlayerProjection) => number, n: number, filter?: (p: PlayerProjection) => boolean) {
   return players
     .filter((p) => p.matchId != null && (filter ? filter(p) : true))

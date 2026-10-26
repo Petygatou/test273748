@@ -87,3 +87,18 @@ export const fetchMudancas = createServerFn({ method: "GET" }).handler(async () 
   ensureWatcher();
   return { mudancas: recentChanges(30), status: watcherStatus(), medicao: medicaoOficial() };
 });
+
+/** Quem da mesma posição já enfrentou um time, jogo a jogo (histórico real da temporada). */
+export const fetchVsAdversario = createServerFn({ method: "GET" })
+  .validator((d: { clube?: unknown; pos?: unknown } | undefined) => {
+    const clube = Number(d?.clube);
+    const pos = Number(d?.pos);
+    if (!Number.isInteger(clube) || clube <= 0 || !Number.isInteger(pos) || pos < 1 || pos > 6) throw new Error("Parâmetros inválidos.");
+    return { clube, pos: pos as 1 | 2 | 3 | 4 | 5 | 6 };
+  })
+  .handler(async ({ data }) => {
+    const { loadSeason } = await import("./season");
+    const { vsAdversario } = await import("./vsAdversario");
+    const { data: season } = await loadSeason();
+    return vsAdversario(season, data.clube, data.pos);
+  });
