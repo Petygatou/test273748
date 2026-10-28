@@ -69,6 +69,8 @@ export const newsSignals = () => st.sinais;
 export const officialFixtures = (clubs: Parameters<typeof fixturesSummary>[1]) => fixturesSummary(st.oficial, clubs);
 export const medicaoOficial = () => medicaoResumo(st.oficial);
 export const officialOverrides = () => currentOfficialOverrides(st.oficial);
+/** Cota da API-Football compartilhada (escalações oficiais, lados dos laterais). */
+export const oficialState = () => st.oficial;
 export const watcherStatus = () => ({
   ativo: st.started,
   ultimaLeitura: st.ultimaLeitura,
@@ -211,6 +213,17 @@ async function tick() {
         push({ tipo: "escalacao", texto: `Escalação oficial: ${n.clubes[0]} x ${n.clubes[1]}` });
         mudou = true;
       }
+    }
+
+    // lado dos laterais: escalações jogo a jogo (ESPN e, com cota sobrando, API-Football)
+    try {
+      const { ladosAutoLigado, passoLados } = await import("./ladosAuto");
+      if (ladosAutoLigado(data.source)) {
+        await passoLados(data, officialEnabled() ? st.oficial : null);
+        if (officialEnabled()) persistOfficial(st.oficial);
+      }
+    } catch {
+      /* fonte fora do ar: tenta no próximo minuto */
     }
 
     // rostos não são mais exibidos (o site usa a camisa do clube): a cota da API-Football

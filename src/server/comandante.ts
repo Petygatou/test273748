@@ -237,7 +237,7 @@ async function runTool(name: string, input: Json, a: RoundAnalysis, loadBacktest
       const fmt = (cells: typeof row.geral) =>
         Object.fromEntries(
           Object.entries(cells)
-            // laterais por lado só entram quando há laterais marcados como esquerdo/direito
+            // laterais por lado só entram quando o lado de algum lateral é conhecido
             .filter(([pos, c]) => Number(pos) <= 6 || c.jogos > 0)
             .map(([pos, c]) => [
               Number(pos) === 21 ? "LE" : Number(pos) === 22 ? "LD" : POSITIONS[Number(pos) as PositionId].abbr,

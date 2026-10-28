@@ -301,7 +301,7 @@ function Shell({ children }: { children: ReactNode }) {
           </button>
           <HelpButton />
           {montado && auth.isAdmin && <AdminButton ativo={isActive(path, "/admin")} />}
-          <Link to="/conta" aria-label="Minha conta" title={auth.user ? auth.user.nome : "Entrar"} className="flex shrink-0 items-center gap-2">
+          <Link to="/conta" aria-label="Minha conta" title={montado ? (auth.user ? auth.user.nome : "Entrar") : undefined} className="flex shrink-0 items-center gap-2">
             <Avatar k={auth.profile.avatar} size={36} />
             {!auth.user && auth.ready && <span className="hidden text-sm font-semibold text-[var(--color-ink-2)] sm:inline">Entrar</span>}
           </Link>

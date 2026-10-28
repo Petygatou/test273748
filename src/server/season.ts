@@ -9,10 +9,11 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runBacktestAsync, runLineupBacktestAsync, type BacktestResult } from "../engine/backtest";
 import { dataDir, db, emit } from "./db";
-import type { LadoLateral, LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
+import type { LadoLateral, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
 import { fotosMap, loadFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
+import { ladosAutoLigado, ladosAutomaticos } from "./ladosAuto";
 import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
@@ -88,9 +89,8 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   const { data, motivo, importadoEm } = await loadRawSeason();
   loadFotos(data.temporada);
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const lados: Record<number, LadoLateral> = {};
-  for (const l of db.lados.all()) lados[l.atletaId] = l.lado;
-  const merged: SeasonData = { ...data, lados, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  const { lados, ladosJogo } = ladosDaTemporada(data);
+  const merged: SeasonData = { ...data, lados, ladosJogo, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {
@@ -107,7 +107,29 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   };
 }
 
-function overridesKey(o: Record<number, LineupOverride> | undefined) {
+/**
+ * Lado dos laterais: o descoberto nas escalações (ESPN / API-Football) e, por cima,
+ * a marcação manual do Painel ADM. Quem foi marcado à mão vale em todos os jogos.
+ */
+let ladosMemo: { chave: string; valor: { lados: Record<number, LadoLateral>; ladosJogo: Record<string, LadoLateral> } } | null = null;
+function ladosDaTemporada(data: SeasonData) {
+  const manuais: Record<number, LadoLateral> = {};
+  for (const l of db.lados.all()) manuais[l.atletaId] = l.lado;
+  const auto = ladosAutoLigado(data.source) ? ladosAutomaticos(data.temporada) : null;
+  const chave = `${data.temporada}:${auto?.versao ?? "-"}:${overridesKey(manuais)}`;
+  if (ladosMemo?.chave === chave) return ladosMemo.valor;
+  const lados: Record<number, LadoLateral> = {};
+  const ladosJogo: Record<string, LadoLateral> = {};
+  if (auto) {
+    for (const [id, s] of Object.entries(auto.porAtleta)) if (s.lado) lados[Number(id)] = s.lado;
+    for (const [k, v] of Object.entries(auto.porJogo)) if (!(Number(k.split(":")[1]) in manuais)) ladosJogo[k] = v;
+  }
+  Object.assign(lados, manuais);
+  ladosMemo = { chave, valor: { lados, ladosJogo } };
+  return ladosMemo.valor;
+}
+
+function overridesKey(o: Record<string | number, string> | undefined) {
   if (!o) return "0";
   const entries = Object.entries(o).sort();
   let h = 0;
@@ -121,7 +143,7 @@ let lastAnalysis: { key: string; source: string; analysis: RoundAnalysis } | nul
 export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta; versao: string }> {
   const { data, meta } = await loadSeason();
   // chave pelo CONTEÚDO (status, preço, rodada, ajustes, notícias), não pelo horário da leitura
-  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}:l${overridesKey(data.lados as Record<number, LineupOverride> | undefined)}`;
+  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}:l${overridesKey(data.lados)}:j${overridesKey(data.ladosJogo)}`;
   const compute = cached(key, 10 * 60_000, async () => {
     // devolve a vez ao Node antes de começar, para responder quem já está esperando
     await new Promise((r) => setImmediate(r));

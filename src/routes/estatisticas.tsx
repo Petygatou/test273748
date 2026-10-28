@@ -114,7 +114,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
               { value: "all", label: "Todas" },
               ...ALL_POSITIONS.flatMap((p) => [
                 { value: `${p}` as const, label: POSITIONS[p].abbr as string },
-                // laterais separados por lado (marcados no Painel ADM)
+                // laterais separados por lado (lido nas escalações)
                 ...(p === 2 && temLados ? [{ value: "LE" as const, label: "LE" }, { value: "LD" as const, label: "LD" }] : []),
               ]),
             ]}
@@ -445,7 +445,7 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
   const [metrica, setMetrica] = useState<MetricaCed>("pontos");
   const [sortPos, setSortPos] = useState<CedPos>(5);
   const [aberta, setAberta] = useState<{ clubeId: number; pos: CedPos } | null>(null);
-  // laterais por lado só aparecem quando o Painel ADM já marcou esquerdo/direito
+  // laterais por lado: aparecem assim que as escalações (ou o Painel ADM) dizem o lado de algum lateral
   const temLados = a.players.some((p) => p.lado);
   const colunas: CedPos[] = (temLados ? [1, 2, LATERAL_ESQ, LATERAL_DIR, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).filter((p) => (metrica === "pontos" ? true : p !== 6 && (metrica !== "DE" || p === 1))) as CedPos[];
   const metricaInfo = METRICAS_CED.find((m) => m.value === metrica)!;
@@ -508,7 +508,7 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
         <span className="text-xs text-[var(--color-ink-3)]">
           {metricaInfo.desc[0].toUpperCase() + metricaInfo.desc.slice(1)} · {janela === "temporada" ? "temporada inteira, com peso maior para os jogos recentes" : `últimos ${janela} jogos de cada time`}
           {mando === "geral" ? "" : mando === "casa" ? ", só jogando em casa" : ", só jogando fora"}.
-          {!temLados && " Laterais esquerdo/direito: marque o lado no Painel ADM → Laterais para separar."}
+          {temLados ? " LE/LD: cada jogo conta o lado em que o lateral jogou (lido nas escalações)." : " LE/LD aparecem assim que as escalações dos jogos forem lidas."}
         </span>
       </div>
       <div className="overflow-x-auto">

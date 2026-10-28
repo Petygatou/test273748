@@ -36,7 +36,7 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
 
   const goals = fitGoalsModel(data.matches, history, clubIds, R, config);
   const stats = fitTeamStatModels(data.matches, history, clubIds, R, config.teamHalfLife);
-  const ced = computeCedencia(history, data.matches, clubIds, R, config.teamHalfLife, 10, data.lados ?? {});
+  const ced = computeCedencia(history, data.matches, clubIds, R, config.teamHalfLife, 10, data.lados ?? {}, data.ladosJogo ?? {});
 
   const roundMatches = data.matches.filter((m) => m.rodada === R && m.valida);
   const fixtures = roundMatches.map((m) => fixtureOdds(goals, m));
