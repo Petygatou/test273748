@@ -64,6 +64,8 @@ export function computeCedencia(
   halfLife: number,
   shrinkGames = 10,
   lados: Record<number, LadoLateral> = {},
+  /** lado em que o lateral jogou em cada jogo ("rodada:atletaId"); vale mais que o lado do atleta */
+  ladosJogo: Record<string, LadoLateral> = {},
 ): CedenciaResult {
   const ctx = buildContextIndex(matches);
   const geral = new Map<number, Record<CedPos, Acc>>();
@@ -128,8 +130,9 @@ export function computeCedencia(
     const ds = pr.scout.DS ?? 0;
     const fin = (pr.scout.FD ?? 0) + (pr.scout.FF ?? 0) + (pr.scout.FT ?? 0);
     const sc: CedenciaScouts = { DS: ds, FIN: fin, GA: (pr.scout.G ?? 0) + (pr.scout.A ?? 0), FS: pr.scout.FS ?? 0, DE: pr.scout.DE ?? 0 };
-    // lateral com lado conhecido também entra na coluna do lado (esquerdo/direito)
-    const lado = p === 2 ? lados[pr.atletaId] : undefined;
+    // lateral com lado conhecido também entra na coluna do lado (esquerdo/direito):
+    // o lado em que jogou naquele jogo; sem ele, o lado de costume do atleta
+    const lado = p === 2 ? (ladosJogo[`${pr.rodada}:${pr.atletaId}`] ?? lados[pr.atletaId]) : undefined;
     const alvos: CedPos[] = lado === "E" ? [p, LATERAL_ESQ] : lado === "D" ? [p, LATERAL_DIR] : [p];
     const add = (acc: Record<CedPos, Acc>, weight: number) => {
       for (const k of alvos) {

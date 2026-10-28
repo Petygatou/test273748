@@ -263,13 +263,67 @@ export interface UserRow {
 
 export type TipoAparelho = "celular" | "tablet" | "computador";
 
-/** Lado de um lateral (o Cartola só diz "lateral"): marcado no Painel ADM. */
+/** Lado de um lateral marcado à mão no Painel ADM (corrige o lado descoberto nas escalações). */
 export interface LadoRow {
   id: string; // atletaId
   atletaId: number;
   lado: "E" | "D";
   em: string;
   por: string;
+}
+
+/** Um lateral numa escalação lida (ESPN ou API-Football). */
+export interface EvidenciaLado {
+  atletaId: number;
+  clubeId: number;
+  /** como a fonte descreveu: "Left Back · LB" (ESPN) ou "grid 2:1 de 4" (API-Football) */
+  posicao: string;
+  titular: boolean;
+  /** API-Football: linha, coluna e tamanho da linha no desenho tático */
+  grid?: [number, number, number];
+}
+
+/** A escalação de um jogo, lida para descobrir o lado dos laterais. */
+export interface LadoJogoRow {
+  id: string; // "espn:<evento>" | "apif:<jogo>"
+  fonte: "espn" | "apifootball";
+  temporada: number;
+  /** rodada do Cartola (só quando o jogo é da temporada atual) */
+  rodada: number | null;
+  em: string;
+  /** clubes do Cartola: mandante e visitante (null = clube fora da Série A atual) */
+  clubes: [number | null, number | null];
+  laterais: EvidenciaLado[];
+  /** laterais da fonte sem par no Cartola (para o admin conferir) */
+  semPar: string[];
+  /** times da fonte que não casaram com nenhum clube do Cartola */
+  timesSemPar?: string[];
+  /** API-Football: camisas 2 e 6 nas pontas da defesa, para conferir qual ponta é a esquerda */
+  camisas?: { c2esq: number; c2dir: number; c6esq: number; c6dir: number };
+  /** jogo encerrado, mas sem escalação publicada ainda */
+  vazio?: boolean;
+  lidoEm: string;
+}
+
+/** Estado de cada fonte das escalações (lista de jogos, erros, temporada liberada). */
+export interface FonteLadoRow {
+  id: "espn" | "apifootball";
+  /** temporada do Cartola a que este estado pertence */
+  temporada: number;
+  /** API-Football: temporada consultada (a mais recente que o plano libera) */
+  temporadaApi?: number;
+  /** temporadas que o plano recusou */
+  negadas?: number[];
+  ligasLidas?: number[];
+  eventos: Array<{ id: string; em: string }>;
+  listaEm: string | null;
+  ultimaLeitura?: string;
+  erro: string | null;
+  bloqueadoAte: number;
+  /** jogo → quantas vezes veio sem escalação */
+  tentativas: Record<string, number>;
+  /** API-Football: a busca em lote não trouxe escalações; lê jogo a jogo */
+  semLote?: boolean;
 }
 
 /** Um aparelho (navegador) em que a pessoa entrou na conta. */
@@ -405,6 +459,8 @@ export const db = {
   lineups: new Collection<LineupRow>("lineups"),
   aparelhos: new Collection<AparelhoRow>("aparelhos"),
   lados: new Collection<LadoRow>("lados"),
+  ladosJogos: new Collection<LadoJogoRow>("lados-jogos"),
+  ladosFontes: new Collection<FonteLadoRow>("lados-fontes"),
   logins: new Collection<LoginRow>("logins", "users"),
 };
 

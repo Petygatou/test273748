@@ -85,8 +85,10 @@ export interface SeasonData {
   statusHistory?: Record<number, Record<number, number>>;
   /** Sinais de notícias recentes: atleta → deslocamento (log-chance) na chance de jogar. */
   sinais?: Record<number, number>;
-  /** Lado dos laterais (marcado no Painel ADM): atleta → E/D. O Cartola não separa. */
+  /** Lado de cada lateral (o Cartola não separa): atleta → E/D, pela maioria dos jogos ou marcado no Painel ADM. */
   lados?: Record<number, LadoLateral>;
+  /** Lado em que o lateral jogou em cada jogo: "rodada:atletaId" → E/D (escalações lidas). */
+  ladosJogo?: Record<string, LadoLateral>;
   source: "cartola" | "demo";
   updatedAt: string;
 }

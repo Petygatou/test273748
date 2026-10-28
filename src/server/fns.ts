@@ -103,7 +103,7 @@ export const fetchVsAdversario = createServerFn({ method: "GET" })
     return vsAdversario(season, data.clube, data.pos);
   });
 
-/** Painel ADM: marca o lado de um lateral (E/D) ou limpa (null). A análise é refeita com o lado. */
+/** Painel ADM: corrige à mão o lado de um lateral (E/D) ou volta ao automático (null). A análise é refeita. */
 export const saveLadoLateral = createServerFn({ method: "POST" })
   .validator((d: { atletaId?: unknown; lado?: unknown } | undefined) => {
     const atletaId = Number(d?.atletaId);
@@ -122,6 +122,35 @@ export const saveLadoLateral = createServerFn({ method: "POST" })
     avisarLadosDepois();
     return { ok: true };
   });
+
+/** Painel ADM → Laterais: o lado descoberto nas escalações, fonte por fonte, com as evidências. */
+export const fetchLadosAuto = createServerFn({ method: "GET" }).handler(async () => {
+  const { requireAdmin } = await import("./auth");
+  requireAdmin();
+  const { loadSeason } = await import("./season");
+  const { ladosAutoLigado, resumoLados } = await import("./ladosAuto");
+  const { data } = await loadSeason();
+  return resumoLados(data.temporada, data.athletes, ladosAutoLigado(data.source));
+});
+
+/** Painel ADM → Laterais: lê agora as escalações que faltam (uns 7 s por chamada; a tela repete até acabar). */
+export const atualizarLadosAuto = createServerFn({ method: "POST" }).handler(async () => {
+  const { requireAdmin } = await import("./auth");
+  requireAdmin();
+  const { loadSeason } = await import("./season");
+  const { ladosAutoLigado, passoLados, resumoLados } = await import("./ladosAuto");
+  const { data } = await loadSeason();
+  const ligado = ladosAutoLigado(data.source);
+  let lidos = 0;
+  if (ligado) {
+    const { oficialState } = await import("./watcher");
+    const { officialEnabled, persistOfficial } = await import("./escalacoes");
+    const of = officialEnabled() ? oficialState() : null;
+    lidos = await passoLados(data, of, { maxEspn: 12, ateMs: Date.now() + 7000 });
+    if (of) persistOfficial(of);
+  }
+  return { lidos, resumo: resumoLados(data.temporada, data.athletes, ligado) };
+});
 
 // marcar vários laterais seguidos gera um recálculo só (alguns segundos depois do último clique)
 let timerLados: ReturnType<typeof setTimeout> | null = null;

@@ -100,7 +100,7 @@ export const COLUNAS: Coluna[] = [
 
   // ---------------- confronto ----------------
   { id: "ced", rotulo: "CED", titulo: "Quanto o adversário cede para a posição (vs média da liga)", grupo: "Confronto", valor: (p) => p.fatores.cedencia, render: (p) => fator(p.fatores.cedencia) },
-  { id: "dsAdv", rotulo: "DS adv.", titulo: "Desarmes que o adversário cede por atleta da posição (temporada; laterais pelo lado, quando marcado)", grupo: "Confronto", valor: (p, c) => dsCedidoAdv(p, c), render: (p, c) => num(dsCedidoAdv(p, c)) },
+  { id: "dsAdv", rotulo: "DS adv.", titulo: "Desarmes que o adversário cede por atleta da posição (temporada; laterais pelo lado, quando conhecido)", grupo: "Confronto", valor: (p, c) => dsCedidoAdv(p, c), render: (p, c) => num(dsCedidoAdv(p, c)) },
   { id: "atq", rotulo: "Ataque", titulo: "Força do ataque do time neste jogo (gols esperados vs normal)", grupo: "Confronto", valor: (p) => p.fatores.ataque, render: (p) => fator(p.fatores.ataque) },
   { id: "mandoF", rotulo: "Mando", titulo: "Efeito de jogar em casa ou fora", grupo: "Confronto", valor: (p) => p.fatores.mando, render: (p) => fator(p.fatores.mando) },
   { id: "forma", rotulo: "Forma", titulo: "Forma recente (pontos recentes vs temporada)", grupo: "Confronto", valor: (p) => p.fatores.forma, render: (p) => fator(p.fatores.forma) },

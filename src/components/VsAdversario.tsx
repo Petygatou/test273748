@@ -68,7 +68,7 @@ export function VsAdversario({
     const porMando = mando === "todos" ? todos : todos.filter((j) => j.mando === mando);
     // período = últimos N jogos do adversário dentro do mando escolhido
     const jogosBase = periodo === "todos" ? porMando : porMando.slice(0, Number(periodo));
-    // laterais: só os do lado escolhido (os sem lado marcado ficam de fora do filtro)
+    // laterais: só os que jogaram do lado escolhido naquele jogo (sem lado conhecido ficam de fora do filtro)
     const jogos = lado === "todos" ? jogosBase : jogosBase.map((j) => ({ ...j, atletas: j.atletas.filter((at) => at.lado === lado) }));
     const linhas = jogos.flatMap((j) => j.atletas.map((at) => ({ ...at, jogo: j })));
     const n = linhas.length;
@@ -192,7 +192,7 @@ export function VsAdversario({
       <p className="text-xs text-[var(--color-ink-3)]">
         {mando === "todos" ? "Todos os jogos" : mando === "casa" ? "Jogos em que quem enfrentou estava em casa (o " + (adv?.abreviacao ?? "adversário") + " fora)" : "Jogos em que quem enfrentou estava fora (o " + (adv?.abreviacao ?? "adversário") + " em casa)"}
         {periodo !== "todos" ? ` · últimos ${periodo} jogos do ${adv?.nome ?? "adversário"}` : " · temporada inteira"}
-        {lado !== "todos" ? ` · só laterais ${lado === "E" ? "esquerdos" : "direitos"} (marcados no Painel ADM)` : ""}.
+        {lado !== "todos" ? ` · só quem jogou de lateral ${lado === "E" ? "esquerdo" : "direito"} naquele jogo` : ""}.
       </p>
 
       {q.isLoading && <div className="skeleton h-40" />}

@@ -92,6 +92,19 @@ O Painel ADM → Dados reais mostra quantas chamadas já foram usadas hoje. A AP
 
 Observação honesta: este módulo foi testado com respostas simuladas no formato da API-Football; ainda não foi testado contra a API real (o ambiente de desenvolvimento não alcança a internet aberta).
 
+## Lado dos laterais (LE/LD), descoberto sozinho
+
+O Cartola só diz "lateral". O site descobre o lado lendo a escalação de cada jogo:
+
+- **ESPN** (sem chave, fonte principal): a escalação de cada jogo do Brasileirão traz a posição escrita ("Left Back", "Right Back"). O vigia lê a lista de jogos encerrados a cada 6 h e 4 escalações por minuto; o botão **Painel ADM → Laterais → Atualizar agora** lê todas de uma vez.
+- **API-Football** (com `API_FOOTBALL_KEY`, opcional): a escalação traz a posição no desenho tático (`grid`). Usa a temporada mais recente que o plano libera (no gratuito, 2024, Série A e B), 20 jogos por chamada e só com cota sobrando, sem atrapalhar a escalação oficial. Qual ponta é a esquerda é conferido pelos próprios dados: camisa 2 (lateral direito) e 6 (esquerdo).
+
+Na cedência, cada jogo conta o lado em que o lateral jogou **naquele jogo**; o lado do atleta (filtros, ficha, Mercado) é o da maioria dos jogos — ou, para quem se divide, o dos últimos jogos quando eles são de um lado só. A correção manual no Painel ADM vence tudo. O painel mostra, para cada lateral, de onde veio o lado e quantos jogos o sustentam, além de times ou nomes que não casaram com o Cartola.
+
+Variáveis opcionais: `LADOS_AUTO=0` desliga; `LADOS_APIFOOTBALL=0` deixa só a ESPN; `API_FOOTBALL_LADOS_LIGAS` (padrão `71,72`); `ESPN_BASE` e `ESPN_LIGA` (padrão `bra.1`).
+
+Observação honesta: o formato das respostas foi conferido pela documentação e por bibliotecas que usam essas APIs, e os testes usam respostas simuladas nesse formato; daqui não foi possível chamar a ESPN nem a API-Football de verdade. A primeira leitura em produção aparece no Painel ADM → Laterais.
+
 ## Fotos dos atletas
 
 O Cartola manda, quando não tem o rosto, uma **silhueta genérica do clube** (endereço com `/silhuetas/`). O site agora ignora essas silhuetas e usa, no lugar, o rosto da API-Football (descobre os 20 times com 1 chamada e lê 1 elenco por minuto, ~21 chamadas uma vez só, sem precisar de temporada paga) ou, por último, o rosto ilustrado.
