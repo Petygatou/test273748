@@ -257,6 +257,59 @@ export interface UserRow {
   dispositivo?: string;
   bloqueado?: boolean;
   bloqueadoEm?: string;
+  /** sobe quando o admin desconecta todos os aparelhos: sessões antigas deixam de valer */
+  sessaoVersao?: number;
+}
+
+export type TipoAparelho = "celular" | "tablet" | "computador";
+
+/** Lado de um lateral (o Cartola só diz "lateral"): marcado no Painel ADM. */
+export interface LadoRow {
+  id: string; // atletaId
+  atletaId: number;
+  lado: "E" | "D";
+  em: string;
+  por: string;
+}
+
+/** Um aparelho (navegador) em que a pessoa entrou na conta. */
+export interface AparelhoRow {
+  id: string; // userId:aparelhoId
+  userId: string;
+  /** identificador aleatório guardado num cookie desse navegador */
+  aparelhoId: string;
+  /** ordem em que apareceu para esse usuário (1º, 2º, 3º aparelho…) */
+  ordem: number;
+  tipo: TipoAparelho;
+  rotulo: string;
+  so: string;
+  navegador: string;
+  modelo?: string;
+  tela?: string;
+  primeiroLogin: string;
+  ultimoLogin: string;
+  ultimoAcesso?: string;
+  logins: number;
+  /** cidades de onde entrou (mais recente primeiro, até 5) */
+  locais: string[];
+}
+
+/** Cada vez que alguém entra na conta. */
+export interface LoginRow {
+  id: string;
+  userId: string;
+  em: string;
+  aparelhoId: string;
+  ordem: number;
+  rotulo: string;
+  tipo: TipoAparelho;
+  /** primeira vez deste aparelho nesta conta */
+  novo: boolean;
+  /** aparelhos diferentes usados nos últimos 30 dias, contando este */
+  aparelhos30d: number;
+  local?: string;
+  ip?: string;
+  origem: "login" | "cadastro" | "senha";
 }
 export interface SessionRow {
   id: string; // sha256 do token
@@ -350,6 +403,9 @@ export const db = {
   alerts: new Collection<AlertRow>("alerts", "alerts"),
   overrides: new Collection<OverrideRow>("overrides", "overrides"),
   lineups: new Collection<LineupRow>("lineups"),
+  aparelhos: new Collection<AparelhoRow>("aparelhos"),
+  lados: new Collection<LadoRow>("lados"),
+  logins: new Collection<LoginRow>("logins", "users"),
 };
 
 export function newId(): string {

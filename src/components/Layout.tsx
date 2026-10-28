@@ -11,6 +11,7 @@ import { Avatar } from "./avatars";
 import { GlobalSearch, type PageEntry } from "./GlobalSearch";
 import { useScrollLock } from "./ui";
 import { TourProvider, useTour } from "./Tour";
+import { useAvisosAparelho } from "../lib/avisos";
 
 /** Todas as seções ficam à vista: nada importante escondido em menus. */
 const SECTIONS: PageEntry[] = [
@@ -187,6 +188,29 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 }
 
+/** Botão do Painel ADM com selo de avisos não vistos (login em aparelho novo). */
+function AdminButton({ ativo }: { ativo: boolean }) {
+  const { naoVistos } = useAvisosAparelho(true);
+  const n = naoVistos.length;
+  const alerta = naoVistos.some((a) => a.compartilhamento);
+  return (
+    <Link
+      to="/admin"
+      search={n ? { tab: "usuarios" } : {}}
+      className={`relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] ${ativo ? "text-[var(--color-brand)]" : "text-[var(--color-ink-3)] hover:text-[var(--color-ink)]"}`}
+      aria-label={n ? `Painel ADM: ${n} aviso(s) de aparelho novo` : "Painel ADM"}
+      title={n ? `${n} aviso(s) de login em aparelho novo` : "Painel ADM"}
+    >
+      <Shield size={17} />
+      {n > 0 && (
+        <span className={`tabular absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-[var(--color-page)] ${alerta ? "bg-[var(--color-critical)]" : "bg-[var(--color-warning)] text-[#1a0a00]"}`}>
+          {n > 9 ? "9+" : n}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function HelpButton() {
   const tour = useTour();
   return (
@@ -215,6 +239,10 @@ function Shell({ children }: { children: ReactNode }) {
   const navegando = useRouterState({ select: (s) => s.status === "pending" });
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // itens que dependem do login só depois de montar: o servidor pode já saber quem é
+  // (ex.: abrindo /admin direto) e o navegador ainda não — evita desenhar diferente
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
 
   // atalhos de teclado: "/" ou Ctrl/Cmd+K abrem a busca
   useEffect(() => {
@@ -272,16 +300,7 @@ function Shell({ children }: { children: ReactNode }) {
             <kbd className="hidden rounded border border-[var(--color-line)] px-1.5 text-[10px] sm:inline">/</kbd>
           </button>
           <HelpButton />
-          {auth.isAdmin && (
-            <Link
-              to="/admin"
-              className={`flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-line)] ${isActive(path, "/admin") ? "text-[var(--color-brand)]" : "text-[var(--color-ink-3)] hover:text-[var(--color-ink)]"}`}
-              aria-label="Painel ADM"
-              title="Painel ADM"
-            >
-              <Shield size={17} />
-            </Link>
-          )}
+          {montado && auth.isAdmin && <AdminButton ativo={isActive(path, "/admin")} />}
           <Link to="/conta" aria-label="Minha conta" title={auth.user ? auth.user.nome : "Entrar"} className="flex shrink-0 items-center gap-2">
             <Avatar k={auth.profile.avatar} size={36} />
             {!auth.user && auth.ready && <span className="hidden text-sm font-semibold text-[var(--color-ink-2)] sm:inline">Entrar</span>}

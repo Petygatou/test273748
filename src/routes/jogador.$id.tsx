@@ -44,7 +44,7 @@ function PlayerPage() {
             <div className="min-w-0">
               <h1 className="font-display truncate text-2xl font-extrabold">{p.apelido}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--color-ink-2)]">
-                <PosBadge pos={p.posicaoId} /> {posName(p.posicaoId)}
+                <PosBadge pos={p.posicaoId} lado={p.lado} /> {posName(p.posicaoId, p.lado)}
                 <ClubBadge club={club} size={18} /> {club?.nome}
                 <StatusPill status={p.statusId} />
               </div>
@@ -105,7 +105,7 @@ function PlayerPage() {
             subtitle={`${POSITIONS[p.posicaoId].plural} que jogaram contra o ${opp.nome}, jogo a jogo — mesma posição do ${p.apelido}, que joga ${p.mando === "casa" ? "em casa" : "fora"}`}
             icon={<ClubBadge club={opp} size={20} />}
           />
-          <VsAdversario key={`${p.adversarioId}:${p.posicaoId}`} a={a} adversarioId={p.adversarioId} posicaoId={p.posicaoId} mandoInicial={p.mando === "casa" ? "casa" : "fora"} nomeReferencia={p.apelido} />
+          <VsAdversario key={`${p.adversarioId}:${p.posicaoId}`} a={a} adversarioId={p.adversarioId} posicaoId={p.posicaoId} mandoInicial={p.mando === "casa" ? "casa" : "fora"} ladoInicial={p.lado} nomeReferencia={p.apelido} />
         </Card>
       )}
 
@@ -186,6 +186,22 @@ function PlayerPage() {
                   });
                 })()}
               </div>
+              {(() => {
+                const g = ced.geral[p.posicaoId];
+                const ladoCell = p.lado ? ced.geral[p.lado === "E" ? 21 : 22] : undefined;
+                const partes: string[] = [];
+                if (g?.scouts && p.posicaoId !== 6) partes.push(`${fmt2(g.scouts.DS)} desarmes e ${fmt2(g.scouts.FIN)} finalizações por ${posName(p.posicaoId).toLowerCase()}`);
+                return (
+                  <div className="mt-2 space-y-1 text-xs text-[var(--color-ink-3)]">
+                    {partes.length > 0 && <p>Na temporada, o {opp?.nome} cede {partes.join("")}.</p>}
+                    {ladoCell && ladoCell.jogos > 0 && (
+                      <p>
+                        Pelo lado {p.lado === "E" ? "esquerdo" : "direito"}: <b className="text-[var(--color-ink-2)]">{fmt1(ladoCell.pontos)} pts</b> e {fmt2(ladoCell.scouts?.DS ?? 0)} desarmes por lateral ({ladoCell.jogos} atuações).
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">

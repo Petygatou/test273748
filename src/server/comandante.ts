@@ -235,8 +235,23 @@ async function runTool(name: string, input: Json, a: RoundAnalysis, loadBacktest
       const row = a.cedencia.find((r) => r.clubeId === club);
       if (!row) return { erro: `Clube "${input.clube}" não encontrado.` };
       const fmt = (cells: typeof row.geral) =>
-        Object.fromEntries(Object.entries(cells).map(([pos, c]) => [POSITIONS[Number(pos) as PositionId].abbr, { pontosPorAtleta: c.pontos, fatorVsLiga: c.fator, amostras: c.jogos }]));
-      return { clube: a.clubs[row.clubeId]?.nome, geral: fmt(row.geral), emCasa: fmt(row.casa), fora: fmt(row.fora), ultimos5: fmt(row.ultimos5) };
+        Object.fromEntries(
+          Object.entries(cells)
+            // laterais por lado só entram quando há laterais marcados como esquerdo/direito
+            .filter(([pos, c]) => Number(pos) <= 6 || c.jogos > 0)
+            .map(([pos, c]) => [
+              Number(pos) === 21 ? "LE" : Number(pos) === 22 ? "LD" : POSITIONS[Number(pos) as PositionId].abbr,
+              { pontosPorAtleta: c.pontos, fatorVsLiga: c.fator, amostras: c.jogos, desarmesPorAtleta: c.scouts?.DS, finalizacoesPorAtleta: c.scouts?.FIN },
+            ]),
+        );
+      return {
+        clube: a.clubs[row.clubeId]?.nome,
+        geral: fmt(row.geral),
+        emCasa: fmt(row.casa),
+        fora: fmt(row.fora),
+        ultimos5: fmt(row.ultimos5),
+        desarmesPorJogo: { conquistados: row.time?.dsConquistados, cedidos: row.time?.dsCedidos },
+      };
     }
     case "montar_tropa": {
       const ids = (xs: unknown) =>

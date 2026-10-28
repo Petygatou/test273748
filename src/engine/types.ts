@@ -85,6 +85,8 @@ export interface SeasonData {
   statusHistory?: Record<number, Record<number, number>>;
   /** Sinais de notícias recentes: atleta → deslocamento (log-chance) na chance de jogar. */
   sinais?: Record<number, number>;
+  /** Lado dos laterais (marcado no Painel ADM): atleta → E/D. O Cartola não separa. */
+  lados?: Record<number, LadoLateral>;
   source: "cartola" | "demo";
   updatedAt: string;
 }
@@ -171,12 +173,29 @@ export interface UpcomingFixture {
   pSG: number;
 }
 
+/** Posições da cedência: as 6 do Cartola + lateral esquerdo (21) e direito (22), quando o lado é conhecido. */
+export const LATERAL_ESQ = 21;
+export const LATERAL_DIR = 22;
+export type CedPos = PositionId | typeof LATERAL_ESQ | typeof LATERAL_DIR;
+export type LadoLateral = "E" | "D";
+
+/** Scouts médios cedidos por atuação: desarmes, finalizações (FD+FF+FT), G+A, faltas sofridas e defesas. */
+export interface CedenciaScouts {
+  DS: number;
+  FIN: number;
+  GA: number;
+  FS: number;
+  DE: number;
+}
+
 export interface CedenciaCell {
   /** Pontos médios cedidos por jogo à posição. */
   pontos: number;
   /** Fator relativo à média da liga (shrunk). 1.2 = cede 20% a mais. */
   fator: number;
   jogos: number;
+  /** médias de scouts cedidos por atuação (sem encolhimento) */
+  scouts?: CedenciaScouts;
 }
 
 /** Janelas de jogos recentes da cedência (últimos N jogos do time que cede). */
@@ -184,19 +203,29 @@ export const CEDENCIA_JANELAS = [3, 5, 10] as const;
 export type CedenciaJanela = (typeof CEDENCIA_JANELAS)[number];
 
 export interface CedenciaRecorte {
-  geral: Record<PositionId, CedenciaCell>;
+  geral: Record<CedPos, CedenciaCell>;
   /** só os jogos em que o time que cede jogou em casa */
-  casa: Record<PositionId, CedenciaCell>;
+  casa: Record<CedPos, CedenciaCell>;
   /** só os jogos em que o time que cede jogou fora */
-  fora: Record<PositionId, CedenciaCell>;
+  fora: Record<CedPos, CedenciaCell>;
+}
+
+/** Desarmes e finalizações por jogo: os do próprio time (conquistados) e os dos adversários contra ele (cedidos). */
+export interface TimeScouts {
+  jogos: number;
+  dsConquistados: number;
+  dsCedidos: number;
+  finFeitas: number;
+  finCedidas: number;
 }
 
 export interface CedenciaRow {
   clubeId: number;
-  geral: Record<PositionId, CedenciaCell>;
-  casa: Record<PositionId, CedenciaCell>;
-  fora: Record<PositionId, CedenciaCell>;
-  ultimos5: Record<PositionId, CedenciaCell>;
+  geral: Record<CedPos, CedenciaCell>;
+  casa: Record<CedPos, CedenciaCell>;
+  fora: Record<CedPos, CedenciaCell>;
+  ultimos5: Record<CedPos, CedenciaCell>;
+  time: TimeScouts;
   /** Últimos 3, 5 e 10 jogos do time (no geral, só em casa e só fora). */
   janelas: Record<CedenciaJanela, CedenciaRecorte>;
   /** Fatores de cedência por scout (shrunk), por posição. */
@@ -235,6 +264,8 @@ export interface PlayerProjection {
   adversarioId: number | null;
   mando: "casa" | "fora" | null;
   matchId: number | null;
+  /** lateral esquerdo/direito, quando marcado no Painel ADM */
+  lado?: LadoLateral;
 
   /** Probabilidade de entrar em campo. */
   pJogar: number;
@@ -354,7 +385,7 @@ export interface RoundAnalysis {
   };
   pmvModel: PmvModel;
   rulesCheck: RulesCheck;
-  ligaMedias: Record<PositionId, number>;
+  ligaMedias: Record<CedPos, number>;
   diagnostics: { tempoMs: number; atletasModelados: number; rodadasHistorico: number };
 }
 

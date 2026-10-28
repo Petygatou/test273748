@@ -1,3 +1,4 @@
+import { infoDoAparelho } from "../lib/aparelho";
 import { AI_ENABLED } from "../lib/features";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
@@ -178,8 +179,9 @@ function AuthBox() {
           setBusy(true);
           setMsg(null);
           try {
-            if (mode === "entrar") await login({ data: { email, senha } });
-            else await register({ data: { email, senha, nome } });
+            const aparelho = await infoDoAparelho();
+            if (mode === "entrar") await login({ data: { email, senha, aparelho } });
+            else await register({ data: { email, senha, nome, aparelho } });
             setSenha("");
             await refreshAll();
           } catch (err) {

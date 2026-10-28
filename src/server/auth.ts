@@ -9,7 +9,8 @@ import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deleteCookie, getCookie, getRequestHeader, setCookie } from "@tanstack/react-start/server";
-import { dataDir, db, newId, type AvatarKey, type UserRow } from "./db";
+import { aparelhoIdValido, COOKIE_APARELHO, detalharUA, novoAparelhoId, registrarLogin, tocarAparelho, type InfoNavegador } from "./aparelhos";
+import { dataDir, db, newId, type AvatarKey, type LoginRow, type UserRow } from "./db";
 
 const COOKIE = "cfc_session";
 const SESSION_DAYS = 30;
@@ -169,12 +170,12 @@ function sessionSecret(): string {
 const b64 = (s: string) => Buffer.from(s).toString("base64url");
 const sign = (payload: string) => createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
 
-export function makeSessionToken(user: Pick<UserRow, "id" | "email">, now = Date.now()): string {
-  const payload = b64(JSON.stringify({ u: user.id, e: user.email, x: now + SESSION_DAYS * 86400_000 }));
+export function makeSessionToken(user: Pick<UserRow, "id" | "email" | "sessaoVersao">, now = Date.now()): string {
+  const payload = b64(JSON.stringify({ u: user.id, e: user.email, x: now + SESSION_DAYS * 86400_000, v: user.sessaoVersao ?? 0 }));
   return `${payload}.${sign(payload)}`;
 }
 
-export function readSessionToken(token: string | undefined | null, now = Date.now()): { u: string; e: string } | null {
+export function readSessionToken(token: string | undefined | null, now = Date.now()): { u: string; e: string; v: number } | null {
   if (!token) return null;
   const [payload, sig] = token.split(".");
   if (!payload || !sig) return null;
@@ -182,9 +183,9 @@ export function readSessionToken(token: string | undefined | null, now = Date.no
   const got = Buffer.from(sig);
   if (good.length !== got.length || !timingSafeEqual(good, got)) return null;
   try {
-    const j = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { u?: string; e?: string; x?: number };
+    const j = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { u?: string; e?: string; x?: number; v?: number };
     if (!j.u || !j.e || !j.x || j.x < now) return null;
-    return { u: j.u, e: j.e };
+    return { u: j.u, e: j.e, v: typeof j.v === "number" ? j.v : 0 };
   } catch {
     return null;
   }
@@ -203,33 +204,79 @@ export function deviceFromUA(ua: string | undefined | null): string {
   return `${os} · ${br}`;
 }
 
-function touch(u: UserRow) {
+function touch(u: UserRow, aparelhoId?: string | null) {
   const now = Date.now();
-  if (!u.ultimoAcesso || now - new Date(u.ultimoAcesso).getTime() > 60_000) db.users.update(u.id, { ultimoAcesso: new Date(now).toISOString() }, true);
+  if (!u.ultimoAcesso || now - new Date(u.ultimoAcesso).getTime() > 60_000) {
+    db.users.update(u.id, { ultimoAcesso: new Date(now).toISOString() }, true);
+    if (aparelhoIdValido(aparelhoId)) tocarAparelho(u.id, aparelhoId, now);
+  }
 }
 
-function userFromToken(token: string | undefined | null): UserRow | null {
+function userFromToken(token: string | undefined | null, aparelhoId?: string | null): UserRow | null {
   const t = readSessionToken(token);
   if (!t) return null;
   ensureAdminAccount();
   const u = db.users.get(t.u) ?? db.users.find((x) => x.email === t.e) ?? null;
   if (!u) return null;
   if (u.bloqueado && !isEnvAdmin(u)) return null;
-  touch(u);
+  // o admin desconectou todos os aparelhos depois que esta sessão começou
+  if ((u.sessaoVersao ?? 0) !== t.v) return null;
+  touch(u, aparelhoId);
   return u;
 }
 
-export function startSession(user: UserRow) {
-  const expira = new Date(Date.now() + SESSION_DAYS * 86400_000);
-  let ua: string | undefined;
+const header = (nome: string) => {
   try {
-    ua = getRequestHeader("user-agent");
+    return getRequestHeader(nome) ?? undefined;
   } catch {
-    /* fora de uma requisição (testes) */
+    return undefined; // fora de uma requisição (testes)
   }
+};
+
+/** Cidade/UF de onde veio a requisição, quando a hospedagem informa (Vercel). */
+function localDaRequisicao(): string | undefined {
+  const dec = (v?: string) => {
+    if (!v) return undefined;
+    try {
+      return decodeURIComponent(v);
+    } catch {
+      return v;
+    }
+  };
+  const cidade = dec(header("x-vercel-ip-city"));
+  const uf = header("x-vercel-ip-country-region");
+  const pais = header("x-vercel-ip-country");
+  if (cidade) return [cidade, uf && pais === "BR" ? uf : pais].filter(Boolean).join("/");
+  return pais && pais !== "BR" ? pais : undefined;
+}
+
+/** Identificador deste navegador (cria um, num cookie próprio, se ainda não houver). */
+function aparelhoDaRequisicao(): string {
+  let id: string | undefined;
+  try {
+    id = getCookie(COOKIE_APARELHO);
+  } catch {
+    /* testes */
+  }
+  if (aparelhoIdValido(id)) return id;
+  const novo = novoAparelhoId();
+  try {
+    setCookie(COOKIE_APARELHO, novo, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 400 * 86400 });
+  } catch {
+    /* testes */
+  }
+  return novo;
+}
+
+export function startSession(user: UserRow, origem: LoginRow["origem"] = "login", info: InfoNavegador = {}) {
+  const expira = new Date(Date.now() + SESSION_DAYS * 86400_000);
+  const ua = header("user-agent");
   const agora = new Date().toISOString();
-  db.users.update(user.id, { logins: (user.logins ?? 0) + 1, ultimoLogin: agora, ultimoAcesso: agora, dispositivo: deviceFromUA(ua) }, true);
-  setCookie(COOKIE, makeSessionToken(user), {
+  const aparelhoId = aparelhoDaRequisicao();
+  const ip = (header("x-forwarded-for") ?? header("x-real-ip"))?.split(",")[0]?.trim();
+  registrarLogin(user, { aparelhoId, ua, info, local: localDaRequisicao(), ip, origem });
+  db.users.update(user.id, { logins: (user.logins ?? 0) + 1, ultimoLogin: agora, ultimoAcesso: agora, dispositivo: detalharUA(ua, info).rotulo }, true);
+  setCookie(COOKIE, makeSessionToken(db.users.get(user.id) ?? user), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -244,14 +291,15 @@ export function endSession() {
 
 /** Usuário da requisição atual (ou null). */
 export function currentUser(): UserRow | null {
-  return userFromToken(getCookie(COOKIE));
+  return userFromToken(getCookie(COOKIE), getCookie(COOKIE_APARELHO));
 }
 
 /** Variante para rotas de API que recebem o Request diretamente. */
 export function userFromRequest(request: Request): UserRow | null {
   const cookie = request.headers.get("cookie") ?? "";
   const m = cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
-  return m ? userFromToken(decodeURIComponent(m[1])) : null;
+  const ap = cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_APARELHO}=([^;]+)`));
+  return m ? userFromToken(decodeURIComponent(m[1]), ap?.[1]) : null;
 }
 
 export function requireUser(): UserRow {

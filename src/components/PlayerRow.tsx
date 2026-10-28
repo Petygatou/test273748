@@ -31,7 +31,7 @@ export function PlayerRow({
           {p.statusId !== 7 && <StatusPill status={p.statusId} compact />}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]">
-          <PosBadge pos={p.posicaoId} />
+          <PosBadge pos={p.posicaoId} lado={p.lado} />
           <ClubBadge club={clubs[p.clubeId]} size={14} />
           <span className="truncate">
             {opp ? `${p.mando === "casa" ? "vs" : "@"} ${opp.abreviacao}` : "sem jogo"} · {cs(p.preco)}

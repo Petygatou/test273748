@@ -658,3 +658,65 @@ describe("ligas em destaque", () => {
     for (let i = 1; i < r.length; i++) expect((r[i - 1].totalTimes ?? 0) >= (r[i].totalTimes ?? 0)).toBe(true);
   });
 });
+
+describe("aparelhos da conta (Painel ADM)", () => {
+  const ANDROID = "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";
+  const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+  const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+  it("descreve o aparelho pelo navegador (modelo quando o Android mostra)", async () => {
+    const { detalharUA, mascararIp } = await import("../src/server/aparelhos");
+    expect(detalharUA(ANDROID)).toMatchObject({ so: "Android", modelo: "SM-S918B", tipo: "celular", navegador: "Chrome" });
+    expect(detalharUA(IPHONE)).toMatchObject({ so: "iPhone", tipo: "celular", navegador: "Safari" });
+    expect(detalharUA(IPHONE).rotulo).toBe("iPhone · iOS 17.5 · Safari");
+    expect(detalharUA(ANDROID).rotulo).toBe("SM-S918B · Android 14 · Chrome");
+    expect(detalharUA(WIN).rotulo).toBe("Windows · Chrome");
+    expect(detalharUA(WIN)).toMatchObject({ so: "Windows", tipo: "computador" });
+    // o navegador pode informar o modelo e a versão mesmo com User-Agent reduzido
+    expect(detalharUA("Mozilla/5.0 (Linux; Android 10; K) Chrome/131.0 Mobile", { modelo: "Pixel 8", plataforma: "Android", versao: "14.0.0" }).rotulo).toBe("Pixel 8 · Android 14 · Chrome");
+    expect(mascararIp("189.45.120.7")).toBe("189.45.x.x");
+  });
+
+  it("conta aparelhos diferentes, marca o novo e alerta conta compartilhada com 3+ em 30 dias", async () => {
+    const ap = await import("../src/server/aparelhos");
+    const u = auth.createUser("varios@exemplo.com", "senhaforte123", "Vários");
+    const t0 = Date.now();
+    const l1 = ap.registrarLogin(u, { aparelhoId: "a".repeat(32), ua: ANDROID, origem: "cadastro", agora: t0 });
+    expect(l1).toMatchObject({ novo: true, ordem: 1, aparelhos30d: 1 });
+    // mesmo aparelho de novo: não é novo, não gera aviso
+    const l2 = ap.registrarLogin(u, { aparelhoId: "a".repeat(32), ua: ANDROID, origem: "login", local: "Recife/PE", agora: t0 + 1000 });
+    expect(l2.novo).toBe(false);
+    const l3 = ap.registrarLogin(u, { aparelhoId: "b".repeat(32), ua: IPHONE, origem: "login", local: "São Paulo/SP", ip: "200.1.2.3", agora: t0 + 2000 });
+    expect(l3).toMatchObject({ novo: true, ordem: 2, aparelhos30d: 2, ip: "200.1.x.x" });
+    const l4 = ap.registrarLogin(u, { aparelhoId: "c".repeat(32), ua: WIN, origem: "login", agora: t0 + 3000 });
+    expect(l4).toMatchObject({ novo: true, ordem: 3, aparelhos30d: 3 });
+
+    const lista = ap.aparelhosDoUsuario(u.id, t0 + 4000);
+    expect(lista).toHaveLength(3);
+    expect(lista.find((a) => a.aparelhoId === "a".repeat(32))).toMatchObject({ logins: 2, locais: ["Recife/PE"] });
+    expect(lista[0].atual).toBe(true);
+
+    const avisos = ap.avisosDeAparelho(t0 + 5000).filter((a) => a.userId === u.id);
+    expect(avisos.map((a) => a.ordem)).toEqual([3, 2]); // o primeiro aparelho não gera aviso
+    expect(avisos[0].compartilhamento).toBe(true);
+    expect(avisos[1].compartilhamento).toBe(false);
+
+    const { listUsers, userDetail } = await import("../src/server/usuarios");
+    expect(listUsers(t0 + 5000).usuarios.find((x) => x.id === u.id)).toMatchObject({ aparelhos: 3, aparelhos30d: 3, compartilhamento: true });
+    expect(userDetail(u.id, t0 + 5000).historicoLogins).toHaveLength(4);
+  });
+
+  it("desconectar todos os aparelhos invalida as sessões abertas", async () => {
+    const { userAction } = await import("../src/server/usuarios");
+    const u = auth.createUser("sessao@exemplo.com", "senhaforte123", "Sessão");
+    const admin = db.users.find((x) => x.admin)!;
+    const tok = auth.makeSessionToken(u);
+    expect(auth.readSessionToken(tok)?.v).toBe(0);
+    userAction(admin, u.id, "desconectar");
+    const depois = db.users.get(u.id)!;
+    expect(depois.sessaoVersao).toBe(1);
+    // o token antigo continua assinado, mas a versão não bate mais com a da conta
+    expect(auth.readSessionToken(tok)!.v).not.toBe(depois.sessaoVersao);
+    expect(auth.readSessionToken(auth.makeSessionToken(depois))!.v).toBe(1);
+  });
+});

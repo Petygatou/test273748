@@ -9,9 +9,9 @@ import { VsAdversario } from "../components/VsAdversario";
 import { X1 } from "../components/X1";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import { ALL_POSITIONS, POSITIONS, SCORING, SCOUT_LABELS, type PositionId, type ScoutKey } from "../engine/rules";
-import type { CedenciaCell, PlayerProjection, RoundAnalysis } from "../engine/types";
+import { LATERAL_DIR, LATERAL_ESQ, type CedenciaCell, type CedenciaScouts, type CedPos, type PlayerProjection, type RoundAnalysis } from "../engine/types";
 import { confrontoFor, golsTime, type GolsTime } from "../lib/derive";
-import { cs, fmt1, fmt2, pct, posAbbr, signed } from "../lib/format";
+import { cs, fmt1, fmt2, pct, posAbbr, posName, signed } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
 import { COLUNAS, COLUNAS_PADRAO, GRUPOS, timesNoJogo } from "../lib/mercadoColunas";
 import { searchPlayers } from "../lib/search";
@@ -75,7 +75,8 @@ function StatsPage() {
 /* ================================ MERCADO ================================ */
 
 function Mercado({ a }: { a: RoundAnalysis }) {
-  const [pos, setPos] = useState<"all" | `${PositionId}`>("all");
+  const [pos, setPos] = useState<"all" | `${PositionId}` | "LE" | "LD">("all");
+  const temLados = a.players.some((p) => p.lado);
   const [onlyLikely, setOnlyLikely] = useState(true);
   const [club, setClub] = useState<number | "all">("all");
   const [maxPrice, setMaxPrice] = useState(30);
@@ -91,7 +92,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
     const hits = q.trim() ? new Set(searchPlayers(a.players, a.clubs, q, { limit: 5000 }).map((p) => p.atletaId)) : null;
     const v = (p: PlayerProjection) => sortCol.valor(p, ctx) ?? (sortCol.asc ? Infinity : -Infinity);
     return a.players
-      .filter((p) => (pos === "all" ? true : p.posicaoId === Number(pos)))
+      .filter((p) => (pos === "all" ? true : pos === "LE" ? p.posicaoId === 2 && p.lado === "E" : pos === "LD" ? p.posicaoId === 2 && p.lado === "D" : p.posicaoId === Number(pos)))
       .filter((p) => (onlyLikely ? p.pJogar >= 0.5 && p.matchId != null : true))
       .filter((p) => (club === "all" ? true : p.clubeId === club))
       .filter((p) => p.preco <= maxPrice)
@@ -109,7 +110,14 @@ function Mercado({ a }: { a: RoundAnalysis }) {
             label="Posição"
             value={pos}
             onChange={setPos}
-            options={[{ value: "all", label: "Todas" }, ...ALL_POSITIONS.map((p) => ({ value: `${p}` as const, label: POSITIONS[p].abbr }))]}
+            options={[
+              { value: "all", label: "Todas" },
+              ...ALL_POSITIONS.flatMap((p) => [
+                { value: `${p}` as const, label: POSITIONS[p].abbr as string },
+                // laterais separados por lado (marcados no Painel ADM)
+                ...(p === 2 && temLados ? [{ value: "LE" as const, label: "LE" }, { value: "LD" as const, label: "LD" }] : []),
+              ]),
+            ]}
           />
           <label className="chip cursor-pointer">
             <input type="checkbox" checked={onlyLikely} onChange={(e) => setOnlyLikely(e.target.checked)} className="accent-[var(--color-brand)]" /> Só quem deve jogar
@@ -206,7 +214,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
                     <div className="min-w-0">
                       <div className="max-w-[130px] truncate font-semibold">{p.apelido}</div>
                       <div className="flex items-center gap-1">
-                        <PosBadge pos={p.posicaoId} />
+                        <PosBadge pos={p.posicaoId} lado={p.lado} />
                         <ClubBadge club={a.clubs[p.clubeId]} size={14} />
                         {p.statusId !== 7 && <StatusPill status={p.statusId} compact />}
                       </div>
@@ -421,26 +429,60 @@ function ScoreGrid({ m }: { m: number[][] }) {
 
 /* ================================ CEDÊNCIA ================================ */
 
+type MetricaCed = "pontos" | keyof CedenciaScouts;
+const METRICAS_CED: Array<{ value: MetricaCed; label: string; desc: string }> = [
+  { value: "pontos", label: "Pontos", desc: "pontos médios cedidos por atleta da posição" },
+  { value: "DS", label: "Desarmes", desc: "desarmes médios que os atletas da posição conquistaram contra o time" },
+  { value: "FIN", label: "Finalizações", desc: "finalizações médias (no gol, para fora e na trave) contra o time" },
+  { value: "GA", label: "G+A", desc: "gols + assistências médios contra o time" },
+  { value: "FS", label: "Faltas sofridas", desc: "faltas sofridas médias contra o time" },
+  { value: "DE", label: "Defesas", desc: "defesas médias dos goleiros contra o time" },
+];
+
 function Cedencia({ a }: { a: RoundAnalysis }) {
   const [mando, setMando] = useState<"geral" | "casa" | "fora">("geral");
   const [janela, setJanela] = useState<"temporada" | "3" | "5" | "10">("temporada");
-  const [sortPos, setSortPos] = useState<PositionId>(5);
-  const [aberta, setAberta] = useState<{ clubeId: number; pos: PositionId } | null>(null);
+  const [metrica, setMetrica] = useState<MetricaCed>("pontos");
+  const [sortPos, setSortPos] = useState<CedPos>(5);
+  const [aberta, setAberta] = useState<{ clubeId: number; pos: CedPos } | null>(null);
+  // laterais por lado só aparecem quando o Painel ADM já marcou esquerdo/direito
+  const temLados = a.players.some((p) => p.lado);
+  const colunas: CedPos[] = (temLados ? [1, 2, LATERAL_ESQ, LATERAL_DIR, 3, 4, 5, 6] : [1, 2, 3, 4, 5, 6]).filter((p) => (metrica === "pontos" ? true : p !== 6 && (metrica !== "DE" || p === 1))) as CedPos[];
+  const metricaInfo = METRICAS_CED.find((m) => m.value === metrica)!;
   const oppOf = new Map<number, { opp: number; home: boolean }>();
   for (const f of a.fixtures) {
     oppOf.set(f.casaId, { opp: f.foraId, home: true });
     oppOf.set(f.foraId, { opp: f.casaId, home: false });
   }
   // recorte escolhido: temporada (com peso de recência) ou últimos N jogos, no mando escolhido
-  const cellOf = (r: (typeof a.cedencia)[number], p: PositionId): CedenciaCell =>
+  const cellOf = (r: (typeof a.cedencia)[number], p: CedPos): CedenciaCell | undefined =>
     janela === "temporada" ? r[mando][p] : (r.janelas?.[Number(janela) as 3 | 5 | 10]?.[mando][p] ?? r[mando][p]);
-  const rows = [...a.cedencia].sort((x, y) => cellOf(y, sortPos).fator - cellOf(x, sortPos).fator);
+  const valorDe = (c: CedenciaCell | undefined) => (!c ? 0 : metrica === "pontos" ? c.pontos : (c.scouts?.[metrica] ?? 0));
+  // para scouts, a cor compara com a média da coluna (times com amostra)
+  const mediaCol = new Map<CedPos, number>();
+  for (const p of colunas) {
+    const vs = a.cedencia.map((r) => cellOf(r, p)).filter((c): c is CedenciaCell => Boolean(c && c.jogos > 0)).map(valorDe);
+    mediaCol.set(p, vs.length ? vs.reduce((s, v) => s + v, 0) / vs.length : 0);
+  }
+  const fatorDe = (c: CedenciaCell | undefined, p: CedPos) => {
+    if (!c) return 1;
+    if (metrica === "pontos") return c.fator;
+    const m = mediaCol.get(p) ?? 0;
+    // encolhe amostras pequenas para a média, como nos pontos
+    const k = 10;
+    return m > 0 ? (valorDe(c) * c.jogos + m * k) / (c.jogos + k) / m : 1;
+  };
+  const sortCol = colunas.includes(sortPos) ? sortPos : colunas[0];
+  const rows = [...a.cedencia].sort((x, y) => fatorDe(cellOf(y, sortCol), sortCol) - fatorDe(cellOf(x, sortCol), sortCol));
   return (
     <Card className="p-3 sm:p-4">
       <SectionTitle
         title="Matriz de cedência posicional"
-        subtitle="Quanto cada time CEDE de pontos por atleta de cada posição, relativo à média da liga. Toque num número para ver quem fez esses pontos."
+        subtitle="Quanto cada time CEDE por atleta de cada posição (pontos ou scouts), comparado à média. Toque num número para ver quem fez."
       />
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Seg label="Métrica" value={metrica} onChange={setMetrica} options={METRICAS_CED.map((m) => ({ value: m.value, label: m.label }))} />
+      </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Seg
           label="Mando de quem cede"
@@ -464,8 +506,9 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
           ]}
         />
         <span className="text-xs text-[var(--color-ink-3)]">
-          {janela === "temporada" ? "Temporada inteira, com peso maior para os jogos recentes" : `Últimos ${janela} jogos de cada time`}
+          {metricaInfo.desc[0].toUpperCase() + metricaInfo.desc.slice(1)} · {janela === "temporada" ? "temporada inteira, com peso maior para os jogos recentes" : `últimos ${janela} jogos de cada time`}
           {mando === "geral" ? "" : mando === "casa" ? ", só jogando em casa" : ", só jogando fora"}.
+          {!temLados && " Laterais esquerdo/direito: marque o lado no Painel ADM → Laterais para separar."}
         </span>
       </div>
       <div className="overflow-x-auto">
@@ -474,9 +517,14 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
             <tr className="text-[11px] text-[var(--color-ink-3)] uppercase">
               <th className="px-2 py-1 text-left font-semibold">Time (cede)</th>
               <th className="px-2 py-1 text-left font-semibold">Quem enfrenta</th>
-              {ALL_POSITIONS.map((p) => (
+              {colunas.map((p) => (
                 <th key={p} className="px-1 py-1 font-semibold">
-                  <button className={`rounded px-1.5 py-0.5 ${sortPos === p ? "bg-[var(--color-surface-4)] text-[var(--color-ink)]" : ""}`} onClick={() => setSortPos(p)} aria-pressed={sortPos === p}>
+                  <button
+                    className={`rounded px-1.5 py-0.5 ${sortCol === p ? "bg-[var(--color-surface-4)] text-[var(--color-ink)]" : ""}`}
+                    onClick={() => setSortPos(p)}
+                    aria-pressed={sortCol === p}
+                    title={p === LATERAL_ESQ ? "Laterais esquerdos" : p === LATERAL_DIR ? "Laterais direitos" : undefined}
+                  >
                     {posAbbr(p)}
                   </button>
                 </th>
@@ -502,19 +550,23 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
                       "—"
                     )}
                   </td>
-                  {ALL_POSITIONS.map((p) => {
-                    const cell: CedenciaCell = cellOf(r, p);
-                    const col = divergingColor(cell.fator);
+                  {colunas.map((p) => {
+                    const cell = cellOf(r, p);
+                    if (!cell || (cell.jogos === 0 && p > 6)) return <td key={p} className="text-center text-xs text-[var(--color-ink-3)]">—</td>;
+                    const f = fatorDe(cell, p);
+                    const col = divergingColor(f);
+                    const v = valorDe(cell);
+                    const nome = posName(p).toLowerCase();
                     return (
                       <td key={p} className="rounded-[4px] p-0" style={{ background: col.bg, color: col.fg }}>
                         <button
                           type="button"
                           onClick={() => setAberta({ clubeId: r.clubeId, pos: p })}
                           className="tabular block w-full min-w-[54px] rounded-[4px] px-1 py-1.5 text-center text-xs font-semibold hover:ring-2 hover:ring-white/40 focus-visible:ring-2"
-                          title={`${a.clubs[r.clubeId]?.nome} cede ${fmt2(cell.pontos)} pts por ${POSITIONS[p].name.toLowerCase()} (${cell.jogos} atuações) — ${signed((cell.fator - 1) * 100, 0)}% vs liga. Toque para ver quem pontuou.`}
+                          title={`${a.clubs[r.clubeId]?.nome} cede ${fmt2(v)} ${metrica === "pontos" ? "pts" : metricaInfo.label.toLowerCase()} por ${nome} (${cell.jogos} atuações) — ${signed((f - 1) * 100, 0)}% vs média. Toque para ver quem fez.`}
                         >
-                          {fmt1(cell.pontos)}
-                          {janela !== "temporada" && <span className="block text-[9px] font-normal opacity-70">{cell.jogos} at.</span>}
+                          {metrica === "pontos" ? fmt1(v) : fmt2(v)}
+                          {(janela !== "temporada" || p > 6) && <span className="block text-[9px] font-normal opacity-70">{cell.jogos} at.</span>}
                         </button>
                       </td>
                     );
@@ -540,14 +592,15 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
       {aberta && (
         <Sheet
           title={`Quem enfrentou o ${a.clubs[aberta.clubeId]?.nome ?? "time"}`}
-          subtitle={`${POSITIONS[aberta.pos].plural} que jogaram contra o ${a.clubs[aberta.clubeId]?.nome}, jogo a jogo`}
+          subtitle={`${aberta.pos === LATERAL_ESQ ? "Laterais esquerdos" : aberta.pos === LATERAL_DIR ? "Laterais direitos" : POSITIONS[aberta.pos as PositionId].plural} que jogaram contra o ${a.clubs[aberta.clubeId]?.nome}, jogo a jogo`}
           icon={<ClubBadge club={a.clubs[aberta.clubeId]} size={26} />}
           onClose={() => setAberta(null)}
         >
           <VsAdversario
             a={a}
             adversarioId={aberta.clubeId}
-            posicaoId={aberta.pos}
+            posicaoId={aberta.pos > 6 ? 2 : (aberta.pos as PositionId)}
+            ladoInicial={aberta.pos === LATERAL_ESQ ? "E" : aberta.pos === LATERAL_DIR ? "D" : undefined}
             // quem cede em casa = quem enfrentou estava fora
             mandoInicial={mando === "casa" ? "fora" : mando === "fora" ? "casa" : "todos"}
             periodoInicial={janela === "temporada" ? "todos" : janela}
@@ -561,8 +614,24 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
 /* ================================ TIMES ================================ */
 
 function Times({ a }: { a: RoundAnalysis }) {
-  const rows = [...a.teams].sort((x, y) => y.xgFor - y.xgAgainst - (x.xgFor - x.xgAgainst));
+  const [ordem, setOrdem] = useState<"saldo" | "dsConquistados" | "dsCedidos" | "finFeitas" | "finCedidas">("saldo");
+  const sc = new Map(a.cedencia.map((r) => [r.clubeId, r.time] as const));
+  const v = (t: (typeof a.teams)[number]) => (ordem === "saldo" ? t.xgFor - t.xgAgainst : (sc.get(t.clubeId)?.[ordem] ?? 0));
+  const rows = [...a.teams].sort((x, y) => v(y) - v(x));
   const maxG = Math.max(...rows.map((r) => Math.max(r.xgFor, r.xgAgainst)));
+  const media = (k: "dsConquistados" | "dsCedidos" | "finFeitas" | "finCedidas") => {
+    const vs = a.cedencia.map((r) => r.time?.[k] ?? 0).filter((x) => x > 0);
+    return vs.length ? vs.reduce((s, x) => s + x, 0) / vs.length : 1;
+  };
+  const medias = { dsConquistados: media("dsConquistados"), dsCedidos: media("dsCedidos"), finFeitas: media("finFeitas"), finCedidas: media("finCedidas") };
+  const Th = ({ k, children, title }: { k: typeof ordem; children: React.ReactNode; title: string }) => (
+    <th className="text-right" title={title}>
+      <button type="button" onClick={() => setOrdem(k)} aria-pressed={ordem === k} className={`whitespace-nowrap ${ordem === k ? "text-[var(--color-brand)]" : ""}`}>
+        {children}
+        {ordem === k ? " ↓" : ""}
+      </button>
+    </th>
+  );
   return (
     <Card className="p-3 sm:p-4">
       <SectionTitle title="Força dos times" subtitle="Modelo de Poisson bidirecional com decaimento temporal: gols esperados contra um adversário médio em campo neutro" />
@@ -574,7 +643,21 @@ function Times({ a }: { a: RoundAnalysis }) {
               <th className="text-left">Time</th>
               <th className="min-w-[160px] text-left">Ataque (xG pró/jogo)</th>
               <th className="min-w-[160px] text-left">Defesa (xG contra/jogo)</th>
-              <th className="text-right">Saldo</th>
+              <Th k="saldo" title="xG pró − xG contra">
+                Saldo
+              </Th>
+              <Th k="dsConquistados" title="Desarmes por jogo feitos pelos jogadores do time (conquistados)">
+                DS conquist.
+              </Th>
+              <Th k="dsCedidos" title="Desarmes por jogo que os adversários fizeram contra o time (cedidos)">
+                DS cedidos
+              </Th>
+              <Th k="finFeitas" title="Finalizações por jogo do time (no gol, para fora e na trave)">
+                Finaliz.
+              </Th>
+              <Th k="finCedidas" title="Finalizações por jogo que o time permite aos adversários">
+                Finaliz. cedidas
+              </Th>
             </tr>
           </thead>
           <tbody className="tabular">
@@ -603,12 +686,25 @@ function Times({ a }: { a: RoundAnalysis }) {
                   </div>
                 </td>
                 <td className={`text-right font-semibold ${t.xgFor - t.xgAgainst >= 0 ? "text-[var(--color-good-ink)]" : "text-[var(--color-critical-ink)]"}`}>{signed(t.xgFor - t.xgAgainst)}</td>
+                {(["dsConquistados", "dsCedidos", "finFeitas", "finCedidas"] as const).map((k) => {
+                  const x = sc.get(t.clubeId)?.[k] ?? 0;
+                  const col = divergingColor(x / medias[k], 0.25);
+                  return (
+                    <td key={k} className="p-0.5 text-right">
+                      <span className="inline-block min-w-[3.2rem] rounded-md px-1.5 py-0.5 font-semibold" style={{ background: col.bg, color: col.fg }}>
+                        {fmt1(x)}
+                      </span>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-xs text-[var(--color-ink-3)]">Vantagem de mando estimada: {((a.homeAdvantage - 1) * 100).toFixed(0)}% mais gols para o mandante.</p>
+      <p className="mt-2 text-xs text-[var(--color-ink-3)]">
+        Vantagem de mando estimada: {((a.homeAdvantage - 1) * 100).toFixed(0)}% mais gols para o mandante. DS conquistados = desarmes feitos pelo time por jogo; DS cedidos = desarmes que os adversários fizeram contra ele (bom para escalar defensores contra esse time). Toque no título para ordenar.
+      </p>
     </Card>
   );
 }

@@ -94,6 +94,7 @@ export const KEYS = {
   chat: "cfc:chat",
   cartolaToken: "cfc:cartola-token",
   followed: "cfc:followed-teams",
-  mercadoCols: "cfc:mercado-colunas",
+  mercadoCols: "cfc:mercado-colunas-v2",
   ligasRecentes: "cfc:ligas-recentes",
+  avisosVistosEm: "cfc:avisos-aparelho-vistos",
 } as const;

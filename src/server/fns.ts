@@ -102,3 +102,33 @@ export const fetchVsAdversario = createServerFn({ method: "GET" })
     const { data: season } = await loadSeason();
     return vsAdversario(season, data.clube, data.pos);
   });
+
+/** Painel ADM: marca o lado de um lateral (E/D) ou limpa (null). A análise é refeita com o lado. */
+export const saveLadoLateral = createServerFn({ method: "POST" })
+  .validator((d: { atletaId?: unknown; lado?: unknown } | undefined) => {
+    const atletaId = Number(d?.atletaId);
+    if (!Number.isInteger(atletaId) || atletaId <= 0) throw new Error("Atleta inválido.");
+    const lado: "E" | "D" | null = d?.lado === "E" ? "E" : d?.lado === "D" ? "D" : null;
+    return { atletaId, lado };
+  })
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    const admin = requireAdmin();
+    const { db } = await import("./db");
+    const { invalidate } = await import("./cache");
+    if (data.lado) db.lados.put({ id: String(data.atletaId), atletaId: data.atletaId, lado: data.lado, em: new Date().toISOString(), por: admin.id });
+    else db.lados.remove(String(data.atletaId));
+    invalidate("analysis:");
+    avisarLadosDepois();
+    return { ok: true };
+  });
+
+// marcar vários laterais seguidos gera um recálculo só (alguns segundos depois do último clique)
+let timerLados: ReturnType<typeof setTimeout> | null = null;
+function avisarLadosDepois() {
+  if (timerLados) clearTimeout(timerLados);
+  timerLados = setTimeout(() => {
+    timerLados = null;
+    void import("./db").then(({ emit }) => emit("dados"));
+  }, 6000);
+}
