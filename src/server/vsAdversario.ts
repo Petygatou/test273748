@@ -12,6 +12,8 @@ import type { PlayerRound, SeasonData } from "../engine/types";
 export interface VsAtleta {
   atletaId: number;
   apelido: string;
+  /** lado do lateral, quando marcado no Painel ADM */
+  lado?: "E" | "D";
   pontos: number;
   scout: Record<string, number>;
 }
@@ -68,6 +70,7 @@ export function vsAdversario(data: SeasonData, adversarioId: number, posicaoId: 
       .map((pr) => ({
         atletaId: pr.atletaId,
         apelido: nomes.get(pr.atletaId) ?? `Atleta ${pr.atletaId}`,
+        lado: posicaoId === 2 ? data.lados?.[pr.atletaId] : undefined,
         pontos: Math.round(pr.pontos * 100) / 100,
         scout: Object.fromEntries(Object.entries(pr.scout).filter(([, v]) => typeof v === "number" && v !== 0)) as Record<string, number>,
       }))

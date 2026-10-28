@@ -35,7 +35,7 @@ function Side({ a, p, color, editing, onEdit }: { a: RoundAnalysis; p: PlayerPro
       </div>
       <div className="font-display mt-2 truncate text-base font-bold sm:text-lg">{p.apelido}</div>
       <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-1.5 text-[11px] text-[var(--color-ink-3)]">
-        <PosBadge pos={p.posicaoId} /> <span>{opp(a, p)}</span> <span>{cs(p.preco)}</span>
+        <PosBadge pos={p.posicaoId} lado={p.lado} /> <span>{opp(a, p)}</span> <span>{cs(p.preco)}</span>
       </div>
       <div className="font-display tabular mt-2 text-3xl font-extrabold" style={{ color }}>
         {fmt1(p.xP)}

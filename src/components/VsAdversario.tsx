@@ -7,7 +7,7 @@ import type { RoundAnalysis } from "../engine/types";
 import { fmt1, fmt2, pct, signed } from "../lib/format";
 import { fetchVsAdversario } from "../server/fns";
 import { divergingColor } from "./charts";
-import { ClubBadge, Seg } from "./ui";
+import { ClubBadge, PosBadge, Seg } from "./ui";
 
 type Mando = "todos" | "casa" | "fora";
 export type Periodo = "3" | "5" | "10" | "todos";
@@ -35,6 +35,7 @@ export function VsAdversario({
   posicaoId,
   mandoInicial = "todos",
   periodoInicial = "5",
+  ladoInicial,
   nomeReferencia,
 }: {
   a: RoundAnalysis;
@@ -43,11 +44,14 @@ export function VsAdversario({
   /** mando de quem enfrenta (ex.: o atleta da ficha joga em casa → "casa") */
   mandoInicial?: Mando;
   periodoInicial?: Periodo;
+  /** laterais: começa filtrando o lado (esquerdo/direito) */
+  ladoInicial?: "E" | "D";
   /** nome do atleta da ficha, para o texto de comparação */
   nomeReferencia?: string;
 }) {
   const [mando, setMando] = useState<Mando>(mandoInicial);
   const [periodo, setPeriodo] = useState<Periodo>(periodoInicial);
+  const [lado, setLado] = useState<"todos" | "E" | "D">(ladoInicial ?? "todos");
   const [ordem, setOrdem] = useState<Ordem>("recentes");
   const [calor, setCalor] = useState(true);
   const q = useQuery({
@@ -63,7 +67,9 @@ export function VsAdversario({
     const todos = q.data?.jogos ?? [];
     const porMando = mando === "todos" ? todos : todos.filter((j) => j.mando === mando);
     // período = últimos N jogos do adversário dentro do mando escolhido
-    const jogos = periodo === "todos" ? porMando : porMando.slice(0, Number(periodo));
+    const jogosBase = periodo === "todos" ? porMando : porMando.slice(0, Number(periodo));
+    // laterais: só os do lado escolhido (os sem lado marcado ficam de fora do filtro)
+    const jogos = lado === "todos" ? jogosBase : jogosBase.map((j) => ({ ...j, atletas: j.atletas.filter((at) => at.lado === lado) }));
     const linhas = jogos.flatMap((j) => j.atletas.map((at) => ({ ...at, jogo: j })));
     const n = linhas.length;
     const media = n ? linhas.reduce((s, l) => s + l.pontos, 0) / n : 0;
@@ -84,7 +90,7 @@ export function VsAdversario({
       scoutMedio,
       linhas,
     };
-  }, [q.data, mando, periodo, posicaoId]);
+  }, [q.data, mando, periodo, posicaoId, lado]);
 
   const mediaLiga = q.data?.mediaLiga ?? 0;
   const corPts = (pts: number) => divergingColor(mediaLiga > 0 ? 1 + (pts - mediaLiga) / Math.max(4, mediaLiga * 1.6) : 1, 0.6);
@@ -108,6 +114,7 @@ export function VsAdversario({
       <li key={`${jogo.rodada}:${at.atletaId}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2 text-sm">
           {mostrarJogo && <ClubBadge club={a.clubs[jogo.clubeId]} size={16} />}
+          {at.lado && <PosBadge pos={2} lado={at.lado} />}
           {nome}
           {mostrarJogo && (
             <span className="shrink-0 text-[11px] text-[var(--color-ink-3)]">
@@ -161,6 +168,18 @@ export function VsAdversario({
             { value: "todos", label: "Temporada" },
           ]}
         />
+        {posicaoId === 2 && (
+          <Seg
+            label="Lado do lateral"
+            value={lado}
+            onChange={setLado}
+            options={[
+              { value: "todos", label: "Ambos os lados" },
+              { value: "E", label: "Esquerdo" },
+              { value: "D", label: "Direito" },
+            ]}
+          />
+        )}
         <select className="input h-9 w-auto py-1 text-xs" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} aria-label="Ordenar">
           <option value="recentes">Mais recentes</option>
           <option value="maior">Maior pontuação</option>
@@ -172,7 +191,8 @@ export function VsAdversario({
       </div>
       <p className="text-xs text-[var(--color-ink-3)]">
         {mando === "todos" ? "Todos os jogos" : mando === "casa" ? "Jogos em que quem enfrentou estava em casa (o " + (adv?.abreviacao ?? "adversário") + " fora)" : "Jogos em que quem enfrentou estava fora (o " + (adv?.abreviacao ?? "adversário") + " em casa)"}
-        {periodo !== "todos" ? ` · últimos ${periodo} jogos do ${adv?.nome ?? "adversário"}` : " · temporada inteira"}.
+        {periodo !== "todos" ? ` · últimos ${periodo} jogos do ${adv?.nome ?? "adversário"}` : " · temporada inteira"}
+        {lado !== "todos" ? ` · só laterais ${lado === "E" ? "esquerdos" : "direitos"} (marcados no Painel ADM)` : ""}.
       </p>
 
       {q.isLoading && <div className="skeleton h-40" />}

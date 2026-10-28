@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Bell, ClipboardList, Megaphone, Shield, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AskButton } from "../components/AskButton";
+import { AdminLaterais } from "../components/AdminLaterais";
 import { AdminUsers } from "../components/AdminUsers";
 import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
@@ -10,6 +11,7 @@ import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitl
 import type { LineupOverride, RoundAnalysis } from "../engine/types";
 import { createAlert, deleteAlert, useAlerts, type AlertKind } from "../lib/alerts";
 import { meQuery, useAuth } from "../lib/auth";
+import { useAvisosAparelho } from "../lib/avisos";
 import { OFFICIAL_AUTHOR, getCommunity } from "../lib/community";
 import { countdown, fmt1, pct, timeAgo } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
@@ -17,6 +19,7 @@ import { saveLineupOverride } from "../server/fns";
 import { Composer } from "../components/Composer";
 
 export const Route = createFileRoute("/admin")({
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => ({ tab: ["usuarios", "provaveis", "conteudo", "alertas", "dados", "laterais"].includes(String(s.tab)) ? (s.tab as Tab) : undefined }),
   // o painel não existe para quem não é administrador
   beforeLoad: async ({ context }) => {
     const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
@@ -25,16 +28,26 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados";
+type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados" | "laterais";
 
 function AdminPage() {
   const auth = useAuth();
   const an = useQuery(analysisQuery);
-  const [tab, setTab] = useState<Tab>("provaveis");
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<Tab>(search.tab ?? "provaveis");
+  // o selo de avisos no topo abre direto em Usuários, mesmo com o painel já aberto
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+  }, [search.tab]);
   // sem dados reais, a única coisa útil no painel é descobrir por quê
   const tabEff: Tab = an.isError && tab === "provaveis" ? "dados" : tab;
 
-  if (!auth.ready) return <PageSkeleton />;
+  const avisos = useAvisosAparelho(auth.isAdmin);
+  // o servidor já conferiu o login (beforeLoad), o navegador ainda não: os dois começam
+  // pelo esqueleto e o painel aparece logo depois de montar (sem desenho diferente)
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+  if (!montado || !auth.ready) return <PageSkeleton />;
   if (!auth.isAdmin) return null;
 
   return (
@@ -54,7 +67,8 @@ function AdminPage() {
             { value: "provaveis", label: "Prováveis" },
             { value: "conteudo", label: "Conteúdo" },
             { value: "alertas", label: "Alertas" },
-            { value: "usuarios", label: "Usuários" },
+            { value: "usuarios", label: avisos.naoVistos.length ? `Usuários (${avisos.naoVistos.length})` : "Usuários" },
+            { value: "laterais", label: "Laterais" },
             { value: "dados", label: "Dados reais" },
           ]}
         />
@@ -63,6 +77,7 @@ function AdminPage() {
       {tabEff === "conteudo" && <Conteudo />}
       {tabEff === "dados" && <Dados meta={an.data?.meta} />}
       {tabEff === "usuarios" && <AdminUsers />}
+      {tabEff === "laterais" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <AdminLaterais a={an.data.analysis} />)}
       {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>
   );
@@ -131,7 +146,7 @@ function Provaveis({ a }: { a: RoundAnalysis }) {
       <ul className="divide-y divide-[var(--color-line)]">
         {players.map((p) => (
           <li key={p.atletaId} id={`ov-${p.atletaId}`} className="flex scroll-mt-32 flex-wrap items-center gap-2 py-2">
-            <PosBadge pos={p.posicaoId} />
+            <PosBadge pos={p.posicaoId} lado={p.lado} />
             <PlayerPhoto p={p} size={28} />
             <div className="min-w-[140px] flex-1">
               <div className="flex items-center gap-1.5 text-sm font-semibold">

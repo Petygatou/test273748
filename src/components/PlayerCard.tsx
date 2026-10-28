@@ -27,7 +27,7 @@ export function PlayerCard({ p, clubs, metric, metricLabel, delay = 0, className
       </span>
       <span className="mt-2 w-full truncate text-sm font-bold">{p.apelido}</span>
       <span className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--color-ink-3)]">
-        <PosBadge pos={p.posicaoId} />
+        <PosBadge pos={p.posicaoId} lado={p.lado} />
         {opp ? `${p.mando === "casa" ? "vs" : "@"} ${opp.abreviacao}` : "sem jogo"}
       </span>
       <span className="font-display tabular mt-2 text-2xl leading-none font-extrabold text-[var(--color-gold)]">{metric ?? fmt1(p.xP)}</span>

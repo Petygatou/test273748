@@ -36,7 +36,7 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
 
   const goals = fitGoalsModel(data.matches, history, clubIds, R, config);
   const stats = fitTeamStatModels(data.matches, history, clubIds, R, config.teamHalfLife);
-  const ced = computeCedencia(history, data.matches, clubIds, R, config.teamHalfLife);
+  const ced = computeCedencia(history, data.matches, clubIds, R, config.teamHalfLife, 10, data.lados ?? {});
 
   const roundMatches = data.matches.filter((m) => m.rodada === R && m.valida);
   const fixtures = roundMatches.map((m) => fixtureOdds(goals, m));
@@ -89,7 +89,7 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
 
   const players: PlayerProjection[] = [];
   for (const d of details.values()) {
-    players.push(toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total));
+    players.push(toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total, data.lados));
   }
   players.sort((a, b) => b.xP - a.xP);
 
@@ -157,6 +157,7 @@ function toProjection(
   pmvModel: RoundAnalysis["pmvModel"],
   ownership: SeasonData["ownership"],
   totalTimes: number,
+  lados?: SeasonData["lados"],
 ): PlayerProjection {
   const a = d.athlete;
   const scouts: ScoutProjection[] = [];
@@ -198,6 +199,7 @@ function toProjection(
     adversarioId: d.fixture?.opp ?? null,
     mando: d.fixture ? (d.fixture.home ? "casa" : "fora") : null,
     matchId: d.fixture?.matchId ?? null,
+    lado: a.posicaoId === 2 ? lados?.[a.id] : undefined,
     pJogar: round(d.pJogar, 3),
     xPJogando: round(xPJ, 2),
     xP: round(xPJ * d.pJogar, 2),

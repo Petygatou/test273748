@@ -45,8 +45,13 @@ const POS_COLORS: Record<number, string> = {
   6: "bg-[#24252b] text-[#d8d6cf] ring-white/20",
 };
 
-export function PosBadge({ pos }: { pos: number }) {
-  return <span className={`inline-flex w-9 justify-center rounded-md px-1 py-0.5 text-[10px] font-bold ring-1 ${POS_COLORS[pos]}`}>{posAbbr(pos)}</span>;
+export function PosBadge({ pos, lado }: { pos: number; lado?: "E" | "D" }) {
+  const cor = POS_COLORS[pos === 21 || pos === 22 ? 2 : pos];
+  return (
+    <span className={`inline-flex w-9 justify-center rounded-md px-1 py-0.5 text-[10px] font-bold ring-1 ${cor}`} title={lado ? (lado === "E" ? "Lateral esquerdo" : "Lateral direito") : undefined}>
+      {posAbbr(pos, lado)}
+    </span>
+  );
 }
 
 export function ClubBadge({ club, size = 20 }: { club?: Club; size?: number }) {

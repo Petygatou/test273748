@@ -46,6 +46,16 @@ const mediaUlt = (p: PlayerProjection, n: number) => {
 const fator = (v: number) => <span className={v >= 1.05 ? "text-[var(--color-good-ink)]" : v <= 0.95 ? "text-[var(--color-critical-ink)]" : ""}>{signed((v - 1) * 100, 0)}%</span>;
 const num = (v: number | null, f = fmt2) => (v == null ? <span className="text-[var(--color-ink-3)]">—</span> : f(v));
 
+/** Desarmes que o adversário da rodada cede por atleta da posição (lado do lateral quando conhecido). */
+function dsCedidoAdv(p: PlayerProjection, c: Ctx): number | null {
+  if (p.adversarioId == null || p.posicaoId === 6) return null;
+  const row = c.a.cedencia.find((r) => r.clubeId === p.adversarioId);
+  if (!row) return null;
+  const lado = p.lado ? row.geral[p.lado === "E" ? 21 : 22] : undefined;
+  const cell = lado && lado.jogos > 0 ? lado : row.geral[p.posicaoId];
+  return cell?.scouts?.DS ?? null;
+}
+
 export function timesNoJogo(fixtures: FixtureOdds[]): Map<number, TimeNoJogo> {
   const m = new Map<number, TimeNoJogo>();
   for (const f of fixtures) {
@@ -90,6 +100,7 @@ export const COLUNAS: Coluna[] = [
 
   // ---------------- confronto ----------------
   { id: "ced", rotulo: "CED", titulo: "Quanto o adversário cede para a posição (vs média da liga)", grupo: "Confronto", valor: (p) => p.fatores.cedencia, render: (p) => fator(p.fatores.cedencia) },
+  { id: "dsAdv", rotulo: "DS adv.", titulo: "Desarmes que o adversário cede por atleta da posição (temporada; laterais pelo lado, quando marcado)", grupo: "Confronto", valor: (p, c) => dsCedidoAdv(p, c), render: (p, c) => num(dsCedidoAdv(p, c)) },
   { id: "atq", rotulo: "Ataque", titulo: "Força do ataque do time neste jogo (gols esperados vs normal)", grupo: "Confronto", valor: (p) => p.fatores.ataque, render: (p) => fator(p.fatores.ataque) },
   { id: "mandoF", rotulo: "Mando", titulo: "Efeito de jogar em casa ou fora", grupo: "Confronto", valor: (p) => p.fatores.mando, render: (p) => fator(p.fatores.mando) },
   { id: "forma", rotulo: "Forma", titulo: "Forma recente (pontos recentes vs temporada)", grupo: "Confronto", valor: (p) => p.fatores.forma, render: (p) => fator(p.fatores.forma) },
@@ -103,7 +114,7 @@ export const COLUNAS: Coluna[] = [
   { id: "eA", rotulo: "A esp.", titulo: "Assistências esperadas (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "A"), render: (p) => fmt2(esp(p, "A")) },
   { id: "eGA", rotulo: "G+A", titulo: "Participações em gol esperadas (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "G") + esp(p, "A"), render: (p) => fmt2(esp(p, "G") + esp(p, "A")) },
   { id: "eFin", rotulo: "Finaliz.", titulo: "Finalizações esperadas: no gol, para fora e na trave (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "FD") + esp(p, "FF") + esp(p, "FT"), render: (p) => fmt1(esp(p, "FD") + esp(p, "FF") + esp(p, "FT")) },
-  { id: "eDS", rotulo: "DS", titulo: "Desarmes esperados (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "DS"), render: (p) => fmt1(esp(p, "DS")) },
+  { id: "eDS", rotulo: "DS", titulo: "Desarmes esperados (se jogar)", grupo: "Scouts esperados", padrao: true, valor: (p) => esp(p, "DS"), render: (p) => fmt1(esp(p, "DS")) },
   { id: "eFS", rotulo: "FS", titulo: "Faltas sofridas esperadas (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "FS"), render: (p) => fmt1(esp(p, "FS")) },
   { id: "eDE", rotulo: "DE", titulo: "Defesas esperadas — goleiros (se jogar)", grupo: "Scouts esperados", valor: (p) => esp(p, "DE"), render: (p) => fmt1(esp(p, "DE")) },
   { id: "base", rotulo: "Básica", titulo: "Pontos de scouts básicos esperados (sem G, A, SG): o piso de quem joga", grupo: "Scouts esperados", valor: (p) => p.base, render: (p) => fmt1(p.base) },

@@ -8,8 +8,8 @@ import { buildRoundAnalysis } from "../engine/analysis";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runBacktestAsync, runLineupBacktestAsync, type BacktestResult } from "../engine/backtest";
-import { dataDir, emit } from "./db";
-import type { LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
+import { dataDir, db, emit } from "./db";
+import type { LadoLateral, LineupOverride, RoundAnalysis, SeasonData } from "../engine/types";
 import { cached, invalidate } from "./cache";
 import { fotosMap, loadFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
@@ -88,7 +88,9 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   const { data, motivo, importadoEm } = await loadRawSeason();
   loadFotos(data.temporada);
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
-  const merged: SeasonData = { ...data, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  const lados: Record<number, LadoLateral> = {};
+  for (const l of db.lados.all()) lados[l.atletaId] = l.lado;
+  const merged: SeasonData = { ...data, lados, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {
@@ -119,7 +121,7 @@ let lastAnalysis: { key: string; source: string; analysis: RoundAnalysis } | nul
 export async function loadAnalysis(): Promise<{ analysis: RoundAnalysis; meta: SeasonMeta; versao: string }> {
   const { data, meta } = await loadSeason();
   // chave pelo CONTEÚDO (status, preço, rodada, ajustes, notícias), não pelo horário da leitura
-  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}`;
+  const key = `analysis:${data.source}:${data.temporada}:${fingerprint(data, data.sinais)}:f${Object.keys(fotosMap()).length}:${overridesKey(data.overrides)}:l${overridesKey(data.lados as Record<number, LineupOverride> | undefined)}`;
   const compute = cached(key, 10 * 60_000, async () => {
     // devolve a vez ao Node antes de começar, para responder quem já está esperando
     await new Promise((r) => setImmediate(r));

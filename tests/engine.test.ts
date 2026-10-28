@@ -270,3 +270,36 @@ describe("cedência por janela e vs Adversário", () => {
     }
   });
 });
+
+describe("desarmes e laterais por lado", () => {
+  it("separa laterais esquerdos e direitos e soma desarmes conquistados/cedidos", async () => {
+    const laterais = [...new Set(data.history.filter((h) => h.posicaoId === 2).map((h) => h.atletaId))];
+    const lados = Object.fromEntries(laterais.map((id, i) => [id, i % 2 ? "D" : "E"])) as Record<number, "E" | "D">;
+    const an = buildRoundAnalysis({ ...data, lados }, { simulations: 300 });
+    for (const r of an.cedencia) {
+      // com todos os laterais marcados, esquerdos + direitos = laterais
+      expect(r.geral[21].jogos + r.geral[22].jogos).toBe(r.geral[2].jogos);
+      expect(r.geral[2].scouts!.DS).toBeGreaterThanOrEqual(0);
+      expect(r.time.jogos).toBeGreaterThan(0);
+      expect(r.time.dsConquistados).toBeGreaterThan(0);
+      expect(r.time.dsCedidos).toBeGreaterThan(0);
+    }
+    // a soma dos desarmes conquistados por todos = soma dos cedidos (é o mesmo desarme visto dos dois lados)
+    const pro = an.cedencia.reduce((s, r) => s + r.time.dsConquistados * r.time.jogos, 0);
+    const contra = an.cedencia.reduce((s, r) => s + r.time.dsCedidos * r.time.jogos, 0);
+    expect(Math.abs(pro - contra) / pro).toBeLessThan(0.02);
+    // a projeção do jogador e o vs Adversário trazem o lado
+    const lat = an.players.find((p) => p.posicaoId === 2 && lados[p.atletaId])!;
+    expect(lat.lado).toBe(lados[lat.atletaId]);
+    const { vsAdversario } = await import("../src/server/vsAdversario");
+    const vs = vsAdversario({ ...data, lados }, an.fixtures[0].casaId, 2);
+    expect(vs.jogos.flatMap((j) => j.atletas).every((at) => at.lado === "E" || at.lado === "D")).toBe(true);
+  });
+
+  it("sem laterais marcados, as colunas por lado ficam vazias (sem inventar)", () => {
+    for (const r of analysis.cedencia) {
+      expect(r.geral[21].jogos).toBe(0);
+      expect(r.geral[22].jogos).toBe(0);
+    }
+  });
+});

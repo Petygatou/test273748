@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Heart, Lock, MessageCircle, Monitor, Search, Shield, Swords, Trash2, Unlock, Vote, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AlertTriangle, Ban, BellRing, Check, Heart, History, Lock, LogOut, MapPin, MessageCircle, Monitor, Search, Shield, Smartphone, Swords, Tablet, Trash2, Unlock, Vote, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAvisosAparelho } from "../lib/avisos";
 import { createPortal } from "react-dom";
 import type { AvatarKey } from "../lib/storage";
 import { cs, fmt1, timeAgo } from "../lib/format";
@@ -13,7 +14,10 @@ import { Alert, Card, Seg, StatTile, useScrollLock } from "./ui";
 const dataHora = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "—";
 
-type Filtro = "todos" | "online" | "bloqueados";
+type Filtro = "todos" | "online" | "varios" | "bloqueados";
+
+const IconeAparelho = ({ tipo, size = 16 }: { tipo: string; size?: number }) => (tipo === "celular" ? <Smartphone size={size} /> : tipo === "tablet" ? <Tablet size={size} /> : <Monitor size={size} />);
+const ordinal = (n: number) => `${n}º`;
 
 /** Painel ADM → Usuários: quem está no site, o que cada um fez, bloquear e excluir. */
 export function AdminUsers() {
@@ -23,11 +27,13 @@ export function AdminUsers() {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [aberto, setAberto] = useState<string | null>(null);
+  const av = useAvisosAparelho(true);
+  const toasts = useToastsDeAvisos(av.avisos);
 
   const lista = useMemo(() => {
     const n = norm(busca);
     return (q.data?.usuarios ?? [])
-      .filter((u) => (filtro === "online" ? u.online : filtro === "bloqueados" ? u.bloqueado : true))
+      .filter((u) => (filtro === "online" ? u.online : filtro === "bloqueados" ? u.bloqueado : filtro === "varios" ? u.aparelhos30d >= 2 : true))
       .filter((u) => !n || norm(u.nome).includes(n) || norm(u.email).includes(n));
   }, [q.data, busca, filtro]);
 
@@ -43,6 +49,8 @@ export function AdminUsers() {
         <StatTile label="Novos em 7 dias" value={r?.novos7d ?? "…"} accent="gold" />
       </div>
 
+      <AvisosAparelho av={av} onAbrir={setAberto} />
+
       <Card className="p-3 sm:p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="relative flex-1">
@@ -56,6 +64,7 @@ export function AdminUsers() {
             options={[
               { value: "todos", label: "Todos" },
               { value: "online", label: `Online${r ? ` (${r.online})` : ""}` },
+              { value: "varios", label: `Vários aparelhos${r?.variosAparelhos ? ` (${r.variosAparelhos})` : ""}` },
               { value: "bloqueados", label: `Bloqueados${r?.bloqueados ? ` (${r.bloqueados})` : ""}` },
             ]}
           />
@@ -85,6 +94,14 @@ export function AdminUsers() {
                         <Ban size={10} /> bloqueado
                       </span>
                     )}
+                    {u.aparelhos > 0 && (
+                      <span
+                        className={`chip shrink-0 px-1.5 py-0 text-[10px] ${u.compartilhamento ? "border-[var(--color-critical)]/50 text-[var(--color-critical-ink)]" : u.aparelhos30d >= 2 ? "border-[var(--color-warning)]/50 text-[var(--color-warning)]" : ""}`}
+                        title={`${u.aparelhos} aparelho(s) no total · ${u.aparelhos30d} nos últimos 30 dias`}
+                      >
+                        <Smartphone size={10} /> {u.aparelhos30d}/{u.aparelhos} {u.compartilhamento && "· alerta"}
+                      </span>
+                    )}
                   </span>
                   <span className="block truncate text-xs text-[var(--color-ink-3)]">{u.email}</span>
                   <span className="block truncate text-[11px] text-[var(--color-ink-3)]">
@@ -112,7 +129,116 @@ export function AdminUsers() {
       </Card>
 
       {aberto && <UserSheet id={aberto} onClose={() => setAberto(null)} />}
+
+      {/* aviso na hora: alguém acabou de entrar de um aparelho novo */}
+      {toasts.length > 0 && (
+        <div className="fixed top-20 right-3 left-3 z-[70] flex flex-col items-end gap-2 sm:left-auto sm:w-96" aria-live="polite">
+          {toasts.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setAberto(t.userId)}
+              className={`tour-pop card flex w-full items-start gap-3 border p-3 text-left shadow-2xl shadow-black/50 ${t.compartilhamento ? "border-[var(--color-critical)]/60" : "border-[var(--color-warning)]/50"}`}
+            >
+              <BellRing size={18} className={`mt-0.5 shrink-0 ${t.compartilhamento ? "text-[var(--color-critical-ink)]" : "text-[var(--color-warning)]"}`} />
+              <span className="min-w-0 text-sm">
+                <b>{t.nome}</b> entrou de um aparelho novo: {t.rotulo}
+                <span className="block text-xs text-[var(--color-ink-3)]">
+                  {ordinal(t.ordem)} aparelho · {t.aparelhos30d} em 30 dias{t.local ? ` · ${t.local}` : ""}
+                  {t.compartilhamento ? " · possível conta compartilhada" : ""}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
+  );
+}
+
+type Avisos = ReturnType<typeof useAvisosAparelho>;
+
+/** Mostra por alguns segundos os avisos que chegaram depois que o painel abriu. */
+function useToastsDeAvisos(avisos: Avisos["avisos"]) {
+  const abriuEm = useRef(new Date().toISOString());
+  const [toasts, setToasts] = useState<Avisos["avisos"]>([]);
+  const vistos = useRef(new Set<string>());
+  useEffect(() => {
+    const novos = avisos.filter((a) => a.em > abriuEm.current && !vistos.current.has(a.id));
+    if (!novos.length) return;
+    novos.forEach((a) => vistos.current.add(a.id));
+    setToasts((t) => [...novos, ...t].slice(0, 3));
+    const timer = setTimeout(() => setToasts((t) => t.filter((x) => !novos.includes(x))), 9000);
+    return () => clearTimeout(timer);
+  }, [avisos]);
+  return toasts;
+}
+
+/** Quadro de avisos: logins em aparelho novo de contas que já tinham outro aparelho. */
+function AvisosAparelho({ av, onAbrir }: { av: Avisos; onAbrir: (id: string) => void }) {
+  const [todos, setTodos] = useState(false);
+  if (!av.avisos.length) return null;
+  const lista = todos ? av.avisos : av.avisos.slice(0, 6);
+  return (
+    <Card className={`p-3 sm:p-4 ${av.naoVistos.length ? "border-[var(--color-warning)]/50" : ""}`}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <BellRing size={17} className="text-[var(--color-warning)]" />
+        <h3 className="font-display text-base font-bold">Avisos de aparelho novo</h3>
+        {av.naoVistos.length > 0 && <span className="rounded-full bg-[var(--color-critical)] px-2 text-xs font-bold text-white">{av.naoVistos.length} novo{av.naoVistos.length > 1 ? "s" : ""}</span>}
+        <span className="text-xs text-[var(--color-ink-3)]">últimos 14 dias · com {av.limite}+ aparelhos em 30 dias vira alerta de conta compartilhada</span>
+        {av.naoVistos.length > 0 && (
+          <button type="button" className="btn btn-ghost ml-auto px-2.5 py-1 text-xs" onClick={av.marcarVistos}>
+            <Check size={13} /> Marcar como vistos
+          </button>
+        )}
+      </div>
+      <ul className="space-y-1.5">
+        {lista.map((a) => {
+          const novo = !av.vistoEm || a.em > av.vistoEm;
+          return (
+            <li key={a.id}>
+              <button
+                type="button"
+                onClick={() => onAbrir(a.userId)}
+                className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors hover:bg-[var(--color-surface-3)] ${a.compartilhamento ? "border-[var(--color-critical)]/40 bg-[var(--color-critical)]/5" : "border-[var(--color-line)]"}`}
+              >
+                <span className="relative shrink-0">
+                  <Avatar k={a.avatar as AvatarKey} size={34} />
+                  {novo && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[var(--color-critical)] ring-2 ring-[var(--color-surface-2)]" title="não visto" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">
+                    <b>{a.nome}</b> entrou de um aparelho novo
+                  </span>
+                  <span className="flex items-center gap-1 truncate text-xs text-[var(--color-ink-2)]">
+                    <IconeAparelho tipo={a.tipo} size={12} /> {a.rotulo}
+                    {a.local && (
+                      <>
+                        {" "}
+                        · <MapPin size={11} /> {a.local}
+                      </>
+                    )}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right text-[11px]">
+                  <span className={`chip px-1.5 py-0 text-[10px] ${a.compartilhamento ? "border-[var(--color-critical)]/50 text-[var(--color-critical-ink)]" : "border-[var(--color-warning)]/50 text-[var(--color-warning)]"}`}>
+                    {a.compartilhamento && <AlertTriangle size={10} />} {ordinal(a.ordem)} aparelho · {a.aparelhos30d} em 30d
+                  </span>
+                  <span className="mt-0.5 block text-[var(--color-ink-3)]" title={dataHora(a.em)}>
+                    {timeAgo(a.em)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {av.avisos.length > 6 && (
+        <button type="button" className="mt-2 text-xs font-semibold text-[var(--color-brand)]" onClick={() => setTodos((v) => !v)}>
+          {todos ? "Mostrar menos" : `Ver todos (${av.avisos.length})`}
+        </button>
+      )}
+    </Card>
   );
 }
 
@@ -144,7 +270,8 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const agir = async (acao: "bloquear" | "desbloquear" | "excluir") => {
+  const [aviso, setAviso] = useState<string | null>(null);
+  const agir = async (acao: "bloquear" | "desbloquear" | "excluir" | "desconectar") => {
     setBusy(true);
     setErro(null);
     try {
@@ -152,6 +279,7 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
       await qc.invalidateQueries({ queryKey: ["admin-users"] });
       if (acao === "excluir") onClose();
       else await d.refetch();
+      if (acao === "desconectar") setAviso("Pronto: todas as sessões foram encerradas. A pessoa vai precisar entrar de novo em cada aparelho.");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha");
     } finally {
@@ -192,16 +320,18 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
               <Info label="Último login" value={dataHora(u.ultimoLogin)} />
               <Info label="Entradas" value={u.logins} />
               <Info
-                label="Aparelho"
+                label="Aparelhos"
                 value={
-                  <span className="flex items-center gap-1">
-                    <Monitor size={13} /> {u.dispositivo ?? "—"}
+                  <span className={`flex items-center gap-1 ${u.compartilhamento ? "text-[var(--color-critical-ink)]" : ""}`}>
+                    <Smartphone size={13} /> {u.aparelhos} no total · {u.aparelhos30d} em 30 dias
                   </span>
                 }
               />
               <Info label="Tropas salvas" value={u.tropas} />
               <Info label="Interações" value={`${u.comentarios} coment. · ${u.curtidas} curt. · ${u.votos} votos`} />
             </div>
+
+            <Aparelhos u={u} />
 
             <div className="grid gap-4 md:grid-cols-2">
               <Section title="Tropas salvas" icon={<Swords size={13} />} count={u.atividade.tropas.length}>
@@ -243,10 +373,16 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
             </div>
 
             {erro && <Alert tone="critical">{erro}</Alert>}
+            {aviso && <Alert tone="info">{aviso}</Alert>}
             {u.adminFixo ? (
               <p className="text-xs text-[var(--color-ink-3)]">Conta de administrador definida no servidor (ADMIN_EMAILS): não pode ser bloqueada nem excluída por aqui.</p>
             ) : (
               <div className="flex flex-wrap items-center gap-2 border-t border-[var(--color-line)] pt-4">
+                {u.aparelhos > 0 && (
+                  <button className="btn btn-ghost" disabled={busy} onClick={() => agir("desconectar")} title="Encerra a sessão em todos os aparelhos; a pessoa precisa entrar de novo">
+                    <LogOut size={15} /> Desconectar todos os aparelhos
+                  </button>
+                )}
                 {u.bloqueado ? (
                   <button className="btn btn-ghost" disabled={busy} onClick={() => agir("desbloquear")}>
                     <Unlock size={15} /> Desbloquear
@@ -281,3 +417,115 @@ function UserSheet({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+
+type Detalhe = Awaited<ReturnType<typeof adminUserDetailFn>>;
+
+/** Aparelhos da conta e histórico de logins: quantos, quais, quando e de onde. */
+function Aparelhos({ u }: { u: Detalhe }) {
+  const [verTodos, setVerTodos] = useState(false);
+  const lista = u.listaAparelhos;
+  const hist = verTodos ? u.historicoLogins : u.historicoLogins.slice(0, 8);
+  const rotuloDe = new Map(lista.map((a) => [a.aparelhoId, a]));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Smartphone size={15} className="text-[var(--color-brand)]" />
+        <h3 className="font-display text-base font-bold">Aparelhos</h3>
+        <span className="text-sm text-[var(--color-ink-2)]">
+          entrou em <b>{u.aparelhos}</b> {u.aparelhos === 1 ? "aparelho" : "aparelhos diferentes"} · <b>{u.aparelhos30d}</b> nos últimos 30 dias
+        </span>
+      </div>
+      {u.compartilhamento && (
+        <Alert tone="critical">
+          {u.aparelhos30d} aparelhos diferentes em 30 dias: pode ser conta compartilhada. Confira os horários e cidades abaixo; se precisar, use “Desconectar todos os aparelhos”.
+        </Alert>
+      )}
+      {lista.length === 0 ? (
+        <p className="text-xs text-[var(--color-ink-3)]">Nenhum login registrado desde que o site começou a guardar os aparelhos.</p>
+      ) : (
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {lista.map((a) => (
+            <li key={a.id} className={`rounded-xl border p-3 ${a.atual ? "border-[var(--color-brand)]/50 bg-[var(--color-brand)]/5" : "border-[var(--color-line)] bg-[var(--color-surface-1)]"} ${a.ativo30d ? "" : "opacity-70"}`}>
+              <div className="flex items-start gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--color-surface-3)] text-[var(--color-ink-2)]">
+                  <IconeAparelho tipo={a.tipo} size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-semibold">{a.rotulo}</span>
+                    <span className="chip px-1.5 py-0 text-[10px]">{ordinal(a.ordem)} aparelho</span>
+                    {a.atual && <span className="chip border-[var(--color-brand)]/50 px-1.5 py-0 text-[10px] text-[var(--color-brand)]">mais recente</span>}
+                    {!a.ativo30d && <span className="chip px-1.5 py-0 text-[10px]">sem uso há 30+ dias</span>}
+                  </div>
+                  <dl className="mt-1.5 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[11px] text-[var(--color-ink-3)]">
+                    <dt>1º login</dt>
+                    <dd className="text-[var(--color-ink-2)]">{dataHora(a.primeiroLogin)}</dd>
+                    <dt>Último login</dt>
+                    <dd className="text-[var(--color-ink-2)]">{dataHora(a.ultimoLogin)}</dd>
+                    <dt>Último uso</dt>
+                    <dd className="text-[var(--color-ink-2)]">{a.ultimoAcesso ? timeAgo(a.ultimoAcesso) : "—"}</dd>
+                    <dt>Entradas</dt>
+                    <dd className="text-[var(--color-ink-2)]">{a.logins}</dd>
+                    {a.locais.length > 0 && (
+                      <>
+                        <dt>Locais</dt>
+                        <dd className="text-[var(--color-ink-2)]">{a.locais.join(", ")}</dd>
+                      </>
+                    )}
+                    {a.tela && (
+                      <>
+                        <dt>Tela</dt>
+                        <dd className="text-[var(--color-ink-2)]">{a.tela.replace("x", " × ")}</dd>
+                      </>
+                    )}
+                  </dl>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {u.historicoLogins.length > 0 && (
+        <div>
+          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold tracking-wide text-[var(--color-ink-3)] uppercase">
+            <History size={13} /> Histórico de logins ({u.historicoLogins.length})
+          </div>
+          <ol className="relative space-y-1 border-l border-[var(--color-line)] pl-4">
+            {hist.map((l) => (
+              <li key={l.id} className="relative text-sm">
+                <span className={`absolute top-1.5 -left-[21px] h-2.5 w-2.5 rounded-full ring-2 ring-[var(--color-surface-2)] ${l.novo && l.ordem >= 2 ? "bg-[var(--color-warning)]" : "bg-[var(--color-surface-4)]"}`} aria-hidden />
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="tabular text-xs text-[var(--color-ink-3)]">{dataHora(l.em)}</span>
+                  <span className="flex items-center gap-1">
+                    <IconeAparelho tipo={l.tipo} size={12} /> {rotuloDe.get(l.aparelhoId)?.rotulo ?? l.rotulo}
+                  </span>
+                  {l.novo && <span className={`chip px-1.5 py-0 text-[10px] ${l.ordem >= 2 ? "border-[var(--color-warning)]/50 text-[var(--color-warning)]" : ""}`}>{l.ordem >= 2 ? `aparelho novo (${ordinal(l.ordem)})` : "primeiro aparelho"}</span>}
+                  {l.origem !== "login" && <span className="chip px-1.5 py-0 text-[10px]">{l.origem === "cadastro" ? "cadastro" : "trocou a senha"}</span>}
+                </div>
+                {(l.local || l.ip) && (
+                  <div className="text-[11px] text-[var(--color-ink-3)]">
+                    {l.local && (
+                      <span className="mr-2 inline-flex items-center gap-0.5">
+                        <MapPin size={10} /> {l.local}
+                      </span>
+                    )}
+                    {l.ip && <span>rede {l.ip}</span>}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+          {u.historicoLogins.length > 8 && (
+            <button type="button" className="mt-1 text-xs font-semibold text-[var(--color-brand)]" onClick={() => setVerTodos((v) => !v)}>
+              {verTodos ? "Mostrar menos" : `Ver todos (${u.historicoLogins.length})`}
+            </button>
+          )}
+        </div>
+      )}
+      <p className="text-[11px] text-[var(--color-ink-3)]">
+        Cada navegador conta como um aparelho. Aba anônima ou cookies apagados aparecem como aparelho novo. O modelo aparece quando o navegador informa (Chrome no Android sim; iPhone mostra só “iPhone”).
+      </p>
+    </div>
+  );
+}

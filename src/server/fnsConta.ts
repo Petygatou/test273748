@@ -14,20 +14,22 @@ export const fetchMe = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const register = createServerFn({ method: "POST" })
-  .validator((d: unknown) => ({ email: s(obj(d).email, 200), senha: s(obj(d).senha, 200), nome: s(obj(d).nome, 40) }))
+  .validator((d: unknown) => ({ email: s(obj(d).email, 200), senha: s(obj(d).senha, 200), nome: s(obj(d).nome, 40), aparelho: obj(d).aparelho }))
   .handler(async ({ data }) => {
     const { createUser, startSession, toPublic } = await import("./auth");
+    const { sanitizeInfo } = await import("./aparelhos");
     const u = createUser(data.email, data.senha, data.nome);
-    startSession(u);
+    startSession(u, "cadastro", sanitizeInfo(data.aparelho));
     return toPublic(u);
   });
 
 export const login = createServerFn({ method: "POST" })
-  .validator((d: unknown) => ({ email: s(obj(d).email, 200), senha: s(obj(d).senha, 200) }))
+  .validator((d: unknown) => ({ email: s(obj(d).email, 200), senha: s(obj(d).senha, 200), aparelho: obj(d).aparelho }))
   .handler(async ({ data }) => {
     const { verifyUser, startSession, toPublic } = await import("./auth");
+    const { sanitizeInfo } = await import("./aparelhos");
     const u = verifyUser(data.email, data.senha);
-    startSession(u);
+    startSession(u, "login", sanitizeInfo(data.aparelho));
     return toPublic(u);
   });
 
@@ -50,7 +52,7 @@ export const changePasswordFn = createServerFn({ method: "POST" })
     const { requireUser, changePassword, startSession } = await import("./auth");
     const u = requireUser();
     changePassword(u, data.atual, data.nova);
-    startSession(u);
+    startSession(u, "senha");
     return { ok: true };
   });
 
@@ -191,11 +193,19 @@ export const adminUserDetailFn = createServerFn({ method: "GET" })
     return userDetail(data.id);
   });
 
+/** Avisos de login em aparelho novo (para o painel e o selo do botão de ADM). */
+export const adminAvisosFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { requireAdmin } = await import("./auth");
+  requireAdmin();
+  const { avisosDeAparelho, LIMITE_COMPARTILHAMENTO } = await import("./aparelhos");
+  return { avisos: avisosDeAparelho(), limite: LIMITE_COMPARTILHAMENTO };
+});
+
 export const adminUserActionFn = createServerFn({ method: "POST" })
   .validator((d: unknown) => {
     const acao = s(obj(d).acao, 20);
-    if (acao !== "bloquear" && acao !== "desbloquear" && acao !== "excluir") throw new Error("Ação inválida.");
-    return { id: s(obj(d).id, 64), acao: acao as "bloquear" | "desbloquear" | "excluir" };
+    if (acao !== "bloquear" && acao !== "desbloquear" && acao !== "excluir" && acao !== "desconectar") throw new Error("Ação inválida.");
+    return { id: s(obj(d).id, 64), acao: acao as "bloquear" | "desbloquear" | "excluir" | "desconectar" };
   })
   .handler(async ({ data }) => {
     const { requireAdmin } = await import("./auth");

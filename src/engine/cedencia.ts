@@ -13,7 +13,7 @@
  */
 import { decayWeight } from "./math";
 import { ALL_POSITIONS, PLAYER_POSITIONS, type PositionId, type ScoutKey } from "./rules";
-import { CEDENCIA_JANELAS, type CedenciaCell, type CedenciaJanela, type CedenciaRecorte, type CedenciaRow, type Match, type PlayerRound } from "./types";
+import { CEDENCIA_JANELAS, LATERAL_DIR, LATERAL_ESQ, type CedenciaCell, type CedenciaJanela, type CedenciaRecorte, type CedenciaRow, type CedenciaScouts, type CedPos, type LadoLateral, type Match, type PlayerRound, type TimeScouts } from "./types";
 
 export interface GameContext {
   opp: number;
@@ -36,15 +36,22 @@ interface Acc {
   pts: number;
   w: number;
   n: number;
+  sc: CedenciaScouts;
 }
 
-function emptyCells(): Record<PositionId, Acc> {
-  return { 1: { pts: 0, w: 0, n: 0 }, 2: { pts: 0, w: 0, n: 0 }, 3: { pts: 0, w: 0, n: 0 }, 4: { pts: 0, w: 0, n: 0 }, 5: { pts: 0, w: 0, n: 0 }, 6: { pts: 0, w: 0, n: 0 } };
+/** posições da cedência: as do Cartola + lateral esquerdo e direito */
+export const CED_POS: CedPos[] = [...ALL_POSITIONS, LATERAL_ESQ, LATERAL_DIR];
+
+const zeroScouts = (): CedenciaScouts => ({ DS: 0, FIN: 0, GA: 0, FS: 0, DE: 0 });
+function emptyCells(): Record<CedPos, Acc> {
+  const out = {} as Record<CedPos, Acc>;
+  for (const p of CED_POS) out[p] = { pts: 0, w: 0, n: 0, sc: zeroScouts() };
+  return out;
 }
 
 export interface CedenciaResult {
   rows: CedenciaRow[];
-  ligaMedias: Record<PositionId, number>;
+  ligaMedias: Record<CedPos, number>;
   /** Resíduos de participação por scout: [opp][pos][scout]. */
   shareResidual: Map<number, Partial<Record<PositionId, Partial<Record<ScoutKey, number>>>>>;
 }
@@ -56,20 +63,24 @@ export function computeCedencia(
   currentRound: number,
   halfLife: number,
   shrinkGames = 10,
+  lados: Record<number, LadoLateral> = {},
 ): CedenciaResult {
   const ctx = buildContextIndex(matches);
-  const geral = new Map<number, Record<PositionId, Acc>>();
-  const casa = new Map<number, Record<PositionId, Acc>>();
-  const fora = new Map<number, Record<PositionId, Acc>>();
-  const last5 = new Map<number, Record<PositionId, Acc>>();
+  const geral = new Map<number, Record<CedPos, Acc>>();
+  const casa = new Map<number, Record<CedPos, Acc>>();
+  const fora = new Map<number, Record<CedPos, Acc>>();
+  const last5 = new Map<number, Record<CedPos, Acc>>();
   type Rec = "geral" | "casa" | "fora";
-  const janelas = new Map<number, Record<CedenciaJanela, Record<Rec, Record<PositionId, Acc>>>>();
+  const janelas = new Map<number, Record<CedenciaJanela, Record<Rec, Record<CedPos, Acc>>>>();
+  // desarmes/finalizações por clube e rodada: feitos pelo time e feitos contra ele
+  const timePro = new Map<number, { ds: number; fin: number }>();
+  const timeContra = new Map<number, { ds: number; fin: number }>();
   for (const c of clubIds) {
     geral.set(c, emptyCells());
     casa.set(c, emptyCells());
     fora.set(c, emptyCells());
     last5.set(c, emptyCells());
-    const j = {} as Record<CedenciaJanela, Record<Rec, Record<PositionId, Acc>>>;
+    const j = {} as Record<CedenciaJanela, Record<Rec, Record<CedPos, Acc>>>;
     for (const n of CEDENCIA_JANELAS) j[n] = { geral: emptyCells(), casa: emptyCells(), fora: emptyCells() };
     janelas.set(c, j);
   }
@@ -114,11 +125,35 @@ export function computeCedencia(
     if (!geral.has(opp)) continue;
     const w = decayWeight(currentRound - 1 - pr.rodada, halfLife);
     const p = pr.posicaoId;
-    const add = (acc: Record<PositionId, Acc>, weight: number) => {
-      acc[p].pts += pr.pontos * weight;
-      acc[p].w += weight;
-      acc[p].n += 1;
+    const ds = pr.scout.DS ?? 0;
+    const fin = (pr.scout.FD ?? 0) + (pr.scout.FF ?? 0) + (pr.scout.FT ?? 0);
+    const sc: CedenciaScouts = { DS: ds, FIN: fin, GA: (pr.scout.G ?? 0) + (pr.scout.A ?? 0), FS: pr.scout.FS ?? 0, DE: pr.scout.DE ?? 0 };
+    // lateral com lado conhecido também entra na coluna do lado (esquerdo/direito)
+    const lado = p === 2 ? lados[pr.atletaId] : undefined;
+    const alvos: CedPos[] = lado === "E" ? [p, LATERAL_ESQ] : lado === "D" ? [p, LATERAL_DIR] : [p];
+    const add = (acc: Record<CedPos, Acc>, weight: number) => {
+      for (const k of alvos) {
+        const c = acc[k];
+        c.pts += pr.pontos * weight;
+        c.w += weight;
+        c.n += 1;
+        c.sc.DS += sc.DS * weight;
+        c.sc.FIN += sc.FIN * weight;
+        c.sc.GA += sc.GA * weight;
+        c.sc.FS += sc.FS * weight;
+        c.sc.DE += sc.DE * weight;
+      }
     };
+    if (p !== 6) {
+      const pro = timePro.get(pr.clubeId) ?? { ds: 0, fin: 0 };
+      pro.ds += ds;
+      pro.fin += fin;
+      timePro.set(pr.clubeId, pro);
+      const contra = timeContra.get(opp) ?? { ds: 0, fin: 0 };
+      contra.ds += ds;
+      contra.fin += fin;
+      timeContra.set(opp, contra);
+    }
     add(geral.get(opp)!, w);
     // mando do ADVERSÁRIO: se o atleta jogou fora, o adversário cedeu em casa
     add(g.home ? fora.get(opp)! : casa.get(opp)!, w);
@@ -150,12 +185,15 @@ export function computeCedencia(
     }
   }
 
-  const ligaMedias = {} as Record<PositionId, number>;
-  for (const p of ALL_POSITIONS) ligaMedias[p] = league[p].w > 0 ? league[p].pts / league[p].w : 0;
+  const ligaMedias = {} as Record<CedPos, number>;
+  for (const p of CED_POS) ligaMedias[p] = league[p].w > 0 ? league[p].pts / league[p].w : 0;
+  // sem laterais marcados por lado, a referência do lado é a dos laterais em geral
+  for (const p of [LATERAL_ESQ, LATERAL_DIR] as const) if (!ligaMedias[p]) ligaMedias[p] = ligaMedias[2];
 
-  const toCells = (acc: Record<PositionId, Acc>, weighted: boolean): Record<PositionId, CedenciaCell> => {
-    const out = {} as Record<PositionId, CedenciaCell>;
-    for (const p of ALL_POSITIONS) {
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const toCells = (acc: Record<CedPos, Acc>, weighted: boolean): Record<CedPos, CedenciaCell> => {
+    const out = {} as Record<CedPos, CedenciaCell>;
+    for (const p of CED_POS) {
       const a = acc[p];
       const base = ligaMedias[p] || 1;
       const denom = weighted ? a.w : a.n;
@@ -163,7 +201,13 @@ export function computeCedencia(
       // shrinkage por "jogos de atleta" observados
       const m = shrinkGames;
       const shrunk = (raw * denom + base * m) / (denom + m);
-      out[p] = { pontos: Math.round(raw * 100) / 100, fator: Math.round((shrunk / base) * 1000) / 1000, jogos: a.n };
+      const media = (v: number) => (denom > 0 ? r2(v / denom) : 0);
+      out[p] = {
+        pontos: r2(raw),
+        fator: Math.round((shrunk / base) * 1000) / 1000,
+        jogos: a.n,
+        scouts: { DS: media(a.sc.DS), FIN: media(a.sc.FIN), GA: media(a.sc.GA), FS: media(a.sc.FS), DE: media(a.sc.DE) },
+      };
     }
     return out;
   };
@@ -196,8 +240,19 @@ export function computeCedencia(
       const j = janelas.get(c)![n];
       jan[n] = { geral: toCells(j.geral, false), casa: toCells(j.casa, false), fora: toCells(j.fora, false) };
     }
+    const jogos = roundsByClub.get(c)?.geral.length ?? 0;
+    const pro = timePro.get(c) ?? { ds: 0, fin: 0 };
+    const contra = timeContra.get(c) ?? { ds: 0, fin: 0 };
+    const time: TimeScouts = {
+      jogos,
+      dsConquistados: jogos ? r2(pro.ds / jogos) : 0,
+      dsCedidos: jogos ? r2(contra.ds / jogos) : 0,
+      finFeitas: jogos ? r2(pro.fin / jogos) : 0,
+      finCedidas: jogos ? r2(contra.fin / jogos) : 0,
+    };
     return {
       clubeId: c,
+      time,
       geral: toCells(geral.get(c)!, true),
       casa: toCells(casa.get(c)!, true),
       fora: toCells(fora.get(c)!, true),

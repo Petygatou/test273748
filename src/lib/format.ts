@@ -16,8 +16,11 @@ export const factorPct = (f: number) => {
   return `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(0)}%`;
 };
 
-export const posAbbr = (p: PositionId | number) => POSITIONS[p as PositionId]?.abbr ?? "?";
-export const posName = (p: PositionId | number) => POSITIONS[p as PositionId]?.name ?? "?";
+/** 21/22 = lateral esquerdo/direito (colunas da cedência) */
+export const posAbbr = (p: PositionId | number, lado?: "E" | "D") =>
+  p === 21 || (p === 2 && lado === "E") ? "LE" : p === 22 || (p === 2 && lado === "D") ? "LD" : (POSITIONS[p as PositionId]?.abbr ?? "?");
+export const posName = (p: PositionId | number, lado?: "E" | "D") =>
+  p === 21 || (p === 2 && lado === "E") ? "Lateral esquerdo" : p === 22 || (p === 2 && lado === "D") ? "Lateral direito" : (POSITIONS[p as PositionId]?.name ?? "?");
 export const statusLabel = (s: number) => STATUS_LABELS[s] ?? "—";
 
 export function timeAgo(iso?: string | null): string {

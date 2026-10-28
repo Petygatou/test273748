@@ -149,7 +149,7 @@ function LivePage() {
                         {r.sub && <span className="chip text-[10px]">entrou no lugar de {r.p.apelido}</span>}
                       </div>
                       <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]">
-                        <PosBadge pos={p.posicaoId} /> <ClubBadge club={a.clubs[p.clubeId]} size={14} />
+                        <PosBadge pos={p.posicaoId} lado={p.lado} /> <ClubBadge club={a.clubs[p.clubeId]} size={14} />
                         {r.status === "encerrado" ? "encerrado" : r.status === "andamento" ? "em andamento" : "não começou"}
                       </div>
                     </div>
@@ -200,7 +200,7 @@ function LivePage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{p.apelido}</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]">
-                    <PosBadge pos={p.posicaoId} /> <ClubBadge club={a.clubs[p.clubeId]} size={14} /> xP antes {fmt1(p.xP)}
+                    <PosBadge pos={p.posicaoId} lado={p.lado} /> <ClubBadge club={a.clubs[p.clubeId]} size={14} /> xP antes {fmt1(p.xP)}
                   </div>
                 </div>
                 <div className="font-display tabular text-base font-bold text-[var(--color-gold)]">{fmt1(v.pontos)}</div>

@@ -2,6 +2,7 @@
  * Gestão de usuários para o Painel ADM (somente servidor). Nunca devolve
  * senha, sal ou hash.
  */
+import { aparelhosDoUsuario, aparelhosRecentes, LIMITE_COMPARTILHAMENTO, loginsDoUsuario } from "./aparelhos";
 import { isAdmin, isEnvAdmin } from "./auth";
 import { db, type UserRow } from "./db";
 
@@ -21,6 +22,11 @@ export interface UserListRow {
   ultimoLogin: string | null;
   logins: number;
   dispositivo: string | null;
+  /** aparelhos diferentes em que já entrou / nos últimos 30 dias */
+  aparelhos: number;
+  aparelhos30d: number;
+  /** muitos aparelhos em pouco tempo: pode ser conta compartilhada */
+  compartilhamento: boolean;
   posts: number;
   comentarios: number;
   curtidas: number;
@@ -29,6 +35,7 @@ export interface UserListRow {
 }
 
 function row(u: UserRow, now: number): UserListRow {
+  const recentes = aparelhosRecentes(u.id, now).length;
   return {
     id: u.id,
     nome: u.nome,
@@ -43,6 +50,9 @@ function row(u: UserRow, now: number): UserListRow {
     ultimoLogin: u.ultimoLogin ?? null,
     logins: u.logins ?? 0,
     dispositivo: u.dispositivo ?? null,
+    aparelhos: db.aparelhos.filter((a) => a.userId === u.id).length,
+    aparelhos30d: recentes,
+    compartilhamento: recentes >= LIMITE_COMPARTILHAMENTO,
     posts: db.posts.filter((p) => p.userId === u.id).length,
     comentarios: db.comments.filter((c) => c.userId === u.id).length,
     curtidas: db.likes.filter((l) => l.userId === u.id).length,
@@ -63,6 +73,7 @@ export function listUsers(now = Date.now()) {
       ativos24h: users.filter((u) => u.ultimoAcesso && now - new Date(u.ultimoAcesso).getTime() < day).length,
       novos7d: users.filter((u) => now - new Date(u.criadoEm).getTime() < 7 * day).length,
       bloqueados: users.filter((u) => u.bloqueado).length,
+      variosAparelhos: users.filter((u) => u.compartilhamento).length,
     },
   };
 }
@@ -75,6 +86,8 @@ export function userDetail(id: string, now = Date.now()) {
     ...row(u, now),
     bio: u.bio,
     bloqueadoEm: u.bloqueadoEm ?? null,
+    listaAparelhos: aparelhosDoUsuario(id, now),
+    historicoLogins: loginsDoUsuario(id),
     atividade: {
       comentarios: db.comments
         .filter((c) => c.userId === id)
@@ -103,14 +116,18 @@ export function userDetail(id: string, now = Date.now()) {
   };
 }
 
-export function userAction(admin: UserRow, id: string, acao: "bloquear" | "desbloquear" | "excluir") {
+export function userAction(admin: UserRow, id: string, acao: "bloquear" | "desbloquear" | "excluir" | "desconectar") {
   const u = db.users.get(id);
   if (!u) throw new Error("Usuário não encontrado.");
   if (u.id === admin.id) throw new Error("Você não pode fazer isso com a sua própria conta.");
   if (isEnvAdmin(u)) throw new Error("Esta é a conta de administrador definida no servidor (ADMIN_EMAILS).");
   if (acao === "bloquear") db.users.update(id, { bloqueado: true, bloqueadoEm: new Date().toISOString() });
   else if (acao === "desbloquear") db.users.update(id, { bloqueado: false, bloqueadoEm: undefined });
+  // invalida as sessões abertas em todos os aparelhos: a pessoa precisa entrar de novo
+  else if (acao === "desconectar") db.users.update(id, { sessaoVersao: (u.sessaoVersao ?? 0) + 1 });
   else {
+    db.aparelhos.removeWhere((a) => a.userId === id);
+    db.logins.removeWhere((l) => l.userId === id);
     db.likes.removeWhere((l) => l.userId === id);
     db.votes.removeWhere((v) => v.userId === id);
     db.comments.removeWhere((c) => c.userId === id);
