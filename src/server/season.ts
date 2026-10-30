@@ -64,6 +64,8 @@ export async function refreshSeason() {
   return loadRawSeason();
 }
 
+let importadaRegistrada: string | null = null;
+
 async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; importadoEm?: string }> {
   const mode = dataMode();
   if (mode === "demo") return { data: demo(), motivo: "DATA_MODE=demo" };
@@ -75,9 +77,17 @@ async function loadRawSeason(): Promise<{ data: SeasonData; motivo?: string; imp
     return { data };
   } catch (err) {
     erroApi = err instanceof Error ? err.message : erroApi;
+    void import("./scoutStore").then((m) => m.registrarErroFonte("Cartola API", erroApi)).catch(() => {});
   }
   const imp = await loadImported();
-  if (imp) return { data: imp.data, importadoEm: imp.importadoEm };
+  if (imp) {
+    // temporada real enviada de outro computador: também vai para o histórico guardado
+    if (importadaRegistrada !== imp.importadoEm) {
+      importadaRegistrada = imp.importadoEm;
+      void import("./scoutStore").then((m) => m.registrarTemporada(imp.data, "importada")).catch(() => {});
+    }
+    return { data: imp.data, importadoEm: imp.importadoEm };
+  }
   if (mode === "live") {
     throw new Error(`Dados reais do Cartola indisponíveis: ${erroApi}. O servidor não alcançou a API da Globo e não há temporada importada recente. Veja docs/CARTOLA.md.`);
   }
