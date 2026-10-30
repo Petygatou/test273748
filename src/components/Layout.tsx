@@ -18,7 +18,7 @@ const SECTIONS: PageEntry[] = [
   { to: "/", label: "Início", Icon: House, keywords: "home inicio resumo rodada capitaes" },
   { to: "/escalacao", label: "Escalar", Icon: Swords, keywords: "escalacao montar tropa time otimizador capitao" },
   { to: "/provaveis", label: "Prováveis", Icon: ClipboardList, keywords: "provaveis escalacoes titulares duvidas" },
-  { to: "/estatisticas", label: "Estatísticas", Icon: BarChart3, keywords: "estatisticas mercado x1 duelo confrontos cedencia" },
+  { to: "/estatisticas", label: "Estatísticas", Icon: BarChart3, keywords: "estatisticas mercado x1 duelo confrontos cedencia cruzamento scout" },
   { to: "/ao-vivo", label: "Ao Vivo", Icon: Radio, keywords: "ao vivo parciais placar" },
   { to: "/meu-time", label: "Meu Time", Icon: Shirt, keywords: "meu time conta cartola patrimonio" },
   { to: "/ligas", label: "Ligas", Icon: Trophy, keywords: "ligas classificacao ranking" },
@@ -30,6 +30,7 @@ const SECTIONS: PageEntry[] = [
 /** Páginas extras que entram na busca e no rodapé. */
 const EXTRA: PageEntry[] = [
   { to: "/estatisticas", label: "Duelo X1", Icon: BarChart3, keywords: "x1 comparar duelo versus", search: { tab: "x1" } },
+  { to: "/estatisticas", label: "Cruzamento de Scout", Icon: BarChart3, keywords: "cruzamento scout probabilidade finalizacoes desarmes adversario projecao", search: { tab: "cruzamento" } },
   { to: "/modelo", label: "Precisão do modelo", Icon: FlaskConical, keywords: "modelo precisao backtest acerto" },
   { to: "/guia", label: "Guia do site", Icon: CircleHelp, keywords: "guia ajuda tour tutorial como usar" },
 ];
@@ -42,7 +43,7 @@ const HINTS: Record<string, string> = {
   "/": "Resumo da rodada e capitão",
   "/escalacao": "Monte a melhor tropa",
   "/provaveis": "Quem deve jogar em cada time",
-  "/estatisticas": "Mercado, confrontos e cedência",
+  "/estatisticas": "Mercado, cruzamento de scout e cedência",
   "/ao-vivo": "Parciais e placares",
   "/meu-time": "Seu time do Cartola",
   "/ligas": "Classificação das suas ligas",

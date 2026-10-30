@@ -19,6 +19,7 @@ import type { Athlete, Club, Match, PlayerRound, SeasonData } from "../engine/ty
 import { cached, pool } from "./cache";
 import { cartola } from "./cartolaHttp";
 import { enrichHistory, loadSnapshots, saveSnapshot } from "./snapshots";
+import { registrarTemporada, rodadaGuardada, rodadasCongeladas } from "./scoutStore";
 
 async function getJson<T>(path: string, timeoutMs = 10_000): Promise<T> {
   return cartola<T>(path, { timeoutMs });
@@ -177,7 +178,16 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
     }));
 
   const rounds = Array.from({ length: Math.min(38, Math.max(R, 1)) }, (_, i) => i + 1);
+  // rodadas encerradas há mais de 5 dias já estão no banco: não pede de novo à API
+  let congeladas = new Map<number, { partidas: Match[]; historico: PlayerRound[] }>();
+  try {
+    congeladas = rodadasCongeladas(status.temporada);
+  } catch {
+    /* banco indisponível: pede tudo à API */
+  }
   const partidas = await pool(rounds, 6, async (r) => {
+    const guardada = r < R - 1 ? congeladas.get(r) : undefined;
+    if (guardada?.partidas.length) return guardada.partidas;
     try {
       const p = await getPartidas(r, r >= R - 1);
       return (p.partidas ?? []).map((x) => toMatch(x, r));
@@ -189,6 +199,8 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
 
   const past = rounds.filter((r) => r < R);
   const pontuados = await pool(past, 6, async (r) => {
+    const guardada = congeladas.get(r);
+    if (guardada?.historico.length) return guardada.historico;
     try {
       const p = await getPontuados(r, r >= R - 2);
       const rows: PlayerRound[] = [];
@@ -205,7 +217,12 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
       }
       return rows;
     } catch {
-      return [] as PlayerRound[];
+      // a API falhou nesta rodada: usa a versão guardada no banco, se houver
+      try {
+        return rodadaGuardada(status.temporada, r) ?? [];
+      } catch {
+        return [] as PlayerRound[];
+      }
     }
   });
   // salvaguarda: converte scouts acumulados em scouts por rodada, se for o caso
@@ -224,7 +241,7 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
   const ownership: Record<number, number> = {};
   for (const d of destaques) if (d.Atleta?.atleta_id && d.escalacoes) ownership[d.Atleta.atleta_id] = d.escalacoes;
 
-  return {
+  const season: SeasonData = {
     temporada: status.temporada,
     rodadaAtual: R,
     mercadoStatus: status.status_mercado,
@@ -240,6 +257,13 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
     source: "cartola",
     updatedAt: new Date().toISOString(),
   };
+  // guarda as rodadas encerradas no banco (idempotente: só grava o que mudou)
+  try {
+    registrarTemporada(season, "cartola");
+  } catch (e) {
+    console.error("[scouts] falha ao guardar o histórico:", e);
+  }
+  return season;
 }
 
 export type { RawPontuados, RawPartidas };

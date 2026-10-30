@@ -92,6 +92,42 @@ O Painel ADM → Dados reais mostra quantas chamadas já foram usadas hoje. A AP
 
 Observação honesta: este módulo foi testado com respostas simuladas no formato da API-Football; ainda não foi testado contra a API real (o ambiente de desenvolvimento não alcança a internet aberta).
 
+## Cruzamento de Scout (Estatísticas → Cruzamento de Scout)
+
+Cruza o que cada atleta faz por jogo com o que o adversário cede à posição, scout a scout, separando sempre o **histórico** (o que aconteceu) da **projeção** (o que pode acontecer).
+
+**Dados.** Tudo vem da API pública do Cartola:
+- `/atletas/pontuados/{rodada}` traz os scouts de cada atleta que entrou em campo em cada rodada encerrada (conferido: os pontos recalculados batem com os oficiais, então são scouts por jogo, não acumulados);
+- `/partidas/{rodada}` traz adversário, mando e placar;
+- `/atletas/mercado` e `/mercado/status` trazem atletas e rodada.
+
+A API não publica minutos jogados, então a análise é por partida.
+
+**Banco.** Coleções novas no banco do site (arquivos JSON + Redis, como o resto):
+- `scout-rodadas`: uma linha por rodada, com partidas, scouts de cada atleta, impressão digital (hash), revisão e validação dos pontos;
+- `scout-atletas`: cadastro de atletas por temporada;
+- `scout-temporadas`: clubes de cada temporada;
+- `sync-logs`: sincronizações, revisões, verificações e erros.
+
+O cadastro dos scouts (código, nome, categoria, posições, pontos, vigência) fica em código: `src/engine/scoutDefs.ts`.
+
+**Sincronização.**
+- **Idempotente:** mesmo conteúdo, nada é gravado; conteúdo mudado vira revisão no log.
+- **Rodada congelada:** com todos os jogos encerrados há mais de 5 dias, a rodada passa a ser lida do banco, sem nova chamada à API. Se a API falha numa rodada, usa a versão guardada.
+- **Proteção contra resposta parcial:** resposta vazia ou com muito menos atletas nunca sobrescreve a versão guardada.
+- **Parciais e jogos futuros** nunca entram no histórico.
+- **Painel ADM:** o admin pode testar cada endpoint (campos, tempo, HTTP) e sincronizar na hora.
+
+**Modelo.** Estimativa = taxa do atleta × fator do adversário × fator de mando.
+- **Taxa do atleta:** Gama-Poisson com Bayes empírico.
+- **Fator do adversário:** encolhido pelo ruído entre os 20 times.
+- **Probabilidades:** binomial negativa (Poisson-Gama).
+- **SG, gols sofridos e vitória:** modelo de gols de Poisson. O SG ainda multiplica pela parte dos jogos sem gol sofrido em que o atleta de fato recebe o SG.
+- **Pontuação:** média e desvio exatos; cenários de 20%/50%/80% vêm de jogos simulados, com gols, assistências, SG e gols sofridos saindo do mesmo placar.
+- **Tabela de pontos:** é conferida contra a pontuação oficial da temporada; scout divergente usa o valor que os dados oficiais indicam.
+
+**Conferência.** Para cada rodada passada, o modelo só vê as rodadas anteriores e prevê a chance de cada scout; a tela mostra previsto × real por faixa e por scout. A meia-vida da recência é escolhida por essa conferência.
+
 ## Lado dos laterais (LE/LD), descoberto sozinho
 
 O Cartola só diz "lateral". O site descobre o lado lendo a escalação de cada jogo:

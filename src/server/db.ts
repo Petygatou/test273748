@@ -12,6 +12,7 @@ import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pipeline, remoteEnabled, type Cmd } from "./remote";
+import type { AtletaScoutRow, RodadaScoutRow, SyncLogRow, TemporadaScoutRow } from "./scoutStore";
 
 export function dataDir(): string {
   return process.env.DATA_DIR ?? (process.env.VERCEL ? "/tmp/cfc-data" : join(process.cwd(), "data"));
@@ -462,6 +463,11 @@ export const db = {
   ladosJogos: new Collection<LadoJogoRow>("lados-jogos"),
   ladosFontes: new Collection<FonteLadoRow>("lados-fontes"),
   logins: new Collection<LoginRow>("logins", "users"),
+  /** histórico de scouts por jogo (uma linha por rodada) — ver scoutStore.ts */
+  scoutRodadas: new Collection<RodadaScoutRow>("scout-rodadas"),
+  scoutAtletas: new Collection<AtletaScoutRow>("scout-atletas"),
+  scoutTemporadas: new Collection<TemporadaScoutRow>("scout-temporadas"),
+  syncLogs: new Collection<SyncLogRow>("sync-logs"),
 };
 
 export function newId(): string {

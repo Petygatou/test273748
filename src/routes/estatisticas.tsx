@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowDownUp, BookOpen, Columns3, Grid3x3, Scale, Search, Shield, Swords, Table } from "lucide-react";
+import { ArrowDownUp, BookOpen, Columns3, Crosshair, Grid3x3, Scale, Search, Shield, Swords, Table } from "lucide-react";
 import { useMemo, useState } from "react";
 import { SERIES_A, SERIES_B, divergingColor } from "../components/charts";
 import { OutcomeBar } from "../components/FixtureCard";
 import { Sheet } from "../components/Sheet";
 import { VsAdversario } from "../components/VsAdversario";
+import { Cruzamento } from "../components/Cruzamento";
 import { X1 } from "../components/X1";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import { ALL_POSITIONS, POSITIONS, SCORING, SCOUT_LABELS, type PositionId, type ScoutKey } from "../engine/rules";
@@ -17,9 +18,10 @@ import { COLUNAS, COLUNAS_PADRAO, GRUPOS, timesNoJogo } from "../lib/mercadoColu
 import { searchPlayers } from "../lib/search";
 import { KEYS, useLocal } from "../lib/storage";
 
-type Tab = "mercado" | "x1" | "confrontos" | "cedencia" | "times" | "glossario";
+type Tab = "mercado" | "cruzamento" | "x1" | "confrontos" | "cedencia" | "times" | "glossario";
 const TABS: Array<{ value: Tab; label: string; Icon: typeof Table }> = [
   { value: "mercado", label: "Mercado", Icon: Table },
+  { value: "cruzamento", label: "Cruzamento de Scout", Icon: Crosshair },
   { value: "x1", label: "Duelo X1", Icon: Scale },
   { value: "confrontos", label: "Confrontos", Icon: Swords },
   { value: "cedencia", label: "Cedência", Icon: Grid3x3 },
@@ -28,10 +30,11 @@ const TABS: Array<{ value: Tab; label: string; Icon: typeof Table }> = [
 ];
 
 export const Route = createFileRoute("/estatisticas")({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab; a?: number; b?: number } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab; a?: number; b?: number; c?: number } => ({
     tab: TABS.some((t) => t.value === s.tab) ? (s.tab as Tab) : undefined,
     a: s.a != null && !Number.isNaN(Number(s.a)) ? Number(s.a) : undefined,
     b: s.b != null && !Number.isNaN(Number(s.b)) ? Number(s.b) : undefined,
+    c: s.c != null && Number(s.c) > 0 ? Number(s.c) : undefined,
   }),
   component: StatsPage,
 });
@@ -49,7 +52,7 @@ function StatsPage() {
       <div>
         <h1 className="font-display text-2xl font-extrabold">Estatísticas</h1>
         <p className="text-sm text-[var(--color-ink-3)]">
-          Tudo sobre a rodada {a.rodada}: mercado completo, duelo entre atletas, confrontos e o que cada time cede por posição.{" "}
+          Tudo sobre a rodada {a.rodada}: mercado completo, cruzamento de scout, duelo entre atletas, confrontos e o que cada time cede por posição.{" "}
           <Link to="/modelo" className="font-semibold text-[var(--color-brand)] underline">
             Veja a precisão do modelo
           </Link>
@@ -63,6 +66,7 @@ function StatsPage() {
         ))}
       </div>
       {tab === "mercado" && <Mercado a={a} />}
+      {tab === "cruzamento" && <Cruzamento atletaId={search.c} onAtleta={(c) => navigate({ search: (s) => ({ ...s, c }) })} />}
       {tab === "x1" && <X1 a={a} ida={search.a} idb={search.b} onChange={(ida, idb) => navigate({ search: (s) => ({ ...s, a: ida, b: idb }), replace: true })} />}
       {tab === "confrontos" && <Confrontos a={a} />}
       {tab === "cedencia" && <Cedencia a={a} />}

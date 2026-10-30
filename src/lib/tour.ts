@@ -53,10 +53,15 @@ export const CAPITULOS: Array<{ id: CapituloId; nome: string; resumo: string; to
   {
     id: "estatisticas",
     nome: "Estatísticas e Duelo X1",
-    resumo: "Mercado completo, comparação lado a lado, confrontos e o que cada time cede.",
+    resumo: "Mercado completo, cruzamento de scout, comparação lado a lado, confrontos e o que cada time cede.",
     to: "/estatisticas",
     Icon: BarChart3,
-    passos: ["Mercado: escolha as colunas (mais de 40 métricas) e toque no título para ordenar.", "Confrontos: chance de cada time vencer e de marcar 1, 2 ou 3+ gols.", "Cedência: filtre por casa/fora e últimos 3, 5 ou 10 jogos; toque no número para ver quem pontuou."],
+    passos: [
+      "Mercado: escolha as colunas (mais de 40 métricas) e toque no título para ordenar.",
+      "Cruzamento de Scout: escolha um scout e veja quem tem mais chance de fazê-lo contra o próximo adversário, com o histórico e a metodologia.",
+      "Confrontos: chance de cada time vencer e de marcar 1, 2 ou 3+ gols.",
+      "Cedência: filtre por casa/fora e últimos 3, 5 ou 10 jogos; toque no número para ver quem pontuou.",
+    ],
   },
   {
     id: "aovivo",
@@ -166,7 +171,7 @@ export const PASSOS: TourStep[] = [
     to: "/estatisticas",
     alvo: "stats-abas",
     titulo: "Tudo em abas",
-    texto: "Mercado completo, Duelo X1 para tirar dúvidas entre dois atletas, Confrontos, Cedência e Força dos times.",
+    texto: "Mercado completo, Cruzamento de Scout (atleta × adversário, scout a scout), Duelo X1, Confrontos, Cedência e Força dos times.",
     experimente: "Abra a aba Duelo X1.",
   },
   {

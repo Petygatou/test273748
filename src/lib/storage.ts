@@ -97,4 +97,5 @@ export const KEYS = {
   mercadoCols: "cfc:mercado-colunas-v2",
   ligasRecentes: "cfc:ligas-recentes",
   avisosVistosEm: "cfc:avisos-aparelho-vistos",
+  cruzamento: "cfc:cruzamento-filtros-v1",
 } as const;
