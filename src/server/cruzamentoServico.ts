@@ -185,5 +185,8 @@ export async function times(q: PedidoTimes) {
   const partidas = d.matches
     .filter((m) => m.rodada === rodada)
     .map((m) => ({ matchId: m.id, casaId: m.casaId, foraId: m.foraId, data: m.data ?? null, golsCasa: m.golsCasa ?? null, golsFora: m.golsFora ?? null }));
-  return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, geradoEm: new Date().toISOString() };
+  // quanto das atuações de laterais tem o lado (LE/LD) conhecido: sem isso o filtro por lado fica incompleto
+  const lat = base.linhas.filter((l) => l.pos === 2);
+  const ladosCobertura = lat.length ? Math.round((lat.filter((l) => l.lado).length / lat.length) * 1000) / 1000 : 0;
+  return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, ladosCobertura, geradoEm: new Date().toISOString() };
 }
