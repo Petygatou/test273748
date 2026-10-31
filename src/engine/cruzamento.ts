@@ -167,16 +167,7 @@ const doSetor = (setor: SetorTimes) => (l: Linha) =>
  */
 export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRodada?: PlayerRound[]): LinhaTimes[] {
   const noSetor = doSetor(opts.setor);
-  const porJogo = memo(base, "times:porJogo", () => {
-    const m = new Map<string, Linha[]>();
-    for (const l of base.linhas) {
-      const k = `${l.rodada}:${l.clubeId}`;
-      const a = m.get(k);
-      if (a) a.push(l);
-      else m.set(k, [l]);
-    }
-    return m;
-  });
+  const porJogo = linhasPorJogo(base);
   const sg = opts.scout === "SG";
   /** o que o time `quem` fez em cada jogo da lista */
   const somar = (quem: (j: JogoClube) => number, jogos: JogoClube[], semGol: (j: JogoClube) => boolean): LadoTimes => {
@@ -229,4 +220,125 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
     out.push({ matchId: m.id, timeId: time, adversarioId: adv, timeEmCasa: emCasa, conquistado, cedido, real });
   }
   return out;
+}
+
+/* ------------------- conquistado × cedido por posição ------------------- */
+
+/** Colunas da tabela por posição: as do Cartola, com os laterais também por lado. */
+export type ColunaPos = "GOL" | "LAT" | "LD" | "LE" | "ZAG" | "MEI" | "ATA" | "TEC";
+export const COLUNAS_POS: ColunaPos[] = ["GOL", "LAT", "LD", "LE", "ZAG", "MEI", "ATA", "TEC"];
+const COLUNA_DA_POS: Record<PositionId, ColunaPos> = { 1: "GOL", 2: "LAT", 3: "ZAG", 4: "MEI", 5: "ATA", 6: "TEC" };
+
+/** Métricas da tabela: a média é sempre por atuação (cada atleta em cada jogo). */
+export const METRICAS_POS = ["pontos", "DS", "FIN", "GA", "FS", "DE"] as const;
+export type MetricaPos = (typeof METRICAS_POS)[number];
+export type SomaPos = Record<MetricaPos, number> & { /** atuações */ n: number };
+
+/** Colunas em que a atuação entra: a posição e, para lateral com lado conhecido, o lado. */
+export const colunasDaLinha = (l: Pick<Linha, "pos" | "lado">): ColunaPos[] => (l.pos === 2 && l.lado ? ["LAT", l.lado === "E" ? "LE" : "LD"] : [COLUNA_DA_POS[l.pos]]);
+export const valorMetrica = (s: Scouts, pontos: number, m: MetricaPos) => (m === "pontos" ? pontos : valorScout(s, m));
+
+export interface JogoPos {
+  rodada: number;
+  adversarioId: number;
+  casa: boolean;
+  golsPro: number;
+  golsContra: number;
+}
+
+/** O que um clube conquistou (atletas dele) ou cedeu (atletas de quem o enfrentou) num mando. */
+export interface BlocoPos {
+  clubeId: number;
+  casa: boolean;
+  tipo: "conquista" | "cede";
+  /** jogos que entraram na conta, do mais recente para o mais antigo */
+  jogos: JogoPos[];
+  cols: Record<ColunaPos, SomaPos>;
+}
+
+export interface LinhaPos {
+  matchId: number;
+  casaId: number;
+  foraId: number;
+  /** mandante: em casa; visitante: fora */
+  mandante: { conquista: BlocoPos; cede: BlocoPos };
+  visitante: { conquista: BlocoPos; cede: BlocoPos };
+}
+
+export interface ResultadoPos {
+  linhas: LinhaPos[];
+  /** média da liga no mesmo recorte: atuações de quem jogou em casa e de quem jogou fora */
+  referencia: { casa: Record<ColunaPos, SomaPos>; fora: Record<ColunaPos, SomaPos> };
+}
+
+const somaVazia = (): SomaPos => ({ n: 0, pontos: 0, DS: 0, FIN: 0, GA: 0, FS: 0, DE: 0 });
+const colunasVazias = () => Object.fromEntries(COLUNAS_POS.map((c) => [c, somaVazia()])) as Record<ColunaPos, SomaPos>;
+function somar(alvo: SomaPos, l: Pick<Linha, "pontos" | "scout">) {
+  alvo.n += 1;
+  for (const m of METRICAS_POS) alvo[m] += valorMetrica(l.scout, l.pontos, m);
+}
+
+function linhasPorJogo(base: BaseCruzamento) {
+  return memo(base, "times:porJogo", () => {
+    const m = new Map<string, Linha[]>();
+    for (const l of base.linhas) {
+      const k = `${l.rodada}:${l.clubeId}`;
+      const a = m.get(k);
+      if (a) a.push(l);
+      else m.set(k, [l]);
+    }
+    return m;
+  });
+}
+
+/**
+ * Jogos de um bloco com as atuações que entram nele. Conquista: atletas do próprio clube;
+ * cede: atletas de quem o enfrentou. Últimos N jogos no mando, contando só jogos com dados
+ * da fonte (o que faltar é trocado pelo jogo anterior, como no cruzamento por scout).
+ */
+export function jogosDoBloco(base: BaseCruzamento, clube: number, casa: boolean, tipo: "conquista" | "cede", recorte: number | null) {
+  const porJogo = linhasPorJogo(base);
+  const quem = (j: JogoClube) => (tipo === "conquista" ? clube : j.opp);
+  const js = (base.jogosClube.get(clube) ?? []).filter((j) => j.casa === casa && porJogo.get(`${j.rodada}:${quem(j)}`)?.length);
+  return (recorte ? js.slice(0, recorte) : js).map((j) => ({
+    jogo: { rodada: j.rodada, adversarioId: j.opp, casa: j.casa, golsPro: j.golsPro, golsContra: j.golsContra } as JogoPos,
+    linhas: porJogo.get(`${j.rodada}:${quem(j)}`)!,
+  }));
+}
+
+export function blocoPos(base: BaseCruzamento, clube: number, casa: boolean, tipo: "conquista" | "cede", recorte: number | null): BlocoPos {
+  return memo(base, `pos:${clube}:${casa}:${tipo}:${recorte}`, () => {
+    const cols = colunasVazias();
+    const jogos = jogosDoBloco(base, clube, casa, tipo, recorte);
+    for (const { linhas } of jogos) for (const l of linhas) for (const c of colunasDaLinha(l)) somar(cols[c], l);
+    return { clubeId: clube, casa, tipo, jogos: jogos.map((j) => j.jogo), cols };
+  });
+}
+
+/**
+ * Conquistado × cedido por posição, jogo a jogo da rodada (média por atuação):
+ *  - mandante: o que os atletas dele fizeram nos últimos N jogos EM CASA (conquista) e o que
+ *    os atletas dos visitantes fizeram contra ele nesses jogos (cede);
+ *  - visitante: o mesmo nos últimos N jogos FORA.
+ * Tabela dos mandantes = conquista do mandante × cede do visitante;
+ * tabela dos visitantes = cede do mandante × conquista do visitante.
+ */
+export function cruzarPosicoes(base: BaseCruzamento, recorte: number | null): ResultadoPos {
+  const lado = (clube: number, casa: boolean) => ({ conquista: blocoPos(base, clube, casa, "conquista", recorte), cede: blocoPos(base, clube, casa, "cede", recorte) });
+  const linhas = base.matches
+    .filter((x) => x.rodada === base.rodadaAlvo)
+    .sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.id - b.id)
+    .map((m) => ({ matchId: m.id, casaId: m.casaId, foraId: m.foraId, mandante: lado(m.casaId, true), visitante: lado(m.foraId, false) }));
+  // referência: todas as atuações de todos os clubes no mesmo recorte e mando
+  const referencia = { casa: colunasVazias(), fora: colunasVazias() };
+  for (const clube of base.jogosClube.keys())
+    for (const casa of [true, false]) {
+      const b = blocoPos(base, clube, casa, "conquista", recorte);
+      const alvo = casa ? referencia.casa : referencia.fora;
+      for (const c of COLUNAS_POS) {
+        alvo[c].n += b.cols[c].n;
+        for (const m of METRICAS_POS) alvo[c][m] += b.cols[c][m];
+      }
+    }
+  return { linhas, referencia };
 }

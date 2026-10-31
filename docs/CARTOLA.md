@@ -122,6 +122,20 @@ O cadastro dos scouts (código, nome, categoria, posições, pontos) fica em có
 - **Parciais e jogos futuros** nunca entram no histórico.
 - **Painel ADM:** o admin pode testar cada endpoint (campos, tempo, HTTP) e sincronizar na hora.
 
+## Conquistado × Cedido por posição (Estatísticas → Cedência)
+
+As duas tabelas de cada rodada, com a média dos últimos N jogos (3, 5, 10 ou todos) **respeitando o mando**:
+- **Mandantes:** o que cada posição do mandante **conquista em casa** × o que o visitante **cede fora**;
+- **Visitantes:** o que o mandante **cede em casa** × o que cada posição do visitante **conquista fora**.
+
+Colunas: GOL, LD, LE, ZAG, MEI, ATA e TEC (LAT no lugar de LD/LE enquanto nenhuma escalação disser o lado). A API do Cartola não separa volante de meia, então não há coluna VOL.
+
+- Cada número é a **média por atuação**: soma da métrica da posição ÷ atletas que entraram em campo, somando os N jogos. "Conquista" usa os atletas do próprio time. "Cede" usa os atletas de quem enfrentou o time. As métricas são pontos, desarmes, finalizações, G+A, faltas sofridas e defesas.
+- A cor compara com a média de todos os times no mesmo recorte e mando. Laranja nos dois lados = bom encaixe.
+- Os **melhores encaixes** ordenam a média dos dois lados, encolhida para a média da liga, para que 3 atuações de goleiro não pesem como 9 de meia.
+- Ao tocar num número aparece a conta jogo a jogo (atleta por atleta) até chegar à média.
+- O "cede" bate com a Matriz de cedência nos mesmos últimos N jogos; um teste confere isso.
+
 ## Lado dos laterais (LE/LD), descoberto sozinho
 
 O Cartola só diz "lateral". O site descobre o lado lendo a escalação de cada jogo:

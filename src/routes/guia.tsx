@@ -29,6 +29,7 @@ const TERMOS = [
   ["Cartoletas (C$)", "O dinheiro do Cartola. Sua tropa precisa caber nesse orçamento."],
   ["Valorização", "Quanto o preço do atleta deve subir ou cair depois da rodada."],
   ["Cedência", "O quanto um time costuma entregar de pontos para cada posição adversária."],
+  ["Conquistado × Cedido", "Quanto cada posição do time faz no mando dele × quanto o adversário entrega a ela. Laranja dos dois lados é encaixe bom."],
   ["Mitar", "Fazer uma pontuação muito acima da média. É o objetivo."],
 ] as const;
 

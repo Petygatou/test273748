@@ -98,4 +98,6 @@ export const KEYS = {
   ligasRecentes: "cfc:ligas-recentes",
   avisosVistosEm: "cfc:avisos-aparelho-vistos",
   cruzamentoTimes: "cfc:cruzamento-times-v1",
+  conquistaCede: "cfc:conquista-cede-v1",
+  cedenciaVisao: "cfc:cedencia-visao",
 } as const;
