@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generateDemoSeason } from "../src/data/demoSeason";
-import { analisarAtleta, calibrar, cedidoPor, confrontoDe, linhaRanking, liga, prepararBase, simularPontos } from "../src/engine/cruzamento";
+import { analisarAtleta, calibrar, cedidoPor, confrontoDe, cruzarTimes, linhaRanking, liga, prepararBase, simularPontos } from "../src/engine/cruzamento";
 import { SCORING, type PositionId, type Scouts } from "../src/engine/rules";
 import { validateScoring } from "../src/engine/rulesCheck";
 import { conferirPontuacao, pontuacaoVigente, scoutsDaPosicao, valorScout } from "../src/engine/scoutDefs";
@@ -273,4 +273,63 @@ describe("conferência fora da amostra", () => {
     // o modelo é pelo menos tão bom quanto a frequência da posição nos scouts de volume
     for (const c of ["FIN", "DS"] as const) expect(cal.porScout.find((x) => x.codigo === c && x.limiar === 1)!.habilidade).toBeGreaterThan(0);
   }, 60000);
+});
+
+describe("cruzamento por times (conquistado × cedido)", () => {
+  // rodada 7: 1 (casa) x 2 e 3 (casa) x 4. Em casa o clube 1 jogou as rodadas 1, 3 e 5;
+  // o clube 2 jogou fora as rodadas 1 (vs 1), 2 (vs 4) e 6 (vs 3).
+  const base = prepararBase(mini(), 7);
+  const op = { scout: "FD" as const, setor: 5 as const, recorte: null, lado: "mandantes" as const };
+
+  it("conquistado = o que o setor do time fez no mesmo mando; cedido = o que o adversário permitiu no mando oposto", () => {
+    const [l] = cruzarTimes(base, op);
+    expect(l).toMatchObject({ timeId: 1, adversarioId: 2, timeEmCasa: true });
+    // atleta 100 em casa: 0 (R1) + 2 (R3) + 4 (R5)
+    expect(l.conquistado).toMatchObject({ total: 6, jogos: 3, media: 2 });
+    expect(l.conquistado.lista.map((j) => j.rodada)).toEqual([5, 3, 1]);
+    // quem enfrentou o clube 2 fora dele: clube 1 na R1 (0), clube 4 na R2 (1), clube 3 na R6 (1)
+    expect(l.cedido).toMatchObject({ total: 2, jogos: 3 });
+    expect(l.cedido.lista.map((j) => [j.rodada, j.adversarioId, j.valor])).toEqual([
+      [6, 3, 1],
+      [2, 4, 1],
+      [1, 1, 0],
+    ]);
+    // a rodada 7 (sem placar, parcial) nunca entra
+    expect([...l.conquistado.lista, ...l.cedido.lista].every((j) => j.rodada < 7)).toBe(true);
+  });
+
+  it("visitantes invertem os mandos e o recorte pega só os últimos N jogos", () => {
+    const v = cruzarTimes(base, { ...op, lado: "visitantes" });
+    expect(v[0]).toMatchObject({ timeId: 2, adversarioId: 1, timeEmCasa: false });
+    expect(v[0].conquistado.jogos).toBe(3); // clube 2 fora: R1, R2, R6
+    expect(v[0].cedido.lista.map((j) => j.rodada)).toEqual([5, 3, 1]); // clube 1 em casa
+    const r2 = cruzarTimes(base, { ...op, recorte: 2 })[0];
+    expect(r2.conquistado).toMatchObject({ total: 6, jogos: 2 }); // R5 (4) + R3 (2)
+    expect(cruzarTimes(base, { ...op, recorte: 1 })[0].conquistado.total).toBe(4);
+  });
+
+  it("SG conta jogos sem sofrer gol (conquistado) e jogos em que o adversário não marcou (cedido)", () => {
+    const [l] = cruzarTimes(base, { ...op, scout: "SG", setor: 1 });
+    expect(l.conquistado).toMatchObject({ total: 3, jogos: 3 }); // 1 x 0 nas três
+    expect(l.cedido).toMatchObject({ total: 1, jogos: 3 }); // só na R1 o clube 2 não marcou
+  });
+
+  it("jogo sem dados da fonte fica fora da conta (não vira zero)", () => {
+    const d = mini();
+    const semR3 = prepararBase({ ...d, history: d.history.filter((h) => !(h.rodada === 3 && h.clubeId === 1)) }, 7);
+    expect(cruzarTimes(semR3, op)[0].conquistado).toMatchObject({ total: 4, jogos: 2 });
+  });
+
+  it("rodada passada traz o que o setor fez de fato na partida", () => {
+    const d = mini();
+    const b6 = prepararBase(d, 6);
+    const l = cruzarTimes(
+      b6,
+      op,
+      d.history.filter((h) => h.rodada === 6),
+    );
+    // R6: 4 (casa) x 1 e 3 (casa) x 2; o atacante do clube 4 fez 1 FD
+    const doClube4 = l.find((x) => x.timeId === 4)!;
+    expect(doClube4.real).toBe(1);
+  });
 });

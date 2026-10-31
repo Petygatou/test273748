@@ -1112,3 +1112,125 @@ export function calibrar(data: DadosBase & { rodadaAtual: number }, pontuacao: R
     previsoes: ps.length,
   };
 }
+
+/* ------------------------- cruzamento por times ------------------------- */
+
+/** Setor analisado: uma posição, laterais por lado, ou o time inteiro (sem técnico). */
+export type SetorTimes = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD";
+
+export interface JogoTimes {
+  rodada: number;
+  /** quem estava do outro lado nesse jogo */
+  adversarioId: number;
+  casa: boolean;
+  golsPro: number;
+  golsContra: number;
+  valor: number;
+  atletas: Array<{ atletaId: number; valor: number }>;
+}
+
+export interface LadoTimes {
+  total: number;
+  jogos: number;
+  media: number;
+  lista: JogoTimes[];
+}
+
+export interface LinhaTimes {
+  matchId: number;
+  timeId: number;
+  adversarioId: number;
+  /** o time analisado joga em casa nesta partida */
+  timeEmCasa: boolean;
+  /** o que o setor do time analisado fez nos últimos jogos no mesmo mando */
+  conquistado: LadoTimes;
+  /** o que o adversário permitiu ao mesmo setor nos últimos jogos no mando oposto */
+  cedido: LadoTimes;
+  /** rodada passada: o que o setor do time analisado fez nesta partida */
+  real?: number | null;
+}
+
+export interface OpcoesTimes {
+  scout: CruzScout;
+  setor: SetorTimes;
+  /** últimos N jogos no mando; null = todos */
+  recorte: number | null;
+  lado: "mandantes" | "visitantes";
+}
+
+const doSetor = (setor: SetorTimes) => (l: Linha) =>
+  setor === "time" ? l.pos !== 6 : setor === "LE" ? l.pos === 2 && l.lado === "E" : setor === "LD" ? l.pos === 2 && l.lado === "D" : l.pos === setor;
+
+/**
+ * Cruzamento por times, jogo a jogo da rodada:
+ *  - Conquistado: soma do scout feita pelo setor do time analisado nos últimos N jogos
+ *    dele no MESMO mando desta partida (visitante → jogos fora);
+ *  - Cedido: soma do scout feita pelo mesmo setor dos times que enfrentaram o adversário,
+ *    nos últimos N jogos do adversário no mando OPOSTO (adversário em casa → jogos em casa).
+ * SG conta jogos: conquistado = jogos sem sofrer gol; cedido = jogos em que o adversário não marcou.
+ * Jogo sem nenhum registro do time no histórico (rodada que faltou na fonte) fica fora da conta.
+ */
+export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRodada?: PlayerRound[]): LinhaTimes[] {
+  const noSetor = doSetor(opts.setor);
+  const porJogo = memo(base, "times:porJogo", () => {
+    const m = new Map<string, Linha[]>();
+    for (const l of base.linhas) {
+      const k = `${l.rodada}:${l.clubeId}`;
+      const a = m.get(k);
+      if (a) a.push(l);
+      else m.set(k, [l]);
+    }
+    return m;
+  });
+  const sg = opts.scout === "SG";
+  /** o que o time `quem` fez em cada jogo da lista */
+  const somar = (quem: (j: JogoClube) => number, jogos: JogoClube[], semGol: (j: JogoClube) => boolean): LadoTimes => {
+    const lista: JogoTimes[] = [];
+    for (const j of jogos) {
+      const linhas = porJogo.get(`${j.rodada}:${quem(j)}`);
+      if (!linhas?.length) continue; // sem dados da fonte nesse jogo
+      const doLado = linhas.filter(noSetor);
+      const atletas = doLado.map((l) => ({ atletaId: l.atletaId, valor: valorScout(l.scout, opts.scout) })).filter((a) => a.valor);
+      const valor = sg ? (semGol(j) ? 1 : 0) : atletas.reduce((s, a) => s + a.valor, 0);
+      lista.push({ rodada: j.rodada, adversarioId: j.opp, casa: j.casa, golsPro: j.golsPro, golsContra: j.golsContra, valor, atletas: sg ? [] : atletas.sort((a, b) => b.valor - a.valor) });
+    }
+    const total = lista.reduce((s, x) => s + x.valor, 0);
+    return { total, jogos: lista.length, media: lista.length ? r3(total / lista.length) : 0, lista };
+  };
+  const ultimos = (clube: number, casa: boolean) => {
+    const js = (base.jogosClube.get(clube) ?? []).filter((j) => j.casa === casa);
+    return opts.recorte ? js.slice(0, opts.recorte) : js;
+  };
+  const out: LinhaTimes[] = [];
+  for (const m of base.matches.filter((x) => x.rodada === base.rodadaAlvo).sort((a, b) => (a.data ?? "").localeCompare(b.data ?? "") || a.id - b.id)) {
+    const emCasa = opts.lado === "mandantes";
+    const time = emCasa ? m.casaId : m.foraId;
+    const adv = emCasa ? m.foraId : m.casaId;
+    // conquistado: jogos do time no mesmo mando; o próprio time é quem faz o scout
+    const conquistado = somar(
+      () => time,
+      ultimos(time, emCasa),
+      (j) => j.golsContra === 0,
+    );
+    // cedido: jogos do adversário no mando oposto; quem faz o scout é o time que o enfrentou
+    const cedido = somar(
+      (j) => j.opp,
+      ultimos(adv, !emCasa),
+      (j) => j.golsPro === 0,
+    );
+    let real: number | null | undefined;
+    if (historicoRodada) {
+      const linhas = historicoRodada.filter((h) => h.clubeId === time);
+      if (!linhas.length) real = null;
+      else if (sg) {
+        const gc = emCasa ? m.golsFora : m.golsCasa;
+        real = gc == null ? null : gc === 0 ? 1 : 0;
+      } else {
+        const lado = (h: PlayerRound) => (h.posicaoId === 2 ? base.porAtleta.get(h.atletaId)?.find((l) => l.lado)?.lado : undefined);
+        real = linhas.filter((h) => noSetor({ pos: h.posicaoId, lado: lado(h) } as Linha)).reduce((s, h) => s + valorScout(h.scout, opts.scout), 0);
+      }
+    }
+    out.push({ matchId: m.id, timeId: time, adversarioId: adv, timeEmCasa: emCasa, conquistado, cedido, real });
+  }
+  return out;
+}

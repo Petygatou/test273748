@@ -3,13 +3,14 @@
  * guardada), confere a pontuação, calibra o modelo e monta ranking e fichas.
  * As funções de servidor (fnsCruzamento.ts) só validam a entrada e chamam este módulo.
  */
-import type { FiltroMando, Janela } from "../engine/cruzamento";
+import type { FiltroMando, Janela, SetorTimes } from "../engine/cruzamento";
 import type { PositionId } from "../engine/rules";
 import type { CruzScout } from "../engine/scoutDefs";
 
 export type Comum = { temporada?: number; rodada?: number; janela: Janela; mando: FiltroMando; adversarioId?: number; mandoConfronto?: "casa" | "fora" };
 export type PedidoRanking = Comum & { scout: CruzScout; limiar: number; posicao?: PositionId; clubeId?: number; somenteProvaveis: boolean };
 export type PedidoAtleta = Comum & { atletaId: number };
+export type PedidoTimes = { temporada?: number; rodada?: number; scout: CruzScout; setor: SetorTimes; recorte: number | null; lado: "mandantes" | "visitantes" };
 
 /** Temporada pedida: a atual (da API ou importada) ou uma guardada no banco. */
 export async function carregar(temporada?: number) {
@@ -168,4 +169,21 @@ export async function sincronizar() {
     registrarErroFonte("Cartola API", msg);
     return { ok: false, ms: Date.now() - t0, erro: msg };
   }
+}
+
+/** Cruzamento por times: cada jogo da rodada, conquistado × cedido. */
+export async function times(q: PedidoTimes) {
+  const { data: d, atual } = await carregar(q.temporada);
+  const rodada = rodadaValida(d, atual, q.rodada);
+  const base = await baseDe(d, rodada);
+  const { cruzarTimes } = await import("../engine/cruzamento");
+  const passada = rodada < d.rodadaAtual;
+  const linhas = cruzarTimes(base, q, passada ? d.history.filter((h) => h.rodada === rodada) : undefined);
+  const nomes: Record<number, string> = {};
+  const porId = new Map(d.athletes.map((a) => [a.id, a.apelido] as const));
+  for (const l of linhas) for (const j of [...l.conquistado.lista, ...l.cedido.lista]) for (const a of j.atletas) nomes[a.atletaId] = porId.get(a.atletaId) ?? `Atleta ${a.atletaId}`;
+  const partidas = d.matches
+    .filter((m) => m.rodada === rodada)
+    .map((m) => ({ matchId: m.id, casaId: m.casaId, foraId: m.foraId, data: m.data ?? null, golsCasa: m.golsCasa ?? null, golsFora: m.golsFora ?? null }));
+  return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, geradoEm: new Date().toISOString() };
 }

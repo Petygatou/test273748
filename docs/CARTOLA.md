@@ -94,7 +94,14 @@ Observação honesta: este módulo foi testado com respostas simuladas no format
 
 ## Cruzamento de Scout (Estatísticas → Cruzamento de Scout)
 
-Cruza o que cada atleta faz por jogo com o que o adversário cede à posição, scout a scout, separando sempre o **histórico** (o que aconteceu) da **projeção** (o que pode acontecer).
+Duas visões:
+
+- **Por time (padrão).** Para cada jogo da rodada, escolhendo scout, posição (ou time inteiro, laterais por lado), recorte (últimos 3, 5, 10 ou todos) e quem analisar (mandantes ou visitantes):
+  - **Conquistado** = total do scout feito por essa posição do time analisado nos últimos N jogos dele **no mesmo mando**;
+  - **Cedido** = total que o adversário permitiu a essa posição nos últimos N jogos dele **no mando oposto**.
+
+  O SG conta jogos sem sofrer gol. Tocar num jogo mostra de onde sai cada número (jogo a jogo, com os atletas). Em rodada passada aparece o que aconteceu de fato.
+- **Por atleta.** Cruza o que cada atleta faz por jogo com o que o adversário cede à posição, scout a scout, separando sempre o **histórico** (o que aconteceu) da **projeção** (o que pode acontecer).
 
 **Dados.** Tudo vem da API pública do Cartola:
 - `/atletas/pontuados/{rodada}` traz os scouts de cada atleta que entrou em campo em cada rodada encerrada (conferido: os pontos recalculados batem com os oficiais, então são scouts por jogo, não acumulados);

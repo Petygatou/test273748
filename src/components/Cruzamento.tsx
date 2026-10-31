@@ -21,6 +21,7 @@ import {
   type CruzamentoRanking,
 } from "../server/fnsCruzamento";
 import { BarrasPartidas, FaixaCenarios, IndiceComparativo } from "./cruzamento/graficos";
+import { PorTimes } from "./cruzamento/PorTimes";
 import { Alert, Card, ClubBadge, ErrorBox, PlayerPhoto, PosBadge, SectionTitle, Seg, Skeleton, StatusPill } from "./ui";
 
 type JanelaUi = "t" | "3" | "5" | "10";
@@ -67,6 +68,9 @@ export function Cruzamento({ atletaId, onAtleta }: { atletaId?: number; onAtleta
   const [temporada, setTemporada] = useState<number | undefined>();
   const [rodada, setRodada] = useState<number | undefined>();
   const [maisFiltros, setMaisFiltros] = useState(false);
+  const [visaoSalva, setVisao] = useLocal<"times" | "atleta">(KEYS.cruzamentoVisao, "times");
+  // link direto para um atleta abre a análise por atleta
+  const visao = atletaId ? "atleta" : visaoSalva;
   const opcoes = useQuery({ queryKey: ["cruz-opcoes", temporada ?? 0], queryFn: () => fetchCruzamentoOpcoes({ data: { temporada } }), staleTime: 5 * 60_000 });
   const o = opcoes.data;
   const clubes = useMemo(() => Object.fromEntries((o?.clubes ?? []).map((c) => [c.id, c as Club])) as Record<number, Club>, [o]);
@@ -95,168 +99,188 @@ export function Cruzamento({ atletaId, onAtleta }: { atletaId?: number; onAtleta
       <Card className="p-3 sm:p-4">
         <SectionTitle
           title="Cruzamento de Scout"
-          subtitle="O que cada atleta faz por jogo × o que o adversário cede à posição, scout a scout. Histórico real (o que aconteceu) separado da projeção (o que pode acontecer), com a metodologia aberta."
+          subtitle="Por time: em cada jogo da rodada, o que o setor do time fez no mesmo mando × o que o adversário cedeu a esse setor. Por atleta: histórico de cada jogador × adversário, com projeção e metodologia aberta."
           icon={<FlaskConical size={18} className="text-[var(--color-brand)]" />}
         />
         <SituacaoDados o={o} />
+        <div className="mt-3">
+          <Seg
+            label="Visão"
+            value={visao}
+            onChange={(v) => {
+              setVisao(v);
+              if (v === "times" && atletaId) onAtleta(undefined);
+            }}
+            options={[
+              { value: "times", label: "Por time (rodada)" },
+              { value: "atleta", label: "Por atleta" },
+            ]}
+          />
+        </div>
       </Card>
 
-      <Card className="p-3 sm:p-4">
-        {/* celular: os filtros menos usados ficam recolhidos */}
-        <button type="button" className="btn btn-ghost mb-2 w-full justify-between text-sm md:hidden" onClick={() => setMaisFiltros((v) => !v)} aria-expanded={maisFiltros}>
-          <span className="truncate">
-            Filtros: {o.temporada} · rodada {rodadaEf} · {f.posicao === "all" ? "todas as posições" : POSITIONS[Number(f.posicao) as PositionId].abbr} ·{" "}
-            {f.janela === "t" ? "temporada" : `últ. ${f.janela}`}
-            {f.mando !== "todos" ? ` · ${f.mando}` : ""}
-            {f.clubeId ? ` · ${clubes[f.clubeId]?.abreviacao}` : ""}
-            {f.adversarioId ? ` · vs ${clubes[f.adversarioId]?.abreviacao}` : ""}
-          </span>
-          <ChevronRight size={15} className={`shrink-0 transition-transform ${maisFiltros ? "rotate-90" : ""}`} aria-hidden />
-        </button>
-        <div className={maisFiltros ? "" : "hidden md:block"}>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Campo rotulo="Temporada">
-              <select
-                className="input"
-                value={o.temporada}
-                onChange={(e) => {
-                  const t = Number(e.target.value);
-                  setTemporada(t);
-                  setRodada(undefined);
-                }}
-                aria-label="Temporada"
-              >
-                {o.temporadas.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                    {t === o.temporadas[0] && o.atual ? " (atual)" : ""}
-                  </option>
-                ))}
-              </select>
-            </Campo>
-            <Campo rotulo="Rodada analisada">
-              <select className="input" value={rodadaEf} onChange={(e) => setRodada(Number(e.target.value))} aria-label="Rodada">
-                {Array.from({ length: Math.max(0, (o.atual ? o.rodadaAtual : o.rodadaAtual - 1) - 1) }, (_, i) => i + 2)
-                  .reverse()
-                  .map((r) => (
-                    <option key={r} value={r}>
-                      Rodada {r}
-                      {o.atual && r === o.rodadaAtual ? " (próxima)" : " (já jogada: previsão × real)"}
-                    </option>
-                  ))}
-              </select>
-            </Campo>
-            <Campo rotulo="Clube">
-              <select className="input" value={f.clubeId} onChange={(e) => set({ clubeId: Number(e.target.value) })} aria-label="Clube">
-                <option value={0}>Todos os clubes</option>
-                {o.clubes
-                  .slice()
-                  .sort((x, y) => x.nome.localeCompare(y.nome))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-              </select>
-            </Campo>
-            <Campo rotulo="Adversário">
-              <select className="input" value={f.adversarioId} onChange={(e) => set({ adversarioId: Number(e.target.value) })} aria-label="Adversário">
-                <option value={0}>Qualquer adversário</option>
-                {o.clubes
-                  .slice()
-                  .sort((x, y) => x.nome.localeCompare(y.nome))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      Quem enfrenta o {c.nome}
-                    </option>
-                  ))}
-              </select>
-            </Campo>
-          </div>
-          <div className="mt-2 flex flex-wrap items-end gap-2">
-            <Campo rotulo="Posição">
-              <Seg
-                label="Posição"
-                value={f.posicao}
-                onChange={(v) => set({ posicao: v })}
-                options={[{ value: "all", label: "Todas" }, ...ALL_POSITIONS.map((p) => ({ value: `${p}` as `${PositionId}`, label: POSITIONS[p].abbr as string }))]}
-              />
-            </Campo>
-            <Campo rotulo="Partidas anteriores">
-              <Seg
-                label="Partidas anteriores"
-                value={f.janela}
-                onChange={(v) => set({ janela: v })}
-                options={[
-                  { value: "3", label: "Últ. 3" },
-                  { value: "5", label: "Últ. 5" },
-                  { value: "10", label: "Últ. 10" },
-                  { value: "t", label: "Temporada" },
-                ]}
-              />
-            </Campo>
-            <Campo rotulo="Mando (histórico)">
-              <Seg
-                label="Mando"
-                value={f.mando}
-                onChange={(v) => set({ mando: v })}
-                options={[
-                  { value: "todos", label: "Todos" },
-                  { value: "casa", label: "Em casa" },
-                  { value: "fora", label: "Fora" },
-                ]}
-              />
-            </Campo>
-          </div>
-        </div>
-        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Campo rotulo="Scout analisado">
-            <div className="flex flex-wrap gap-2">
-              <select className="input min-w-0 flex-1" value={scoutValido} onChange={(e) => set({ scout: e.target.value as CruzScout })} aria-label="Scout">
-                {(["ofensivo", "defensivo", "negativo", "coletivo"] as const).map((cat) => {
-                  const ds = scoutsDisponiveis.filter((d) => d.categoria === cat);
-                  return ds.length ? (
-                    <optgroup key={cat} label={cat === "ofensivo" ? "Ataque" : cat === "defensivo" ? "Defesa" : cat === "negativo" ? "Negativos" : "Coletivo"}>
-                      {ds.map((d) => (
-                        <option key={d.codigo} value={d.codigo}>
-                          {d.nome} ({d.codigo})
+      {visao === "times" ? (
+        <PorTimes o={o} clubes={clubes} rodada={rodadaEf} setRodada={setRodada} />
+      ) : (
+        <>
+          <Card className="p-3 sm:p-4">
+            {/* celular: os filtros menos usados ficam recolhidos */}
+            <button type="button" className="btn btn-ghost mb-2 w-full justify-between text-sm md:hidden" onClick={() => setMaisFiltros((v) => !v)} aria-expanded={maisFiltros}>
+              <span className="truncate">
+                Filtros: {o.temporada} · rodada {rodadaEf} · {f.posicao === "all" ? "todas as posições" : POSITIONS[Number(f.posicao) as PositionId].abbr} ·{" "}
+                {f.janela === "t" ? "temporada" : `últ. ${f.janela}`}
+                {f.mando !== "todos" ? ` · ${f.mando}` : ""}
+                {f.clubeId ? ` · ${clubes[f.clubeId]?.abreviacao}` : ""}
+                {f.adversarioId ? ` · vs ${clubes[f.adversarioId]?.abreviacao}` : ""}
+              </span>
+              <ChevronRight size={15} className={`shrink-0 transition-transform ${maisFiltros ? "rotate-90" : ""}`} aria-hidden />
+            </button>
+            <div className={maisFiltros ? "" : "hidden md:block"}>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <Campo rotulo="Temporada">
+                  <select
+                    className="input"
+                    value={o.temporada}
+                    onChange={(e) => {
+                      const t = Number(e.target.value);
+                      setTemporada(t);
+                      setRodada(undefined);
+                    }}
+                    aria-label="Temporada"
+                  >
+                    {o.temporadas.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                        {t === o.temporadas[0] && o.atual ? " (atual)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </Campo>
+                <Campo rotulo="Rodada analisada">
+                  <select className="input" value={rodadaEf} onChange={(e) => setRodada(Number(e.target.value))} aria-label="Rodada">
+                    {Array.from({ length: Math.max(0, (o.atual ? o.rodadaAtual : o.rodadaAtual - 1) - 1) }, (_, i) => i + 2)
+                      .reverse()
+                      .map((r) => (
+                        <option key={r} value={r}>
+                          Rodada {r}
+                          {o.atual && r === o.rodadaAtual ? " (próxima)" : " (já jogada: previsão × real)"}
                         </option>
                       ))}
-                    </optgroup>
-                  ) : null;
-                })}
-              </select>
-              {limiares.length > 1 && (
-                <Seg label="Pelo menos" value={String(limiar)} onChange={(v) => set({ limiar: Number(v) })} options={limiares.map((k) => ({ value: String(k), label: `${k}+` }))} />
-              )}
+                  </select>
+                </Campo>
+                <Campo rotulo="Clube">
+                  <select className="input" value={f.clubeId} onChange={(e) => set({ clubeId: Number(e.target.value) })} aria-label="Clube">
+                    <option value={0}>Todos os clubes</option>
+                    {o.clubes
+                      .slice()
+                      .sort((x, y) => x.nome.localeCompare(y.nome))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
+                        </option>
+                      ))}
+                  </select>
+                </Campo>
+                <Campo rotulo="Adversário">
+                  <select className="input" value={f.adversarioId} onChange={(e) => set({ adversarioId: Number(e.target.value) })} aria-label="Adversário">
+                    <option value={0}>Qualquer adversário</option>
+                    {o.clubes
+                      .slice()
+                      .sort((x, y) => x.nome.localeCompare(y.nome))
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          Quem enfrenta o {c.nome}
+                        </option>
+                      ))}
+                  </select>
+                </Campo>
+              </div>
+              <div className="mt-2 flex flex-wrap items-end gap-2">
+                <Campo rotulo="Posição">
+                  <Seg
+                    label="Posição"
+                    value={f.posicao}
+                    onChange={(v) => set({ posicao: v })}
+                    options={[{ value: "all", label: "Todas" }, ...ALL_POSITIONS.map((p) => ({ value: `${p}` as `${PositionId}`, label: POSITIONS[p].abbr as string }))]}
+                  />
+                </Campo>
+                <Campo rotulo="Partidas anteriores">
+                  <Seg
+                    label="Partidas anteriores"
+                    value={f.janela}
+                    onChange={(v) => set({ janela: v })}
+                    options={[
+                      { value: "3", label: "Últ. 3" },
+                      { value: "5", label: "Últ. 5" },
+                      { value: "10", label: "Últ. 10" },
+                      { value: "t", label: "Temporada" },
+                    ]}
+                  />
+                </Campo>
+                <Campo rotulo="Mando (histórico)">
+                  <Seg
+                    label="Mando"
+                    value={f.mando}
+                    onChange={(v) => set({ mando: v })}
+                    options={[
+                      { value: "todos", label: "Todos" },
+                      { value: "casa", label: "Em casa" },
+                      { value: "fora", label: "Fora" },
+                    ]}
+                  />
+                </Campo>
+              </div>
             </div>
-          </Campo>
-          <Campo rotulo="Minutos jogados">
-            <p className="max-w-64 py-1 text-xs text-[var(--color-ink-3)]" title="A API do Cartola não publica minutos por jogo. As análises são por partida disputada.">
-              Indisponível na fonte: análise por partida.
-            </p>
-          </Campo>
-        </div>
-        <BuscaAtleta o={o} clubes={clubes} onEscolher={onAtleta} />
-      </Card>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Campo rotulo="Scout analisado">
+                <div className="flex flex-wrap gap-2">
+                  <select className="input min-w-0 flex-1" value={scoutValido} onChange={(e) => set({ scout: e.target.value as CruzScout })} aria-label="Scout">
+                    {(["ofensivo", "defensivo", "negativo", "coletivo"] as const).map((cat) => {
+                      const ds = scoutsDisponiveis.filter((d) => d.categoria === cat);
+                      return ds.length ? (
+                        <optgroup key={cat} label={cat === "ofensivo" ? "Ataque" : cat === "defensivo" ? "Defesa" : cat === "negativo" ? "Negativos" : "Coletivo"}>
+                          {ds.map((d) => (
+                            <option key={d.codigo} value={d.codigo}>
+                              {d.nome} ({d.codigo})
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null;
+                    })}
+                  </select>
+                  {limiares.length > 1 && (
+                    <Seg label="Pelo menos" value={String(limiar)} onChange={(v) => set({ limiar: Number(v) })} options={limiares.map((k) => ({ value: String(k), label: `${k}+` }))} />
+                  )}
+                </div>
+              </Campo>
+              <Campo rotulo="Minutos jogados">
+                <p className="max-w-64 py-1 text-xs text-[var(--color-ink-3)]" title="A API do Cartola não publica minutos por jogo. As análises são por partida disputada.">
+                  Indisponível na fonte: análise por partida.
+                </p>
+              </Campo>
+            </div>
+            <BuscaAtleta o={o} clubes={clubes} onEscolher={onAtleta} />
+          </Card>
 
-      {atletaId ? (
-        <FichaAtleta
-          key={atletaId}
-          o={o}
-          clubes={clubes}
-          atletaId={atletaId}
-          comum={comum}
-          scout={scoutValido}
-          limiar={limiar}
-          onScout={(c) => set({ scout: c })}
-          onVoltar={() => onAtleta(undefined)}
-        />
-      ) : (
-        <Ranking clubes={clubes} comum={comum} f={{ ...f, scout: scoutValido, limiar }} posicao={posNum} set={set} onAtleta={onAtleta} />
+          {atletaId ? (
+            <FichaAtleta
+              key={atletaId}
+              o={o}
+              clubes={clubes}
+              atletaId={atletaId}
+              comum={comum}
+              scout={scoutValido}
+              limiar={limiar}
+              onScout={(c) => set({ scout: c })}
+              onVoltar={() => onAtleta(undefined)}
+            />
+          ) : (
+            <Ranking clubes={clubes} comum={comum} f={{ ...f, scout: scoutValido, limiar }} posicao={posNum} set={set} onAtleta={onAtleta} />
+          )}
+
+          <Metodologia o={o} />
+        </>
       )}
-
-      <Metodologia o={o} />
     </div>
   );
 }
