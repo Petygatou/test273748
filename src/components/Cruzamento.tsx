@@ -32,7 +32,7 @@ export function Cruzamento() {
       <Card className="p-3 sm:p-4">
         <SectionTitle
           title="Cruzamento de Scout"
-          subtitle="Em cada jogo da rodada: o que a posição do time fez no mesmo mando × o que o adversário cedeu a essa posição no mando oposto."
+          subtitle="Em cada jogo da rodada: o que o time faz no mando × o que o adversário cede."
           icon={<FlaskConical size={18} className="text-[var(--color-brand)]" />}
         />
         <SituacaoDados o={o} />
@@ -99,13 +99,13 @@ function SituacaoDados({ o }: { o: CruzamentoOpcoes }) {
 
   return (
     <div className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)]">
-      <button type="button" className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
+      <button type="button" className="flex w-full items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm sm:flex-wrap" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}>
         <span className="flex items-center gap-2 font-semibold">
           <span className={`h-2 w-2 rounded-full ${cor}`} aria-hidden />
           <Icone size={15} aria-hidden />
           {rotulo}
         </span>
-        <span className="text-xs text-[var(--color-ink-3)]">
+        <span className="hidden text-xs text-[var(--color-ink-3)] sm:inline">
           Fonte: {o.fonte} · temporada {o.temporada} · {o.historicoRodadas} rodadas com scouts
           {st.ultimaVerificacao ? ` · conferido ${timeAgo(st.ultimaVerificacao)}` : ""}
         </span>
@@ -113,6 +113,10 @@ function SituacaoDados({ o }: { o: CruzamentoOpcoes }) {
       </button>
       {aberto && (
         <div className="space-y-3 border-t border-[var(--color-line)] px-3 py-3 text-sm">
+          <p className="text-xs text-[var(--color-ink-3)] sm:hidden">
+            Fonte: {o.fonte} · temporada {o.temporada} · {o.historicoRodadas} rodadas com scouts
+            {st.ultimaVerificacao ? ` · conferido ${timeAgo(st.ultimaVerificacao)}` : ""}
+          </p>
           <p className="text-[var(--color-ink-2)]">
             {o.demo ? "O site está em modo demonstração: atletas e números são fictícios, só para mostrar o funcionamento. Em produção o Cruzamento usa apenas dados reais do Cartola." : st.explicacao}
           </p>

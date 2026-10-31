@@ -100,6 +100,8 @@ export function PorTimes({
   const setor = setorValido(f.scout, f.setor);
   const [fora, setFora] = useState<Set<number>>(new Set());
   const [aberta, setAberta] = useState<number | null>(null);
+  // no celular a lista de partidas fica recolhida (quase ninguém desmarca jogos)
+  const [verPartidas, setVerPartidas] = useState(false);
   useEffect(() => setFora(new Set()), [rodada]);
   const params = { temporada: o.atual ? undefined : o.temporada, rodada, scout: f.scout, setor, recorte: f.recorte === "todos" ? undefined : Number(f.recorte), lado: f.lado };
   const q = useQuery({ queryKey: ["cruz-times", params], queryFn: () => fetchCruzamentoTimes({ data: params }), placeholderData: keepPreviousData, staleTime: 5 * 60_000 });
@@ -145,14 +147,14 @@ export function PorTimes({
             <div className={ROTULO}>
               <Target size={13} aria-hidden /> Scout
             </div>
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Scout">
+            <div className="-mx-3 flex items-center gap-2 overflow-x-auto px-3 pb-1 scrollbar-none sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" role="group" aria-label="Scout">
               {PRINCIPAIS.map((c) => (
                 <button
                   key={c.codigo}
                   type="button"
                   aria-pressed={f.scout === c.codigo}
                   onClick={() => set({ scout: c.codigo })}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     f.scout === c.codigo
                       ? "border-[var(--color-brand)] bg-[var(--color-brand)] text-[#1a0a00]"
                       : "border-[var(--color-line)] text-[var(--color-ink-2)] hover:border-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
@@ -163,7 +165,7 @@ export function PorTimes({
                 </button>
               ))}
               <select
-                className={`input h-[34px] w-auto rounded-full py-0 text-xs ${OUTROS.some((x) => x.codigo === f.scout) ? "border-[var(--color-brand)] font-semibold text-[var(--color-brand)]" : ""}`}
+                className={`input h-[34px] w-auto shrink-0 rounded-full py-0 text-xs ${OUTROS.some((x) => x.codigo === f.scout) ? "border-[var(--color-brand)] font-semibold text-[var(--color-brand)]" : ""}`}
                 value={OUTROS.some((x) => x.codigo === f.scout) ? f.scout : ""}
                 onChange={(e) => e.target.value && set({ scout: e.target.value as CruzScout })}
                 aria-label="Mais scouts"
@@ -178,44 +180,45 @@ export function PorTimes({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <label className="block min-w-0">
-              <span className={ROTULO}>Posição analisada</span>
-              <select className="input" value={setor} onChange={(e) => set({ setor: e.target.value as SetorUi })} disabled={sg} aria-label="Posição analisada">
-                {SETORES.map((s) => (
-                  <option key={s.value} value={s.value} disabled={setorValido(f.scout, s.value) !== s.value || ((s.value === "LE" || s.value === "LD") && r != null && r.ladosCobertura === 0)}>
-                    {s.rotulo}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {o.temporadas.length > 1 && (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:contents">
               <label className="block min-w-0">
-                <span className={ROTULO}>Temporada</span>
-                <select className="input" value={o.temporada} onChange={(e) => setTemporada(Number(e.target.value))} aria-label="Temporada">
-                  {o.temporadas.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                      {t === o.temporadas[0] && o.atual ? " (atual)" : ""}
+                <span className={ROTULO}>Posição analisada</span>
+                <select className="input" value={setor} onChange={(e) => set({ setor: e.target.value as SetorUi })} disabled={sg} aria-label="Posição analisada">
+                  {SETORES.map((s) => (
+                    <option key={s.value} value={s.value} disabled={setorValido(f.scout, s.value) !== s.value || ((s.value === "LE" || s.value === "LD") && r != null && r.ladosCobertura === 0)}>
+                      {s.rotulo}
                     </option>
                   ))}
                 </select>
               </label>
-            )}
-            <label className="block min-w-0">
-              <span className={ROTULO}>Rodada</span>
-              <select className="input" value={rodada} onChange={(e) => setRodada(Number(e.target.value))} aria-label="Rodada">
-                {Array.from({ length: Math.max(0, (o.atual ? o.rodadaAtual : o.rodadaAtual - 1) - 1) }, (_, i) => i + 2)
-                  .reverse()
-                  .map((x) => (
-                    <option key={x} value={x}>
-                      Rodada {x}
-                      {o.atual && x === o.rodadaAtual ? " · próxima" : " · com resultado"}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className="min-w-0">
+              {o.temporadas.length > 1 && (
+                <label className="block min-w-0">
+                  <span className={ROTULO}>Temporada</span>
+                  <select className="input" value={o.temporada} onChange={(e) => setTemporada(Number(e.target.value))} aria-label="Temporada">
+                    {o.temporadas.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                        {t === o.temporadas[0] && o.atual ? " (atual)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className="block min-w-0">
+                <span className={ROTULO}>Rodada</span>
+                <select className="input" value={rodada} onChange={(e) => setRodada(Number(e.target.value))} aria-label="Rodada">
+                  {Array.from({ length: Math.max(0, (o.atual ? o.rodadaAtual : o.rodadaAtual - 1) - 1) }, (_, i) => i + 2)
+                    .reverse()
+                    .map((x) => (
+                      <option key={x} value={x}>
+                        R{x} · {o.atual && x === o.rodadaAtual ? "próxima" : "já jogada"}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <div className="seg-cheio min-w-0">
               <span className={ROTULO}>Recorte</span>
               <Seg
                 label="Recorte"
@@ -229,7 +232,7 @@ export function PorTimes({
                 ]}
               />
             </div>
-            <div className="min-w-0">
+            <div className="seg-cheio order-first min-w-0 sm:order-last">
               <span className={ROTULO}>Quem analisar</span>
               <Seg
                 label="Quem analisar"
@@ -267,14 +270,16 @@ export function PorTimes({
 
         {r && (
           <div className="border-t border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-3 sm:px-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className={`${ROTULO} mb-0`}>
-                <Swords size={13} aria-hidden /> Partidas da rodada {r.rodada}
-                <span className="font-normal tracking-normal normal-case">
+            <div className="flex items-center justify-between gap-2 sm:mb-2">
+              <button type="button" onClick={() => setVerPartidas((v) => !v)} aria-expanded={verPartidas} className={`${ROTULO} mb-0 min-w-0 whitespace-nowrap sm:pointer-events-none`}>
+                <Swords size={13} aria-hidden /> <span className="sm:hidden">Partidas</span>
+                <span className="hidden sm:inline">Partidas da rodada {r.rodada}</span>
+                <span className={`font-normal tracking-normal normal-case ${fora.size ? "font-semibold text-[var(--color-warning)]" : ""}`}>
                   · {r.partidas.length - fora.size} de {r.partidas.length}
                 </span>
-              </div>
-              <div className="flex gap-1">
+                <ChevronDown size={14} className={`transition-transform sm:hidden ${verPartidas ? "rotate-180" : ""}`} aria-hidden />
+              </button>
+              <div className={`${verPartidas ? "flex" : "hidden"} gap-1 sm:flex`}>
                 <button
                   type="button"
                   className="rounded-lg px-2 py-1 text-xs font-semibold text-[var(--color-ink-2)] hover:text-[var(--color-ink)] disabled:opacity-40"
@@ -296,7 +301,7 @@ export function PorTimes({
             {!r.partidas.length ? (
               <p className="py-2 text-sm text-[var(--color-ink-3)]">Sem jogos cadastrados nesta rodada.</p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
+              <div className={`${verPartidas ? "flex" : "hidden"} mt-2 flex-wrap gap-1.5 sm:mt-0 sm:flex`}>
                 {r.partidas.map((p) => {
                   const marcado = !fora.has(p.matchId);
                   return (
@@ -349,7 +354,7 @@ export function PorTimes({
       )}
 
       {r && destaques && (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0 sm:pb-0">
           <Destaque
             icone={<Flame size={15} aria-hidden />}
             titulo="Quem mais conquista"
@@ -515,7 +520,7 @@ function Destaque({
   onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} className="card flex items-center gap-3 p-3 text-left transition-colors hover:border-[var(--color-ink-3)]">
+    <button type="button" onClick={onClick} className="card flex w-[84%] shrink-0 snap-start items-center gap-3 p-3 text-left transition-colors hover:border-[var(--color-ink-3)] sm:w-auto">
       <ClubBadge club={clubes[time]} size={36} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1 text-[11px] font-semibold tracking-wide text-[var(--color-brand)] uppercase">
@@ -595,7 +600,7 @@ function LinhaJogo({
         type="button"
         onClick={onAbrir}
         aria-expanded={aberta}
-        className={`${GRADE} w-full py-2.5 text-left transition-colors hover:bg-[var(--color-surface-1)] ${aberta ? "bg-[var(--color-surface-1)]" : ""}`}
+        className={`${GRADE} w-full py-2 text-left transition-colors sm:py-2.5 hover:bg-[var(--color-surface-1)] ${aberta ? "bg-[var(--color-surface-1)]" : ""}`}
       >
         <span className="text-[11px] text-[var(--color-ink-3)] tabular">{String(i + 1).padStart(2, "0")}</span>
         <span className="flex min-w-0 items-center gap-2">
