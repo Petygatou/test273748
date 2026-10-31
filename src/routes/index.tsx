@@ -272,7 +272,7 @@ function Home() {
               onChange={setLista}
               options={[
                 { value: "valorizar", label: "Valorizar" },
-                { value: "diferenciais", label: "Diferenciais" },
+                { value: "diferenciais", label: "De olho neles" },
                 { value: "atencao", label: "Atenção" },
               ]}
             />
@@ -284,7 +284,7 @@ function Home() {
               </>
             ) : lista === "diferenciais" ? (
               <>
-                <Gem size={13} className="text-[var(--color-series-b)]" /> Bons pontos previstos e pouca gente escalando.
+                <Gem size={13} className="text-[var(--color-series-b)]" /> Bons pontos previstos e chance alta de jogar.
               </>
             ) : (
               <>
@@ -297,7 +297,7 @@ function Home() {
               valoriza.map((p) => <PlayerRow key={p.atletaId} p={p} clubs={clubs} metric={signed(p.valorizacaoEsperada)} metricLabel="C$ previsto" />)}
             {lista === "diferenciais" &&
               (diferenciais.length ? (
-                diferenciais.map((p) => <PlayerRow key={p.atletaId} p={p} clubs={clubs} sub={p.posse != null ? `${fmt1(p.posse)}% escalam` : "pouco escalado"} />)
+                diferenciais.map((p) => <PlayerRow key={p.atletaId} p={p} clubs={clubs} sub={p.posse != null ? `${fmt1(p.posse)}% escalam` : undefined} />)
               ) : (
                 <p className="px-2 py-4 text-sm text-[var(--color-ink-3)]">Ainda sem dados de mais escalados.</p>
               ))}
