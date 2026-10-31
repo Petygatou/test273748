@@ -594,7 +594,7 @@ function Cedencia({ a }: { a: RoundAnalysis }) {
       </div>
       {aberta && (
         <Sheet
-          title={`Quem enfrentou o ${a.clubs[aberta.clubeId]?.nome ?? "time"}`}
+          title={`Adversários que enfrentaram o ${a.clubs[aberta.clubeId]?.nome ?? "time"}`}
           subtitle={`${aberta.pos === LATERAL_ESQ ? "Laterais esquerdos" : aberta.pos === LATERAL_DIR ? "Laterais direitos" : POSITIONS[aberta.pos as PositionId].plural} que jogaram contra o ${a.clubs[aberta.clubeId]?.nome}, jogo a jogo`}
           icon={<ClubBadge club={a.clubs[aberta.clubeId]} size={26} />}
           onClose={() => setAberta(null)}

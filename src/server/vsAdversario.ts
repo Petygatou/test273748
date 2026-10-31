@@ -1,5 +1,5 @@
 /**
- * "vs Adversário": quem da mesma posição já enfrentou um time, jogo a jogo.
+ * "Adversários que enfrentaram o time": quem da mesma posição já jogou contra ele, jogo a jogo.
  *
  * Para o próximo adversário de um atleta, lista cada jogo da temporada desse
  * adversário e os atletas da posição pedida que jogaram contra ele: rodada,

@@ -101,7 +101,7 @@ function PlayerPage() {
       {p.adversarioId != null && opp && (
         <Card className="p-4">
           <SectionTitle
-            title={`vs Adversário: quem já enfrentou o ${opp.nome}`}
+            title={`Adversários que enfrentaram o ${opp.nome}`}
             subtitle={`${POSITIONS[p.posicaoId].plural} que jogaram contra o ${opp.nome}, jogo a jogo — mesma posição do ${p.apelido}, que joga ${p.mando === "casa" ? "em casa" : "fora"}`}
             icon={<ClubBadge club={opp} size={20} />}
           />
