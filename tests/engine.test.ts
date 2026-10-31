@@ -107,6 +107,17 @@ describe("projeção de atletas", () => {
     }
   });
 
+  it("gols na temporada = soma do scout G das rodadas encerradas", () => {
+    const R = data.rodadaAtual;
+    let comGol = 0;
+    for (const p of analysis.players) {
+      const esperado = data.history.filter((h) => h.atletaId === p.atletaId && h.rodada < R).reduce((s, h) => s + (h.scout.G ?? 0), 0);
+      expect(p.gols).toBe(esperado);
+      if (esperado > 0) comGol++;
+    }
+    expect(comGol).toBeGreaterThan(20);
+  });
+
   it("piso ≤ mediana ≤ teto e decomposição base+explosão fecha", () => {
     for (const p of analysis.players.filter((x) => x.matchId != null && x.posicaoId !== 6)) {
       expect(p.piso).toBeLessThanOrEqual(p.mediana + 1e-9);
