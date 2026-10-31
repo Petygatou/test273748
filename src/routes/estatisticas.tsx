@@ -7,6 +7,7 @@ import { OutcomeBar } from "../components/FixtureCard";
 import { Sheet } from "../components/Sheet";
 import { VsAdversario } from "../components/VsAdversario";
 import { Cruzamento } from "../components/Cruzamento";
+import { ConquistaCede } from "../components/cruzamento/ConquistaCede";
 import { X1 } from "../components/X1";
 import { Card, ClubBadge, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
 import { ALL_POSITIONS, POSITIONS, SCORING, SCOUT_LABELS, type PositionId, type ScoutKey } from "../engine/rules";
@@ -68,7 +69,7 @@ function StatsPage() {
       {tab === "cruzamento" && <Cruzamento />}
       {tab === "x1" && <X1 a={a} ida={search.a} idb={search.b} onChange={(ida, idb) => navigate({ search: (s) => ({ ...s, a: ida, b: idb }), replace: true })} />}
       {tab === "confrontos" && <Confrontos a={a} />}
-      {tab === "cedencia" && <Cedencia a={a} />}
+      {tab === "cedencia" && <CedenciaAba a={a} />}
       {tab === "times" && <Times a={a} />}
       {tab === "glossario" && <Glossario />}
     </div>
@@ -442,6 +443,27 @@ const METRICAS_CED: Array<{ value: MetricaCed; label: string; desc: string }> = 
   { value: "DE", label: "Defesas", desc: "defesas médias dos goleiros contra o time" },
 ];
 
+/** Aba Cedência: conquistado × cedido por posição (jogo a jogo da rodada) e a matriz de quem cede. */
+function CedenciaAba({ a }: { a: RoundAnalysis }) {
+  const [visao, setVisao] = useLocal<"cruzado" | "matriz">(KEYS.cedenciaVisao, "cruzado");
+  return (
+    <div className="space-y-4">
+      <div className="seg-cheio sm:w-fit">
+        <Seg
+          label="Visão da cedência"
+          value={visao}
+          onChange={setVisao}
+          options={[
+            { value: "cruzado", label: "Conquistado × Cedido" },
+            { value: "matriz", label: "Matriz de quem cede" },
+          ]}
+        />
+      </div>
+      {visao === "cruzado" ? <ConquistaCede /> : <Cedencia a={a} />}
+    </div>
+  );
+}
+
 function Cedencia({ a }: { a: RoundAnalysis }) {
   const [mando, setMando] = useState<"geral" | "casa" | "fora">("geral");
   const [janela, setJanela] = useState<"temporada" | "3" | "5" | "10">("temporada");
@@ -722,6 +744,10 @@ const GLOSSARY: Array<{ term: string; def: string }> = [
   { term: "Chance de jogar", def: "Combina o status oficial (provável, dúvida...), a participação recente nos jogos do clube (com peso maior para os últimos) e as prováveis escalações publicadas no Painel ADM." },
   { term: "Fator Ataque", def: "Gols esperados do time neste confronto divididos pelos gols esperados contra um adversário médio. +20% = jogo 20% mais favorável para marcar." },
   { term: "Fator Cedência", def: "Quanto o adversário cede do scout principal da posição (desarmes para defensores, finalizações para meias e atacantes, defesas para goleiros) em relação à média." },
+  {
+    term: "Conquistado × Cedido",
+    def: "Em cada jogo da rodada, a média por atleta de cada posição que o time faz no mando dele (conquistado) e a que o adversário entrega no mando oposto (cedido), nos últimos 3, 5 ou 10 jogos.",
+  },
   { term: "Matriz de cedência", def: "Pontos médios que os atletas de cada posição fazem contra cada time, encolhidos em direção à média da liga para não exagerar amostras pequenas." },
   { term: "SG (saldo de gol)", def: "Probabilidade do time não sofrer gol, calculada pela matriz de placares do modelo Dixon-Coles, multiplicada pela taxa histórica do atleta de receber o SG quando o time não sofre gol." },
   { term: "MPV (mínimo para valorizar)", def: "Pontuação a partir da qual o atleta ganha cartoletas. Usa o valor oficial quando a API fornece; senão, a fórmula V = CPP × (pontos − MPV) é recalibrada a cada rodada com o mercado inteiro." },

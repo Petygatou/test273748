@@ -92,3 +92,44 @@ export async function times(q: PedidoTimes) {
   const ladosCobertura = lat.length ? Math.round((lat.filter((l) => l.lado).length / lat.length) * 1000) / 1000 : 0;
   return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, ladosCobertura, geradoEm: new Date().toISOString() };
 }
+
+export type PedidoPosicoes = { temporada?: number; rodada?: number; recorte: number | null };
+
+/** Conquistado × cedido por posição: cada jogo da rodada, média por atuação de cada posição. */
+export async function posicoes(q: PedidoPosicoes) {
+  const { data: d, atual } = await carregar(q.temporada);
+  const rodada = rodadaValida(d, atual, q.rodada);
+  const base = await baseDe(d, rodada);
+  const { cruzarPosicoes } = await import("../engine/cruzamento");
+  const { linhas, referencia } = cruzarPosicoes(base, q.recorte);
+  const lat = base.linhas.filter((l) => l.pos === 2);
+  const ladosCobertura = lat.length ? Math.round((lat.filter((l) => l.lado).length / lat.length) * 1000) / 1000 : 0;
+  const partidas = d.matches.filter((m) => m.rodada === rodada).map((m) => ({ matchId: m.id, golsCasa: m.golsCasa ?? null, golsFora: m.golsFora ?? null }));
+  return { rodada, passada: rodada < d.rodadaAtual, rodadaAtual: d.rodadaAtual, linhas, referencia, partidas, ladosCobertura, geradoEm: new Date().toISOString() };
+}
+
+/** De onde sai cada número de uma partida: jogo a jogo, cada atuação (todas as posições). */
+export async function posicoesDetalhe(q: PedidoPosicoes & { matchId: number; tabela: "mandantes" | "visitantes" }) {
+  const { data: d, atual } = await carregar(q.temporada);
+  const rodada = rodadaValida(d, atual, q.rodada);
+  const m = d.matches.find((x) => x.id === q.matchId && x.rodada === rodada);
+  if (!m) throw new Error("Partida não encontrada nesta rodada.");
+  const base = await baseDe(d, rodada);
+  const { jogosDoBloco, colunasDaLinha } = await import("../engine/cruzamento");
+  const porId = new Map(d.athletes.map((a) => [a.id, a.apelido] as const));
+  const nomes: Record<number, string> = {};
+  const bloco = (clube: number, casa: boolean, tipo: "conquista" | "cede") => ({
+    clubeId: clube,
+    casa,
+    tipo,
+    jogos: jogosDoBloco(base, clube, casa, tipo, q.recorte).map(({ jogo, linhas }) => ({
+      ...jogo,
+      atuacoes: linhas.map((l) => {
+        nomes[l.atletaId] = porId.get(l.atletaId) ?? `Atleta ${l.atletaId}`;
+        return { atletaId: l.atletaId, clubeId: l.clubeId, cols: colunasDaLinha(l), pontos: l.pontos, scout: l.scout };
+      }),
+    })),
+  });
+  const mandantes = q.tabela === "mandantes";
+  return { conquista: mandantes ? bloco(m.casaId, true, "conquista") : bloco(m.foraId, false, "conquista"), cede: mandantes ? bloco(m.foraId, false, "cede") : bloco(m.casaId, true, "cede"), nomes };
+}

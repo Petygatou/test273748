@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateDemoSeason } from "../src/data/demoSeason";
-import { cruzarTimes, prepararBase } from "../src/engine/cruzamento";
+import { computeCedencia } from "../src/engine/cedencia";
+import { COLUNAS_POS, cruzarPosicoes, METRICAS_POS, prepararBase, cruzarTimes, valorMetrica, type ColunaPos } from "../src/engine/cruzamento";
 import type { Scouts } from "../src/engine/rules";
 import { scoutsDaPosicao, valorScout } from "../src/engine/scoutDefs";
 import type { Match, PlayerRound } from "../src/engine/types";
@@ -219,5 +220,114 @@ describe("cruzamento por times: coerência com os placares", () => {
           expect(l.cedido.lista.every((j) => j.casa === (lado !== "mandantes"))).toBe(true);
         }
     expect(jogos).toBeGreaterThan(1000);
+  });
+});
+
+describe("conquistado × cedido por posição (tabelas de mandantes e visitantes)", () => {
+  it("média por atuação no mando certo, conferida à mão", () => {
+    // rodada 7: 1 (casa) x 2. Clube 1 em casa: R1, R3, R5; clube 2 fora: R1 (vs 1), R2 (vs 4), R6 (vs 3)
+    const base = prepararBase(mini(), 7);
+    const { linhas, referencia } = cruzarPosicoes(base, null);
+    const l = linhas.find((x) => x.casaId === 1)!;
+    // atacante do clube 1 em casa: 0 + 2,4 + 4,8 pontos em 3 atuações
+    expect(l.mandante.conquista.cols.ATA).toMatchObject({ n: 3, DS: 0 });
+    expect(l.mandante.conquista.cols.ATA.pontos).toBeCloseTo(7.2);
+    expect(l.mandante.conquista.cols.ATA.FIN).toBe(6);
+    expect(l.mandante.conquista.jogos.map((j) => j.rodada)).toEqual([5, 3, 1]);
+    // o clube 2 fora cedeu aos atacantes de quem o enfrentou: 0 (clube 1, R1) + 1 + 1
+    expect(l.visitante.cede.cols.ATA).toMatchObject({ n: 3, FIN: 2 });
+    expect(l.visitante.cede.jogos.map((j) => [j.rodada, j.adversarioId])).toEqual([
+      [6, 3],
+      [2, 4],
+      [1, 1],
+    ]);
+    // tabela dos visitantes: o mandante cede em casa (atacantes dos visitantes) e o visitante conquista fora
+    expect(l.mandante.cede.cols.ATA).toMatchObject({ n: 3, FIN: 3 });
+    expect(l.visitante.conquista.cols.ATA).toMatchObject({ n: 3, FIN: 3 });
+    // recorte: só os últimos N jogos no mando
+    const r1 = cruzarPosicoes(base, 1).linhas.find((x) => x.casaId === 1)!;
+    expect(r1.mandante.conquista.cols.ATA.pontos).toBeCloseTo(4.8);
+    // sem goleiro no histórico: a coluna fica vazia (não vira zero)
+    expect(l.mandante.conquista.cols.GOL.n).toBe(0);
+    // referência = todas as atuações de quem jogou em casa (6 jogos × 2 atacantes)
+    expect(referencia.casa.ATA.n).toBe(12);
+  });
+
+  // mesmos dados do recálculo do cruzamento por times: laterais por lado e jogos faltando
+  const lados = Object.fromEntries(demo.athletes.filter((a) => a.posicaoId === 2).map((a) => [a.id, a.id % 3 ? "E" : "D"])) as Record<number, "E" | "D">;
+  const ladosJogo: Record<string, "E" | "D"> = {};
+  for (const h of demo.history) if (h.posicaoId === 2 && h.rodada % 5 === 0) ladosJogo[`${h.rodada}:${h.atletaId}`] = lados[h.atletaId] === "E" ? "D" : "E";
+  const clubes = Object.keys(demo.clubs).map(Number);
+  const faltando = new Set([`${demo.rodadaAtual - 1}:${clubes[3]}`, `${demo.rodadaAtual - 3}:${clubes[4]}`]);
+  const dados = { ...demo, lados, ladosJogo, history: demo.history.filter((h) => !faltando.has(`${h.rodada}:${h.clubeId}`)) };
+  const coluna = (h: PlayerRound): ColunaPos[] => {
+    const nome = ({ 1: "GOL", 2: "LAT", 3: "ZAG", 4: "MEI", 5: "ATA", 6: "TEC" } as const)[h.posicaoId];
+    const lado = h.posicaoId === 2 ? (ladosJogo[`${h.rodada}:${h.atletaId}`] ?? lados[h.atletaId]) : undefined;
+    return lado ? [nome, lado === "E" ? "LE" : "LD"] : [nome];
+  };
+
+  it("bate com o recálculo do zero em todas as posições, métricas, recortes e mandos", () => {
+    const R = dados.rodadaAtual;
+    const base = prepararBase(dados, R);
+    const temDados = (r: number, c: number) => dados.history.some((h) => h.rodada === r && h.clubeId === c);
+    /** últimos jogos do clube no mando, com as atuações de quem fez o scout (o próprio clube ou o adversário) */
+    const atuacoes = (clube: number, casa: boolean, tipo: "conquista" | "cede", recorte: number | null) => {
+      let js = dados.matches
+        .filter((m) => m.rodada < R && m.golsCasa != null && (casa ? m.casaId === clube : m.foraId === clube))
+        .map((m) => ({ r: m.rodada, quem: tipo === "conquista" ? clube : casa ? m.foraId : m.casaId }))
+        .filter((j) => temDados(j.r, j.quem))
+        .sort((a, b) => b.r - a.r);
+      if (recorte) js = js.slice(0, recorte);
+      return { jogos: js.length, linhas: js.flatMap((j) => dados.history.filter((h) => h.rodada === j.r && h.clubeId === j.quem)) };
+    };
+    let conferidas = 0;
+    for (const recorte of [3, 5, 10, null]) {
+      const { linhas } = cruzarPosicoes(base, recorte);
+      expect(linhas.length).toBe(dados.matches.filter((m) => m.rodada === R).length);
+      for (const l of linhas)
+        for (const [lado, clube, casa] of [
+          ["mandante", l.casaId, true],
+          ["visitante", l.foraId, false],
+        ] as const)
+          for (const tipo of ["conquista", "cede"] as const) {
+            const b = l[lado][tipo];
+            const e = atuacoes(clube, casa, tipo, recorte);
+            expect(b.jogos.length).toBe(e.jogos);
+            for (const c of COLUNAS_POS) {
+              const doCol = e.linhas.filter((h) => coluna(h).includes(c));
+              expect(b.cols[c].n).toBe(doCol.length);
+              for (const m of METRICAS_POS) {
+                expect(b.cols[c][m]).toBeCloseTo(
+                  doCol.reduce((s, h) => s + valorMetrica(h.scout, h.pontos, m), 0),
+                  6,
+                );
+                conferidas++;
+              }
+            }
+          }
+    }
+    expect(conferidas).toBeGreaterThan(5000);
+  });
+
+  it("o cedido bate com a matriz de cedência (últimos N jogos no mesmo mando)", () => {
+    // sem jogos faltando, as duas contas olham exatamente os mesmos jogos
+    const R = demo.rodadaAtual;
+    const base = prepararBase({ ...demo, lados }, R);
+    const ced = computeCedencia(demo.history, demo.matches, clubes, R, 6, 10, lados);
+    const pos = { GOL: 1, LAT: 2, ZAG: 3, MEI: 4, ATA: 5, TEC: 6, LE: 21, LD: 22 } as const;
+    for (const n of [3, 5, 10] as const) {
+      for (const l of cruzarPosicoes(base, n).linhas)
+        for (const [b, rec] of [
+          [l.mandante.cede, "casa"],
+          [l.visitante.cede, "fora"],
+        ] as const) {
+          const row = ced.rows.find((r) => r.clubeId === b.clubeId)!;
+          for (const c of COLUNAS_POS) {
+            const cell = row.janelas![n][rec][pos[c]];
+            expect(b.cols[c].n).toBe(cell.jogos);
+            if (b.cols[c].n) expect(b.cols[c].pontos / b.cols[c].n).toBeCloseTo(cell.pontos, 1);
+          }
+        }
+    }
   });
 });

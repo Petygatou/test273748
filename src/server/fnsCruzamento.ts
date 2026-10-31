@@ -30,6 +30,25 @@ export const fetchCruzamentoTimes = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }) => (await import("./cruzamentoServico")).times(data));
 
+const inteiro = (v: unknown) => (v != null && v !== "" && Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : undefined);
+const recorteDe = (v: unknown) => (Number(v) === 3 || Number(v) === 5 || Number(v) === 10 ? Number(v) : null);
+
+/** Conquistado × cedido por posição: cada jogo da rodada, média por atuação de cada posição. */
+export const fetchConquistaCede = createServerFn({ method: "GET" })
+  .validator((d: Record<string, unknown> | undefined) => ({ temporada: inteiro(d?.temporada), rodada: inteiro(d?.rodada), recorte: recorteDe(d?.recorte) }))
+  .handler(async ({ data }) => (await import("./cruzamentoServico")).posicoes(data));
+
+/** Jogo a jogo de uma partida da tabela por posição (cada atuação que entrou na conta). */
+export const fetchConquistaCedeDetalhe = createServerFn({ method: "GET" })
+  .validator((d: Record<string, unknown> | undefined) => ({
+    temporada: inteiro(d?.temporada),
+    rodada: inteiro(d?.rodada),
+    recorte: recorteDe(d?.recorte),
+    matchId: inteiro(d?.matchId) ?? 0,
+    tabela: (d?.tabela === "visitantes" ? "visitantes" : "mandantes") as "mandantes" | "visitantes",
+  }))
+  .handler(async ({ data }) => (await import("./cruzamentoServico")).posicoesDetalhe(data));
+
 /** ADM: chama cada endpoint do Cartola agora e confere os campos. */
 export const verificarFontesCruzamento = createServerFn({ method: "POST" }).handler(async () => {
   const { requireAdmin } = await import("./auth");
@@ -55,3 +74,5 @@ export const fetchSyncLogs = createServerFn({ method: "GET" }).handler(async () 
 
 export type CruzamentoOpcoes = Awaited<ReturnType<typeof fetchCruzamentoOpcoes>>;
 export type CruzamentoTimes = Awaited<ReturnType<typeof fetchCruzamentoTimes>>;
+export type ConquistaCede = Awaited<ReturnType<typeof fetchConquistaCede>>;
+export type ConquistaCedeDetalhe = Awaited<ReturnType<typeof fetchConquistaCedeDetalhe>>;
