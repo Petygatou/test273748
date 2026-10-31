@@ -30,11 +30,10 @@ const TABS: Array<{ value: Tab; label: string; Icon: typeof Table }> = [
 ];
 
 export const Route = createFileRoute("/estatisticas")({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab; a?: number; b?: number; c?: number } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab; a?: number; b?: number } => ({
     tab: TABS.some((t) => t.value === s.tab) ? (s.tab as Tab) : undefined,
     a: s.a != null && !Number.isNaN(Number(s.a)) ? Number(s.a) : undefined,
     b: s.b != null && !Number.isNaN(Number(s.b)) ? Number(s.b) : undefined,
-    c: s.c != null && Number(s.c) > 0 ? Number(s.c) : undefined,
   }),
   component: StatsPage,
 });
@@ -66,7 +65,7 @@ function StatsPage() {
         ))}
       </div>
       {tab === "mercado" && <Mercado a={a} />}
-      {tab === "cruzamento" && <Cruzamento atletaId={search.c} onAtleta={(c) => navigate({ search: (s) => ({ ...s, c }) })} />}
+      {tab === "cruzamento" && <Cruzamento />}
       {tab === "x1" && <X1 a={a} ida={search.a} idb={search.b} onChange={(ida, idb) => navigate({ search: (s) => ({ ...s, a: ida, b: idb }), replace: true })} />}
       {tab === "confrontos" && <Confrontos a={a} />}
       {tab === "cedencia" && <Cedencia a={a} />}

@@ -58,7 +58,7 @@ export const CAPITULOS: Array<{ id: CapituloId; nome: string; resumo: string; to
     Icon: BarChart3,
     passos: [
       "Mercado: escolha as colunas (mais de 40 métricas) e toque no título para ordenar.",
-      "Cruzamento de Scout: escolha um scout e veja quem tem mais chance de fazê-lo contra o próximo adversário, com o histórico e a metodologia.",
+      "Cruzamento de Scout: escolha um scout e uma posição e compare, jogo a jogo da rodada, o que cada time conquista no mando com o que o adversário cede.",
       "Confrontos: chance de cada time vencer e de marcar 1, 2 ou 3+ gols.",
       "Cedência: filtre por casa/fora e últimos 3, 5 ou 10 jogos; toque no número para ver quem pontuou.",
     ],
@@ -171,7 +171,7 @@ export const PASSOS: TourStep[] = [
     to: "/estatisticas",
     alvo: "stats-abas",
     titulo: "Tudo em abas",
-    texto: "Mercado completo, Cruzamento de Scout (atleta × adversário, scout a scout), Duelo X1, Confrontos, Cedência e Força dos times.",
+    texto: "Mercado completo, Cruzamento de Scout (conquistado × cedido por time), Duelo X1, Confrontos, Cedência e Força dos times.",
     experimente: "Abra a aba Duelo X1.",
   },
   {

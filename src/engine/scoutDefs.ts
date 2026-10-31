@@ -1,13 +1,10 @@
 /**
  * Cadastro central dos scouts do Cartola FC usado pelo Cruzamento de Scout.
  *
- * Os códigos são os que a API devolve em `scout` (em /atletas/pontuados/{rodada}).
- * O valor de cada scout vem de rules.ts e é CONFERIDO contra a pontuação oficial da
- * temporada (veja `conferirPontuacao`). Se um scout passa a divergir (a Globo mudou o
- * valor), o cadastro mostra o valor que os dados oficiais indicam e o Cruzamento usa esse.
+ * Os códigos são os que a API devolve em `scout` (em /atletas/pontuados/{rodada});
+ * o valor de cada scout vem de rules.ts.
  */
-import { POSITION_SCOUTS, SCORING, SCOUT_KEYS, SG_POSITIONS, pointsFromScouts, type PositionId, type ScoutKey, type Scouts } from "./rules";
-import type { PlayerRound, RulesCheck } from "./types";
+import { POSITION_SCOUTS, SCORING, SG_POSITIONS, type PositionId, type ScoutKey, type Scouts } from "./rules";
 
 export type Categoria = "ofensivo" | "defensivo" | "negativo" | "coletivo";
 /** Scouts do Cartola e duas somas de scouts DISTINTOS (nunca o mesmo lance duas vezes). */
@@ -215,59 +212,4 @@ export function valorScout(s: Scouts, k: CruzScout): number {
 /** Scouts que fazem sentido para a posição (na ordem do cadastro). */
 export function scoutsDaPosicao(p: PositionId): ScoutDef[] {
   return SCOUT_DEFS.filter((d) => d.posicoes.includes(p));
-}
-
-export type EstadoConferencia = "conferido" | "divergente" | "nao-confirmado" | "pouca-amostra" | "sem-dados";
-
-export interface Conferencia {
-  codigo: ScoutKey;
-  estado: EstadoConferencia;
-  /** atuações (sem técnicos) em que o scout apareceu */
-  atuacoes: number;
-  /** dessas, em quantas os pontos recalculados (com a tabela vigente) batem com os oficiais (±0,05) */
-  batem: number;
-  tabela: number;
-  /** valor indicado pelos pontos oficiais (mínimos quadrados), quando há amostra */
-  estimado?: number;
-  /** valor usado pelo Cruzamento */
-  vigente: number;
-}
-
-/**
- * Confere a tabela contra a pontuação oficial da temporada, em dois passos:
- *  1) a regressão dos pontos oficiais pelos scouts isola o valor de cada scout frequente;
- *     se ele se afasta da tabela (> 0,15), vale o valor oficial (arredondado a 0,1);
- *  2) com essa tabela, cada atuação é recalculada: um scout é "conferido" quando as
- *     atuações em que ele aparece batem com os pontos oficiais (95% ou mais).
- */
-export function conferirPontuacao(history: PlayerRound[], rules?: RulesCheck): Conferencia[] {
-  const rows = history.filter((h) => h.posicaoId !== 6);
-  const vigente = { ...SCORING };
-  const divergentes = new Set<ScoutKey>();
-  for (const k of SCOUT_KEYS) {
-    const est = rules?.pesosEstimados[k];
-    if (est != null && Math.abs(est - SCORING[k]) > 0.15) {
-      vigente[k] = Math.round(est * 10) / 10;
-      divergentes.add(k);
-    }
-  }
-  return SCOUT_KEYS.filter((k) => k !== "V").map((k) => {
-    let atuacoes = 0;
-    let batem = 0;
-    for (const r of rows) {
-      if (!(r.scout[k] ?? 0)) continue;
-      atuacoes++;
-      if (Math.abs(pointsFromScouts(r.scout, vigente) - r.pontos) < 0.051) batem++;
-    }
-    const taxa = atuacoes ? batem / atuacoes : 0;
-    const estado: EstadoConferencia = !atuacoes ? "sem-dados" : divergentes.has(k) ? "divergente" : atuacoes < 5 ? "pouca-amostra" : taxa >= 0.95 ? "conferido" : "nao-confirmado";
-    return { codigo: k, estado, atuacoes, batem, tabela: SCORING[k], estimado: rules?.pesosEstimados[k], vigente: vigente[k] };
-  });
-}
-
-/** Tabela usada nas projeções: a do site, corrigida onde a pontuação oficial diverge. */
-export function pontuacaoVigente(conf: Conferencia[]): Record<ScoutKey, number> {
-  const out = { ...SCORING };
-  for (const c of conf) out[c.codigo] = c.vigente;
-  return out;
 }
