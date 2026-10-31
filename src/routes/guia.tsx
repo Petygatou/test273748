@@ -15,7 +15,7 @@ const RAPIDO = [
 ] as const;
 
 const MAIS = [
-  { Icon: UserRound, nome: "Ficha do atleta", texto: "Chance de jogar, pontos previstos, piso, teto e o vs Adversário: quem da mesma posição já enfrentou o próximo rival, jogo a jogo.", to: "/" },
+  { Icon: UserRound, nome: "Ficha do atleta", texto: "Chance de jogar, pontos previstos, piso, teto e os adversários que enfrentaram o próximo rival: quem da mesma posição já jogou contra ele, jogo a jogo.", to: "/" },
   { Icon: Trophy, nome: "Ligas", texto: "Classificação das suas ligas do Cartola.", to: "/ligas" },
   { Icon: Newspaper, nome: "Notícias", texto: "Desfalques, lesões e voltas, já ligadas aos atletas.", to: "/noticias" },
   { Icon: Users, nome: "Comunidade", texto: "Stories, enquetes e dicas da equipe Tropa.", to: "/comunidade" },
