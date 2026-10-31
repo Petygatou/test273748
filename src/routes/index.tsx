@@ -284,7 +284,7 @@ function Home() {
               </>
             ) : lista === "diferenciais" ? (
               <>
-                <Gem size={13} className="text-[var(--color-series-b)]" /> Bons pontos previstos e chance alta de jogar.
+                <Gem size={13} className="text-[var(--color-series-b)]" /> Bons pontos previstos.
               </>
             ) : (
               <>
