@@ -179,6 +179,16 @@ body {
   color: var(--color-ink-3);
   white-space: nowrap;
 }
+/* segmentado em largura total, botões iguais (celular) */
+.seg-cheio > .seg {
+  display: flex;
+  width: 100%;
+}
+.seg-cheio > .seg > button {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+}
 .seg > button[aria-pressed="true"] {
   background: var(--color-surface-4);
   color: var(--color-ink);
