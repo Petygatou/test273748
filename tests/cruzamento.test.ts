@@ -333,3 +333,115 @@ describe("cruzamento por times (conquistado × cedido)", () => {
     expect(doClube4.real).toBe(1);
   });
 });
+
+describe("cruzamento por times × recálculo independente (força bruta)", () => {
+  // laterais com lado: ímpar = esquerdo; alguns jogos com o lado trocado naquele jogo
+  const lados = Object.fromEntries(demo.athletes.filter((a) => a.posicaoId === 2).map((a) => [a.id, a.id % 2 ? "E" : "D"])) as Record<number, "E" | "D">;
+  const ladosJogo: Record<string, "E" | "D"> = {};
+  for (const h of demo.history) if (h.posicaoId === 2 && h.rodada % 7 === 0) ladosJogo[`${h.rodada}:${h.atletaId}`] = lados[h.atletaId] === "E" ? "D" : "E";
+  // simula rodadas que faltaram na fonte para alguns clubes
+  const clubes = Object.keys(demo.clubs).map(Number);
+  const faltando = new Set([`${demo.rodadaAtual - 2}:${clubes[0]}`, `${demo.rodadaAtual - 5}:${clubes[1]}`, `${demo.rodadaAtual - 4}:${clubes[2]}`]);
+  const dados = { ...demo, lados, ladosJogo, history: demo.history.filter((h) => !faltando.has(`${h.rodada}:${h.clubeId}`)) };
+
+  type Setor = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD";
+  const noSetor = (s: Setor, h: PlayerRound) => {
+    const lado = h.posicaoId === 2 ? (ladosJogo[`${h.rodada}:${h.atletaId}`] ?? lados[h.atletaId]) : undefined;
+    return s === "time" ? h.posicaoId !== 6 : s === "LE" ? h.posicaoId === 2 && lado === "E" : s === "LD" ? h.posicaoId === 2 && lado === "D" : h.posicaoId === s;
+  };
+  /** o cálculo do zero, só com partidas e scouts crus */
+  function bruto(R: number, scout: Parameters<typeof valorScout>[1], setor: Setor, recorte: number | null, lado: "mandantes" | "visitantes") {
+    const temDados = (r: number, c: number) => dados.history.some((h) => h.rodada === r && h.clubeId === c);
+    const jogos = (clube: number, emCasa: boolean) =>
+      dados.matches
+        .filter((m) => m.rodada < R && m.golsCasa != null && m.golsFora != null && (emCasa ? m.casaId === clube : m.foraId === clube))
+        .map((m) => ({ r: m.rodada, outro: emCasa ? m.foraId : m.casaId, pro: emCasa ? m.golsCasa! : m.golsFora!, contra: emCasa ? m.golsFora! : m.golsCasa! }))
+        .sort((a, b) => b.r - a.r);
+    const soma = (r: number, c: number) => dados.history.filter((h) => h.rodada === r && h.clubeId === c && noSetor(setor, h)).reduce((s, h) => s + valorScout(h.scout, scout), 0);
+    return dados.matches
+      .filter((m) => m.rodada === R)
+      .map((m) => {
+        const emCasa = lado === "mandantes";
+        const time = emCasa ? m.casaId : m.foraId;
+        const adv = emCasa ? m.foraId : m.casaId;
+        let jt = jogos(time, emCasa).filter((j) => temDados(j.r, time));
+        let ja = jogos(adv, !emCasa).filter((j) => temDados(j.r, j.outro));
+        if (recorte) {
+          jt = jt.slice(0, recorte);
+          ja = ja.slice(0, recorte);
+        }
+        const conquistado = scout === "SG" ? jt.filter((j) => j.contra === 0).length : jt.reduce((s, j) => s + soma(j.r, time), 0);
+        const cedido = scout === "SG" ? ja.filter((j) => j.pro === 0).length : ja.reduce((s, j) => s + soma(j.r, j.outro), 0);
+        return { matchId: m.id, time, adv, conquistado, jc: jt.length, cedido, ja: ja.length };
+      });
+  }
+
+  it("bate em todas as combinações de scout, posição, recorte e mando", () => {
+    const R = dados.rodadaAtual;
+    const base = prepararBase(dados, R);
+    let conferidas = 0;
+    for (const scout of ["G", "A", "GA", "FIN", "DS", "DE", "SG", "FS", "FC", "CA", "GS"] as const)
+      for (const setor of ["time", 1, 2, 3, 4, 5, "LE", "LD"] as Setor[])
+        for (const recorte of [3, 5, 10, null])
+          for (const lado of ["mandantes", "visitantes"] as const) {
+            const esperado = bruto(R, scout, setor, recorte, lado);
+            const obtido = cruzarTimes(base, { scout, setor, recorte, lado });
+            expect(obtido.length).toBe(esperado.length);
+            for (const e of esperado) {
+              const o = obtido.find((x) => x.matchId === e.matchId)!;
+              expect([o.timeId, o.adversarioId]).toEqual([e.time, e.adv]);
+              expect([o.conquistado.total, o.conquistado.jogos, o.cedido.total, o.cedido.jogos]).toEqual([e.conquistado, e.jc, e.cedido, e.ja]);
+              // o detalhe jogo a jogo soma o total mostrado
+              expect(o.conquistado.lista.reduce((s, j) => s + j.valor, 0)).toBe(o.conquistado.total);
+              expect(o.cedido.lista.reduce((s, j) => s + j.valor, 0)).toBe(o.cedido.total);
+              conferidas++;
+            }
+          }
+    expect(conferidas).toBeGreaterThan(5000);
+  });
+
+  it("recorte busca o jogo anterior quando um jogo faltou na fonte", () => {
+    const R = dados.rodadaAtual;
+    const base = prepararBase(dados, R);
+    const linhas = cruzarTimes(base, { scout: "G", setor: 5, recorte: 5, lado: "mandantes" });
+    // com jogos suficientes no mando, o recorte de 5 sempre tem 5 jogos
+    for (const l of linhas) {
+      const casaComDados = (base.jogosClube.get(l.timeId) ?? []).filter((j) => j.casa && !faltando.has(`${j.rodada}:${l.timeId}`)).length;
+      expect(l.conquistado.jogos).toBe(Math.min(5, casaComDados));
+    }
+  });
+
+  it("rodada passada: a coluna real é o que o setor fez naquela partida", () => {
+    const R = dados.rodadaAtual - 3;
+    const base = prepararBase(dados, R);
+    const hist = dados.history.filter((h) => h.rodada === R);
+    for (const scout of ["G", "DS", "FIN"] as const) {
+      const linhas = cruzarTimes(base, { scout, setor: "time", recorte: 5, lado: "visitantes" }, hist);
+      for (const l of linhas) {
+        const rows = hist.filter((h) => h.clubeId === l.timeId);
+        expect(l.real).toBe(rows.length ? rows.filter((h) => h.posicaoId !== 6).reduce((s, h) => s + valorScout(h.scout, scout), 0) : null);
+      }
+    }
+  });
+});
+
+describe("cruzamento por times: coerência com os placares", () => {
+  it("nenhum setor marca mais gols que o time, nem o adversário cede mais gols do que sofreu", () => {
+    const base = prepararBase(demo, demo.rodadaAtual);
+    let jogos = 0;
+    for (const setor of ["time", 1, 2, 3, 4, 5] as const)
+      for (const lado of ["mandantes", "visitantes"] as const)
+        for (const l of cruzarTimes(base, { scout: "G", setor, recorte: null, lado })) {
+          for (const j of l.conquistado.lista) {
+            expect(j.valor).toBeLessThanOrEqual(j.golsPro);
+            jogos++;
+          }
+          // no cedido, o placar é do ponto de vista do adversário: quem o enfrentou marcou golsContra
+          for (const j of l.cedido.lista) expect(j.valor).toBeLessThanOrEqual(j.golsContra);
+          // e o mando de cada jogo listado é o pedido
+          expect(l.conquistado.lista.every((j) => j.casa === (lado === "mandantes"))).toBe(true);
+          expect(l.cedido.lista.every((j) => j.casa === (lado !== "mandantes"))).toBe(true);
+        }
+    expect(jogos).toBeGreaterThan(1000);
+  });
+});

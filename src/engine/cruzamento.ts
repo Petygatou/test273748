@@ -1168,7 +1168,8 @@ const doSetor = (setor: SetorTimes) => (l: Linha) =>
  *  - Cedido: soma do scout feita pelo mesmo setor dos times que enfrentaram o adversário,
  *    nos últimos N jogos do adversário no mando OPOSTO (adversário em casa → jogos em casa).
  * SG conta jogos: conquistado = jogos sem sofrer gol; cedido = jogos em que o adversário não marcou.
- * Jogo sem nenhum registro do time no histórico (rodada que faltou na fonte) fica fora da conta.
+ * Jogo sem nenhum registro do time no histórico (rodada que faltou na fonte) fica fora da conta
+ * e o recorte busca o jogo anterior no lugar dele.
  */
 export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRodada?: PlayerRound[]): LinhaTimes[] {
   const noSetor = doSetor(opts.setor);
@@ -1197,8 +1198,9 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
     const total = lista.reduce((s, x) => s + x.valor, 0);
     return { total, jogos: lista.length, media: lista.length ? r3(total / lista.length) : 0, lista };
   };
-  const ultimos = (clube: number, casa: boolean) => {
-    const js = (base.jogosClube.get(clube) ?? []).filter((j) => j.casa === casa);
+  /** últimos N jogos do clube no mando, contando só jogos com dados da fonte (o que faltar é trocado pelo anterior) */
+  const ultimos = (clube: number, casa: boolean, quem: (j: JogoClube) => number) => {
+    const js = (base.jogosClube.get(clube) ?? []).filter((j) => j.casa === casa && porJogo.get(`${j.rodada}:${quem(j)}`)?.length);
     return opts.recorte ? js.slice(0, opts.recorte) : js;
   };
   const out: LinhaTimes[] = [];
@@ -1209,13 +1211,13 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
     // conquistado: jogos do time no mesmo mando; o próprio time é quem faz o scout
     const conquistado = somar(
       () => time,
-      ultimos(time, emCasa),
+      ultimos(time, emCasa, () => time),
       (j) => j.golsContra === 0,
     );
     // cedido: jogos do adversário no mando oposto; quem faz o scout é o time que o enfrentou
     const cedido = somar(
       (j) => j.opp,
-      ultimos(adv, !emCasa),
+      ultimos(adv, !emCasa, (j) => j.opp),
       (j) => j.golsPro === 0,
     );
     let real: number | null | undefined;
