@@ -3,7 +3,7 @@
  * (cruzamentoServico.ts), que roda só no servidor; o navegador recebe só o resultado.
  */
 import { createServerFn } from "@tanstack/react-start";
-import type { CriterioRanking, FiltroMando, Janela } from "../engine/cruzamento";
+import type { CriterioRanking, FiltroMando, Janela, SetorTimes } from "../engine/cruzamento";
 import type { PositionId } from "../engine/rules";
 import type { CruzScout } from "../engine/scoutDefs";
 
@@ -52,6 +52,23 @@ export const fetchCruzamentoAtleta = createServerFn({ method: "GET" })
   })
   .handler(async ({ data }) => (await import("./cruzamentoServico")).atleta(data));
 
+/** Cruzamento por times: para cada jogo da rodada, conquistado (time analisado) × cedido (adversário). */
+export const fetchCruzamentoTimes = createServerFn({ method: "GET" })
+  .validator((d: Record<string, unknown> | undefined) => {
+    const int = (v: unknown) => (v != null && v !== "" && Number.isInteger(Number(v)) && Number(v) > 0 ? Number(v) : undefined);
+    const setor = String(d?.setor ?? "5");
+    const recorte = Number(d?.recorte);
+    return {
+      temporada: int(d?.temporada),
+      rodada: int(d?.rodada),
+      scout: (CODIGOS as readonly string[]).includes(String(d?.scout)) ? (d!.scout as CruzScout) : ("G" as CruzScout),
+      setor: (setor === "time" || setor === "LE" || setor === "LD" ? setor : ["1", "2", "3", "4", "5"].includes(setor) ? Number(setor) : 5) as SetorTimes,
+      recorte: recorte === 3 || recorte === 5 || recorte === 10 ? recorte : null,
+      lado: (d?.lado === "visitantes" ? "visitantes" : "mandantes") as "mandantes" | "visitantes",
+    };
+  })
+  .handler(async ({ data }) => (await import("./cruzamentoServico")).times(data));
+
 /** ADM: chama cada endpoint do Cartola agora e confere os campos. */
 export const verificarFontesCruzamento = createServerFn({ method: "POST" }).handler(async () => {
   const { requireAdmin } = await import("./auth");
@@ -78,4 +95,5 @@ export const fetchSyncLogs = createServerFn({ method: "GET" }).handler(async () 
 export type CruzamentoOpcoes = Awaited<ReturnType<typeof fetchCruzamentoOpcoes>>;
 export type CruzamentoRanking = Awaited<ReturnType<typeof fetchCruzamentoRanking>>;
 export type CruzamentoAtleta = Awaited<ReturnType<typeof fetchCruzamentoAtleta>>;
+export type CruzamentoTimes = Awaited<ReturnType<typeof fetchCruzamentoTimes>>;
 export type { CriterioRanking };
