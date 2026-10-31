@@ -32,6 +32,10 @@ interface BuilderSettings {
 }
 
 const DEFAULT_SETTINGS: BuilderSettings = { profile: "equilibrada", budget: 120, formation: "auto", minPJogar: 0.5 };
+/** atalhos de cartoletas (no fim da temporada um time forte passa de C$ 200) */
+const ATALHOS_CS = [100, 150, 200, 250, 300];
+/** teto do campo: patrimônio alto de quem joga desde o começo da temporada */
+const MAX_CS = 1000;
 
 const PROFILES: Array<{ value: ProfileKey; label: string; desc: string }> = [
   { value: "mitada", label: "Mitada", desc: "Para arriscar: atletas que podem explodir na rodada. Bom para buscar a mitada." },
@@ -59,6 +63,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
   const auth = useAuth();
 
   const byId = useMemo(() => new Map(analysis.players.map((p) => [p.atletaId, p] as const)), [analysis]);
+  const precoMaximo = useMemo(() => Math.max(0, ...analysis.players.map((p) => p.preco)), [analysis]);
   const validIds = (ids: number[]) => ids.filter((id) => byId.has(id));
   // a chave só muda quando o pedido muda de verdade: atualizações dos dados em segundo plano
   // (status de atleta, mercado) não apagam as trocas que a pessoa fez à mão
@@ -238,10 +243,18 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
               <label htmlFor="budget" className="mb-1.5 block text-xs font-semibold text-[var(--color-ink-3)] uppercase">
                 Quanto você tem (C$)
               </label>
-              <div className="flex items-center gap-2">
-                <BudgetInput value={settings.budget} onCommit={(budget) => update({ budget })} />
-                {[100, 120, 140].map((b) => (
-                  <button key={b} className="btn btn-ghost px-2.5 py-2 text-xs" onClick={() => update({ budget: b })}>
+              <BudgetInput value={settings.budget} onCommit={(budget) => update({ budget })} />
+              <div className="mt-2 grid grid-cols-5 gap-1.5" role="group" aria-label="Atalhos de cartoletas">
+                {ATALHOS_CS.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    aria-pressed={settings.budget === b}
+                    className={`rounded-lg border py-1.5 text-xs font-semibold tabular transition-colors ${
+                      settings.budget === b ? "border-[var(--color-brand)] bg-[var(--color-brand)]/15 text-[var(--color-brand)]" : "border-[var(--color-line)] text-[var(--color-ink-2)] hover:border-[var(--color-ink-3)]"
+                    }`}
+                    onClick={() => update({ budget: b })}
+                  >
                     {b}
                   </button>
                 ))}
@@ -281,9 +294,9 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
           <div data-tour="escalar-estilo-topo" className="flex flex-wrap items-center gap-2 lg:hidden">
             <Seg label="Perfil" value={settings.profile} onChange={(v) => update({ profile: v })} options={PROFILES.map((p) => ({ value: p.value, label: p.label }))} />
             <div className="seg" role="group" aria-label="Orçamento">
-              {[100, 120, 140].map((b) => (
+              {ATALHOS_CS.map((b) => (
                 <button key={b} aria-pressed={settings.budget === b} onClick={() => update({ budget: b })}>
-                  C$ {b}
+                  {b === ATALHOS_CS[0] ? `C$ ${b}` : b}
                 </button>
               ))}
             </div>
@@ -297,7 +310,12 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <StatTile label="Pontos previstos" value={fmt1(lineup.xPComCapitao)} hint={`${fmt1(lineup.xP)} + bônus do capitão`} accent="gold" />
-                <StatTile label="Custo" value={cs(lineup.custo)} hint={`sobra ${cs(lineup.sobra)}`} />
+                <StatTile
+                  label="Custo"
+                  value={cs(lineup.custo)}
+                  // sobra maior que o atleta mais caro: qualquer troca caberia, então o orçamento não limita a tropa
+                  hint={lineup.sobra >= precoMaximo ? `sobra ${cs(lineup.sobra)} · já é o melhor time possível` : `sobra ${cs(lineup.sobra)}`}
+                />
                 <StatTile label="Deve valorizar" value={`${signed(lineup.valorizacaoEsperada)}`} hint="C$ depois da rodada" accent={lineup.valorizacaoEsperada >= 0 ? "good" : undefined} />
                 <StatTile
                   label="Faixa provável"
@@ -583,7 +601,7 @@ function BudgetInput({ value, onCommit }: { value: number; onCommit: (v: number)
   const parse = (t: string) => Number(t.replace(",", "."));
   const commit = () => {
     const n = parse(draft);
-    if (Number.isFinite(n) && n > 0) onCommit(Math.min(400, Math.max(20, Math.round(n * 100) / 100)));
+    if (Number.isFinite(n) && n > 0) onCommit(Math.min(MAX_CS, Math.max(20, Math.round(n * 100) / 100)));
     else setDraft(String(value));
   };
   return (
@@ -595,7 +613,7 @@ function BudgetInput({ value, onCommit }: { value: number; onCommit: (v: number)
       onChange={(e) => {
         setDraft(e.target.value);
         const n = parse(e.target.value);
-        if (Number.isFinite(n) && n >= 20 && n <= 400) onCommit(Math.round(n * 100) / 100);
+        if (Number.isFinite(n) && n >= 20 && n <= MAX_CS) onCommit(Math.round(n * 100) / 100);
       }}
       onBlur={commit}
       onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
