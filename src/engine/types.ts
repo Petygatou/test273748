@@ -305,6 +305,8 @@ export interface PlayerProjection {
 
   /** % de escalação (efeito manada), quando disponível. */
   posse?: number;
+  /** Gols na temporada (soma do scout G das rodadas encerradas). */
+  gols?: number;
   /** Médias históricas por mando. */
   mediaCasa: number | null;
   mediaFora: number | null;

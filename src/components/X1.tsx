@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftRight, ChevronDown, Crown, Pencil, ShieldCheck, Trophy, Wallet, Zap } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import type { PlayerProjection, RoundAnalysis } from "../engine/types";
+import { LATERAL_DIR, LATERAL_ESQ, type PlayerProjection, type RoundAnalysis } from "../engine/types";
 import { cs, fmt1, fmt2, pct, posName, signed } from "../lib/format";
 import { Radar, SERIES_A, SERIES_B } from "./charts";
 import { PlayerSearch } from "./PlayerSearch";
@@ -48,23 +48,35 @@ function Side({ a, p, color, editing, onEdit }: { a: RoundAnalysis; p: PlayerPro
   );
 }
 
-/** Barra "cabo de guerra": quem leva cada quesito. */
-function Tug({ label, va, vb, show, lowerBetter }: { label: string; va: number; vb: number; show: (x: number) => string; lowerBetter?: boolean }) {
+/**
+ * Média de pontos que o adversário do atleta cede à posição dele, no mando do jogo
+ * (atleta em casa → o adversário cedendo fora). Lateral com lado conhecido usa o lado.
+ */
+function mediaCedida(a: RoundAnalysis, p: PlayerProjection): number | null {
+  if (p.adversarioId == null || !p.mando) return null;
+  const row = a.cedencia.find((r) => r.clubeId === p.adversarioId);
+  if (!row) return null;
+  const cells = row[p.mando === "casa" ? "fora" : "casa"];
+  const lado = p.posicaoId === 2 && p.lado ? cells[p.lado === "E" ? LATERAL_ESQ : LATERAL_DIR] : undefined;
+  const cell = lado?.jogos ? lado : cells[p.posicaoId];
+  return cell?.jogos ? cell.pontos : null;
+}
+
+/** Barra "cabo de guerra": quem leva cada quesito. Sem valor (null) aparece "—". */
+function Tug({ label, va, vb, show, lowerBetter, title }: { label: string; va: number | null; vb: number | null; show: (x: number) => string; lowerBetter?: boolean; title?: string }) {
   // largura proporcional ao valor (preço: inverso), deslocada se houver negativos
-  const x = lowerBetter ? 1 / Math.max(va, 0.01) : va;
-  const y = lowerBetter ? 1 / Math.max(vb, 0.01) : vb;
+  const x = va == null ? 0 : lowerBetter ? 1 / Math.max(va, 0.01) : va;
+  const y = vb == null ? 0 : lowerBetter ? 1 / Math.max(vb, 0.01) : vb;
   const off = Math.min(x, y, 0);
   const m = Math.max(Math.abs(x), Math.abs(y), 1e-6) * 0.25;
   const share = (x - off + m) / (x - off + m + (y - off + m));
-  const sa = x;
-  const sb = y;
-  const win = Math.abs(sa - sb) < 1e-9 ? 0 : sa > sb ? -1 : 1;
+  const win = va == null && vb == null ? 0 : va == null ? 1 : vb == null ? -1 : Math.abs(x - y) < 1e-9 ? 0 : x > y ? -1 : 1;
   return (
-    <div>
+    <div title={title}>
       <div className="mb-1 flex items-center justify-between text-xs">
-        <span className={`tabular ${win === -1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>{show(va)}</span>
+        <span className={`tabular ${win === -1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>{va == null ? "—" : show(va)}</span>
         <span className="font-semibold text-[var(--color-ink-2)]">{label}</span>
-        <span className={`tabular ${win === 1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>{show(vb)}</span>
+        <span className={`tabular ${win === 1 ? "font-bold text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>{vb == null ? "—" : show(vb)}</span>
       </div>
       <div className="flex h-2 overflow-hidden rounded-full bg-[var(--color-surface-1)]">
         <div style={{ width: `${share * 100}%`, background: SERIES_A, opacity: win === 1 ? 0.35 : 1 }} />
@@ -219,7 +231,13 @@ export function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; 
           <Tug label="Piso (pior cenário provável)" va={pa.piso} vb={pb.piso} show={fmt1} />
           <Tug label="Teto (melhor cenário provável)" va={pa.teto} vb={pb.teto} show={fmt1} />
           <Tug label="Preço" va={pa.preco} vb={pb.preco} show={(x) => cs(x)} lowerBetter />
-          <Tug label="Valorização esperada" va={pa.valorizacaoEsperada} vb={pb.valorizacaoEsperada} show={(x) => signed(x)} />
+          <Tug
+            label="Méd. cedida adv."
+            va={mediaCedida(a, pa)}
+            vb={mediaCedida(a, pb)}
+            show={fmt1}
+            title="Média de pontos que o adversário de cada um cede à posição dele, no mando do jogo (temporada, com peso maior para os jogos recentes)"
+          />
         </div>
 
         <button className="mx-auto mt-5 flex items-center gap-1 text-sm font-semibold text-[var(--color-ink-3)] hover:text-[var(--color-ink)]" onClick={() => setDetails((v) => !v)} aria-expanded={details}>
@@ -239,7 +257,7 @@ export function X1({ a, ida, idb, onChange }: { a: RoundAnalysis; ida?: number; 
                     ["Média em casa", fmt2(pa.mediaCasa), fmt2(pb.mediaCasa)],
                     ["Média fora", fmt2(pa.mediaFora), fmt2(pb.mediaFora)],
                     ["Regularidade (3+ pts)", `${pa.regularidade}%`, `${pb.regularidade}%`],
-                    ["Chance de negativar", pct(pa.pNegativo), pct(pb.pNegativo)],
+                    ["Gols na temporada", String(pa.gols ?? 0), String(pb.gols ?? 0)],
                     ["Mínimo p/ valorizar", fmt1(pa.mpv), fmt1(pb.mpv)],
                     ["Pontos se jogar", fmt1(pa.xPJogando), fmt1(pb.xPJogando)],
                   ] as const

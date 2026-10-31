@@ -87,9 +87,13 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
   const pmvModel = calibratePmv(data.athletes, history, R);
   const total = data.timesEscalados ?? 0;
 
+  // gols na temporada: soma do scout G de cada rodada encerrada (histórico real, jogo a jogo)
+  const gols = new Map<number, number>();
+  for (const h of history) if (h.scout.G) gols.set(h.atletaId, (gols.get(h.atletaId) ?? 0) + h.scout.G);
+
   const players: PlayerProjection[] = [];
   for (const d of details.values()) {
-    players.push(toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total, data.lados));
+    players.push({ ...toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total, data.lados), gols: gols.get(d.athlete.id) ?? 0 });
   }
   players.sort((a, b) => b.xP - a.xP);
 
