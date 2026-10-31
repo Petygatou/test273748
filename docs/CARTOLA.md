@@ -94,14 +94,11 @@ Observação honesta: este módulo foi testado com respostas simuladas no format
 
 ## Cruzamento de Scout (Estatísticas → Cruzamento de Scout)
 
-Duas visões:
+Para cada jogo da rodada, escolhendo scout, posição (ou time inteiro, laterais por lado), recorte (últimos 3, 5, 10 ou todos) e quem analisar (mandantes ou visitantes):
+- **Conquistado** = total do scout feito por essa posição do time analisado nos últimos N jogos dele **no mesmo mando**;
+- **Cedido** = total que o adversário permitiu a essa posição nos últimos N jogos dele **no mando oposto**.
 
-- **Por time (padrão).** Para cada jogo da rodada, escolhendo scout, posição (ou time inteiro, laterais por lado), recorte (últimos 3, 5, 10 ou todos) e quem analisar (mandantes ou visitantes):
-  - **Conquistado** = total do scout feito por essa posição do time analisado nos últimos N jogos dele **no mesmo mando**;
-  - **Cedido** = total que o adversário permitiu a essa posição nos últimos N jogos dele **no mando oposto**.
-
-  O SG conta jogos sem sofrer gol. Tocar num jogo mostra de onde sai cada número (jogo a jogo, com os atletas). Em rodada passada aparece o que aconteceu de fato.
-- **Por atleta.** Cruza o que cada atleta faz por jogo com o que o adversário cede à posição, scout a scout, separando sempre o **histórico** (o que aconteceu) da **projeção** (o que pode acontecer).
+O SG conta jogos sem sofrer gol. Tocar num jogo mostra de onde sai cada número (jogo a jogo, com os atletas). Em rodada passada aparece o que aconteceu de fato. Jogo que faltou na fonte não vira zero: o recorte usa o jogo anterior.
 
 **Dados.** Tudo vem da API pública do Cartola:
 - `/atletas/pontuados/{rodada}` traz os scouts de cada atleta que entrou em campo em cada rodada encerrada (conferido: os pontos recalculados batem com os oficiais, então são scouts por jogo, não acumulados);
@@ -116,7 +113,7 @@ A API não publica minutos jogados, então a análise é por partida.
 - `scout-temporadas`: clubes de cada temporada;
 - `sync-logs`: sincronizações, revisões, verificações e erros.
 
-O cadastro dos scouts (código, nome, categoria, posições, pontos, vigência) fica em código: `src/engine/scoutDefs.ts`.
+O cadastro dos scouts (código, nome, categoria, posições, pontos) fica em código: `src/engine/scoutDefs.ts`.
 
 **Sincronização.**
 - **Idempotente:** mesmo conteúdo, nada é gravado; conteúdo mudado vira revisão no log.
@@ -124,16 +121,6 @@ O cadastro dos scouts (código, nome, categoria, posições, pontos, vigência) 
 - **Proteção contra resposta parcial:** resposta vazia ou com muito menos atletas nunca sobrescreve a versão guardada.
 - **Parciais e jogos futuros** nunca entram no histórico.
 - **Painel ADM:** o admin pode testar cada endpoint (campos, tempo, HTTP) e sincronizar na hora.
-
-**Modelo.** Estimativa = taxa do atleta × fator do adversário × fator de mando.
-- **Taxa do atleta:** Gama-Poisson com Bayes empírico.
-- **Fator do adversário:** encolhido pelo ruído entre os 20 times.
-- **Probabilidades:** binomial negativa (Poisson-Gama).
-- **SG, gols sofridos e vitória:** modelo de gols de Poisson. O SG ainda multiplica pela parte dos jogos sem gol sofrido em que o atleta de fato recebe o SG.
-- **Pontuação:** média e desvio exatos; cenários de 20%/50%/80% vêm de jogos simulados, com gols, assistências, SG e gols sofridos saindo do mesmo placar.
-- **Tabela de pontos:** é conferida contra a pontuação oficial da temporada; scout divergente usa o valor que os dados oficiais indicam.
-
-**Conferência.** Para cada rodada passada, o modelo só vê as rodadas anteriores e prevê a chance de cada scout; a tela mostra previsto × real por faixa e por scout. A meia-vida da recência é escolhida por essa conferência.
 
 ## Lado dos laterais (LE/LD), descoberto sozinho
 

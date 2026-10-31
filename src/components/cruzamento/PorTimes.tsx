@@ -81,7 +81,19 @@ const GRADE = "grid grid-cols-[18px_minmax(0,1fr)_58px_10px_58px_minmax(0,1fr)] 
  * Cruzamento por times: em cada jogo da rodada, o que a posição do time analisado fez no
  * mesmo mando (Conquistado) × o que o adversário permitiu a essa posição no mando oposto (Cedido).
  */
-export function PorTimes({ o, clubes, rodada, setRodada }: { o: CruzamentoOpcoes; clubes: Record<number, Club>; rodada: number; setRodada: (r: number) => void }) {
+export function PorTimes({
+  o,
+  clubes,
+  rodada,
+  setRodada,
+  setTemporada,
+}: {
+  o: CruzamentoOpcoes;
+  clubes: Record<number, Club>;
+  rodada: number;
+  setRodada: (r: number) => void;
+  setTemporada: (t: number) => void;
+}) {
   const [salvos, setSalvos] = useLocal<Filtros>(KEYS.cruzamentoTimes, PADRAO);
   const f = { ...PADRAO, ...salvos };
   const set = (p: Partial<Filtros>) => setSalvos((s) => ({ ...PADRAO, ...s, ...p }));
@@ -177,6 +189,19 @@ export function PorTimes({ o, clubes, rodada, setRodada }: { o: CruzamentoOpcoes
                 ))}
               </select>
             </label>
+            {o.temporadas.length > 1 && (
+              <label className="block min-w-0">
+                <span className={ROTULO}>Temporada</span>
+                <select className="input" value={o.temporada} onChange={(e) => setTemporada(Number(e.target.value))} aria-label="Temporada">
+                  {o.temporadas.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                      {t === o.temporadas[0] && o.atual ? " (atual)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="block min-w-0">
               <span className={ROTULO}>Rodada</span>
               <select className="input" value={rodada} onChange={(e) => setRodada(Number(e.target.value))} aria-label="Rodada">
