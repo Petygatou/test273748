@@ -517,7 +517,7 @@ function ListaCelular({ r, tabela, colunas, metrica, recorte, fator, clubes, onA
                 <ClubBadge club={clubes[b.clubeId]} size={14} />
                 {sigla(b.clubeId)}
               </span>
-              <span className="block text-[10px] whitespace-nowrap text-[var(--color-ink-3)]">
+              <span className="block text-[10px] font-semibold whitespace-nowrap text-[var(--color-ink-2)]">
                 {rotulo}
                 {recorte != null && b.jogos.length < recorte && (
                   <>
@@ -547,7 +547,7 @@ function ListaCelular({ r, tabela, colunas, metrica, recorte, fator, clubes, onA
               ))}
             </div>
             <div className="space-y-[3px]">
-              {linha(conquista, `faz ${conquista.casa ? "casa" : "fora"}`)}
+              {linha(conquista, `con ${conquista.casa ? "casa" : "fora"}`)}
               {linha(cede, `cede ${cede.casa ? "casa" : "fora"}`)}
             </div>
           </li>
