@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, CheckCircle2, RefreshCw, RotateCcw, Search, Wand2 } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, ListChecks, RefreshCw, RotateCcw, Search, Wand2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { LadoLateral, RoundAnalysis } from "../engine/types";
 import { pct, timeAgo } from "../lib/format";
@@ -9,7 +9,7 @@ import { atualizarLadosAuto, fetchLadosAuto, saveLadoLateral } from "../server/f
 import type { LadoAuto, ResumoLados } from "../server/ladosAuto";
 import { Alert, Card, ClubBadge, PlayerPhoto, SectionTitle, Seg, StatusPill } from "./ui";
 
-type Filtro = "todos" | "sem" | "manual" | "ambos" | "diverge";
+type Filtro = "todos" | "sem" | "foraLista" | "manual" | "ambos" | "diverge";
 const LADOS_KEY = ["admin-lados"] as const;
 const sigla = (l: LadoLateral) => (l === "E" ? "LE" : "LD");
 
@@ -48,14 +48,19 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
   const info = (id: number, ladoBase?: LadoLateral) => {
     const r = resumo?.porAtleta[id];
     const manual = id in local ? local[id] : (r?.manual ?? null);
+    const lista = r?.lista ?? null;
     const auto = r?.auto ?? null;
-    const efetivo: LadoLateral | null = manual ?? auto?.lado ?? (resumo ? null : (ladoBase ?? null));
-    return { manual, auto, efetivo, diverge: Boolean(manual && auto?.lado && manual !== auto.lado) };
+    const efetivo: LadoLateral | null = manual ?? lista ?? auto?.lado ?? (resumo ? null : (ladoBase ?? null));
+    // lado escolhido (à mão ou pela lista) diferente do que as escalações mostram
+    const escolhido = manual ?? lista;
+    return { manual, lista, auto, efetivo, diverge: Boolean(escolhido && auto?.lado && escolhido !== auto.lado) };
   };
 
   const contagem = useMemo(() => {
     let comLado = 0,
       automaticos = 0,
+      daLista = 0,
+      foraLista = 0,
       manuais = 0,
       semDados = 0,
       ambos = 0,
@@ -64,12 +69,14 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
       const x = info(p.atletaId, p.lado);
       if (x.efetivo) comLado++;
       if (x.manual) manuais++;
+      else if (x.lista) daLista++;
       else if (x.auto?.lado) automaticos++;
+      if (!x.lista) foraLista++;
       if (!x.auto) semDados++;
       if (x.auto?.ambos && !x.manual) ambos++;
       if (x.diverge) diverge++;
     }
-    return { comLado, automaticos, manuais, semDados, ambos, diverge };
+    return { comLado, automaticos, daLista, foraLista, manuais, semDados, ambos, diverge };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [laterais, resumo, local]);
 
@@ -79,8 +86,9 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
     for (const p of laterais) {
       const x = info(p.atletaId, p.lado);
       if (filtro === "sem" && x.efetivo) continue;
+      if (filtro === "foraLista" && x.lista) continue;
       if (filtro === "manual" && !x.manual) continue;
-      if (filtro === "ambos" && !(x.auto?.ambos && !x.manual)) continue;
+      if (filtro === "ambos" && !(x.auto?.ambos && !x.manual && !x.lista)) continue;
       if (filtro === "diverge" && !x.diverge) continue;
       if (n && !norm(p.apelido).includes(n) && !norm(a.clubs[p.clubeId]?.nome ?? "").includes(n)) continue;
       porClube.set(p.clubeId, [...(porClube.get(p.clubeId) ?? []), p]);
@@ -134,18 +142,19 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
 
   return (
     <div className="space-y-4">
+      <Lista resumo={resumo} />
       <Fontes resumo={resumo} carregando={resumoQ.isLoading} atualizando={atualizando} onAtualizar={atualizar} />
 
       <Card className="p-3 sm:p-4">
         <SectionTitle
           title="Lado de cada lateral"
-          subtitle="Descoberto sozinho pelas escalações. Toque em LE ou LD só para corrigir; tocar de novo volta ao automático."
+          subtitle="Quem está na lista da equipe tem o lado da lista; o resto é descoberto pelas escalações. Toque em LE ou LD só para corrigir; tocar de novo desfaz a correção."
           icon={<ArrowLeftRight size={18} className="text-[var(--color-brand)]" />}
         />
         <div className="mb-3">
           <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
             <span>
-              <b className="text-[var(--color-ink)]">{contagem.comLado}</b> de {laterais.length} laterais com lado · {contagem.automaticos} automáticos · {contagem.manuais} corrigidos à mão
+              <b className="text-[var(--color-ink)]">{contagem.comLado}</b> de {laterais.length} laterais com lado · {contagem.daLista} da lista · {contagem.automaticos} automáticos · {contagem.manuais} corrigidos à mão
             </span>
             <span className="tabular">{laterais.length ? Math.round((contagem.comLado / laterais.length) * 100) : 0}%</span>
           </div>
@@ -170,6 +179,7 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
             options={[
               { value: "todos", label: "Todos" },
               { value: "sem", label: `Sem lado (${laterais.length - contagem.comLado})` },
+              ...(resumo?.lista ? [{ value: "foraLista" as const, label: `Fora da lista (${contagem.foraLista})` }] : []),
               { value: "ambos", label: `Dois lados (${contagem.ambos})` },
               { value: "manual", label: `Corrigidos (${contagem.manuais})` },
               { value: "diverge", label: `Divergem (${contagem.diverge})` },
@@ -199,6 +209,10 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
                             {p.apelido}
                             {x.manual ? (
                               <span className="rounded bg-[var(--color-gold)]/15 px-1 text-[10px] font-bold text-[var(--color-gold)]">corrigido</span>
+                            ) : x.lista ? (
+                              <span className="inline-flex items-center gap-0.5 rounded bg-[var(--color-series-b)]/20 px-1 text-[10px] font-bold text-[#9cc6f5]" title={`Na lista da equipe como “${resumo?.porAtleta[p.atletaId]?.nomeLista ?? p.apelido}”`}>
+                                <ListChecks size={10} aria-hidden /> lista
+                              </span>
                             ) : x.auto?.ambos ? (
                               <span className="rounded bg-[var(--color-warning)]/15 px-1 text-[10px] font-bold text-[var(--color-warning)]">dois lados</span>
                             ) : x.auto?.lado ? (
@@ -218,12 +232,14 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
                               type="button"
                               onClick={() => corrigir(p.atletaId, x.manual, l)}
                               aria-pressed={x.efetivo === l}
-                              title={x.manual === l ? "Voltar ao automático" : `Corrigir para ${l === "E" ? "lateral esquerdo" : "lateral direito"}`}
+                              title={x.manual === l ? (x.lista ? "Voltar ao lado da lista" : "Voltar ao automático") : `Corrigir para ${l === "E" ? "lateral esquerdo" : "lateral direito"}`}
                               className={`h-8 w-11 rounded-lg border text-xs font-bold transition-colors ${
                                 x.efetivo === l
                                   ? x.manual
                                     ? "border-[var(--color-gold)] bg-[var(--color-gold)] text-[#1a1400]"
-                                    : "border-[var(--color-brand)] bg-[var(--color-brand)] text-[#1a0a00]"
+                                    : x.lista
+                                      ? "border-[var(--color-series-b)] bg-[var(--color-series-b)] text-[#04121f]"
+                                      : "border-[var(--color-brand)] bg-[var(--color-brand)] text-[#1a0a00]"
                                   : "border-[var(--color-line)] text-[var(--color-ink-3)] hover:border-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
                               }`}
                             >
@@ -241,13 +257,16 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
                         )}
                         {x.diverge && x.auto?.lado && (
                           <span className="mt-0.5 flex items-center gap-1 text-[var(--color-warning)]">
-                            As escalações dizem {sigla(x.auto.lado)}.
-                            <button type="button" className="inline-flex items-center gap-0.5 underline" onClick={() => corrigir(p.atletaId, x.manual, null)}>
-                              <RotateCcw size={10} aria-hidden /> usar o automático
-                            </button>
+                            As escalações dizem {sigla(x.auto.lado)}
+                            {x.manual ? "." : `; vale o ${sigla(x.lista!)} da lista.`}
+                            {x.manual && !x.lista && (
+                              <button type="button" className="inline-flex items-center gap-0.5 underline" onClick={() => corrigir(p.atletaId, x.manual, null)}>
+                                <RotateCcw size={10} aria-hidden /> usar o automático
+                              </button>
+                            )}
                           </span>
                         )}
-                        {x.auto?.ambos && !x.manual && (
+                        {x.auto?.ambos && !x.manual && !x.lista && (
                           <span className="block text-[var(--color-warning)]">
                             {x.auto.lado
                               ? `Joga dos dois lados; nos últimos jogos, ${sigla(x.auto.lado)}. Na cedência conta o lado de cada jogo.`
@@ -264,10 +283,58 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
         </div>
         {!grupos.length && <p className="py-6 text-center text-sm text-[var(--color-ink-3)]">Nenhum lateral nesse filtro.</p>}
         <p className="mt-3 text-xs text-[var(--color-ink-3)]">
-          A correção à mão vale para todos os jogos do atleta. A análise do site é refeita alguns segundos depois da última mudança.
+          O lado da lista e a correção à mão valem para todos os jogos do atleta. A análise do site é refeita alguns segundos depois da última mudança.
         </p>
       </Card>
     </div>
+  );
+}
+
+/** A lista de laterais classificados pela equipe: quantos nomes casaram com o Cartola e quais não. */
+function Lista({ resumo }: { resumo?: ResumoLados }) {
+  if (!resumo) return null;
+  const l = resumo.lista;
+  return (
+    <Card className="p-3 sm:p-4">
+      <SectionTitle
+        title="Lista da equipe"
+        subtitle="Laterais classificados como esquerdo ou direito. Vale para a temporada inteira, por cima das escalações."
+        icon={<ListChecks size={18} className="text-[var(--color-series-b)]" />}
+      />
+      {!l ? (
+        <Alert tone="info">A lista fala dos jogadores de verdade do Cartola. Com o site em modo demonstração (nomes fictícios), ela não entra.</Alert>
+      ) : (
+        <>
+          <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
+            <span>
+              <b className="text-[var(--color-ink)]">{l.casados}</b> de {l.total} nomes da lista achados no Cartola
+            </span>
+            <span className="tabular">{l.total ? Math.round((l.casados / l.total) * 100) : 0}%</span>
+          </div>
+          <Progresso valor={l.casados} total={l.total} />
+          {l.conflitos.length > 0 && (
+            <div className="mt-2">
+              <Alert tone="warning">
+                Nomes da lista que caíram no mesmo atleta com lados diferentes (vale o primeiro): {l.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.
+              </Alert>
+            </div>
+          )}
+          {l.semPar.length > 0 && (
+            <details className="mt-2 text-xs text-[var(--color-ink-3)]">
+              <summary className="cursor-pointer">{l.semPar.length} nomes da lista sem par no Cartola</summary>
+              <ul className="mt-1.5 space-y-0.5">
+                {l.semPar.map((x, i) => (
+                  <li key={i}>
+                    <b className="text-[var(--color-ink-2)]">{x.nome}</b> ({x.clube?.toUpperCase() ?? "sem clube"}, {x.lado === "E" ? "LE" : "LD"}): {x.motivo}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5">Quem não casou continua com o lado das escalações (ou a correção à mão).</p>
+            </details>
+          )}
+        </>
+      )}
+    </Card>
   );
 }
 

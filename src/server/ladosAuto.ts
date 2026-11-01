@@ -19,6 +19,7 @@
 import type { Athlete, Club, LadoLateral, Match, PlayerRound } from "../engine/types";
 import { db, emit, flushRemote, syncRemote, type EvidenciaLado, type FonteLadoRow, type LadoJogoRow } from "./db";
 import { apiPaged, explainApiError, matchClub, matchPlayer, norm, spend, type OfficialState } from "./escalacoes";
+import type { ResultadoLista } from "./ladosLista";
 
 const ESPN_BASE = () => process.env.ESPN_BASE ?? "https://site.api.espn.com/apis/site/v2/sports/soccer";
 const ESPN_LIGA = () => process.env.ESPN_LIGA ?? "bra.1";
@@ -659,7 +660,7 @@ export async function passoLados(ctx: Contexto, of: OfficialState | null, opts: 
 }
 
 /** Resumo para o Painel ADM: fontes, progresso e evidências por atleta. */
-export function resumoLados(temporada: number, athletes: Athlete[], ligado: boolean) {
+export function resumoLados(temporada: number, athletes: Athlete[], ligado: boolean, lista: ResultadoLista | null = null) {
   const comb = ladosAutomaticos(temporada);
   const rows = db.ladosJogos.all();
   const manuais = new Map(db.lados.all().map((l) => [l.atletaId, l] as const));
@@ -684,10 +685,10 @@ export function resumoLados(temporada: number, athletes: Athlete[], ligado: bool
   const timesSemPar = [...new Set(daTemporada.flatMap((r) => r.timesSemPar ?? []))];
   // jogo desta temporada que não achamos no calendário do Cartola (não entra no lado por jogo)
   const jogosSemRodada = daTemporada.filter((r) => r.rodada == null).length;
-  const porAtleta: Record<number, { auto: LadoAuto | null; manual: LadoLateral | null }> = {};
+  const porAtleta: Record<number, { auto: LadoAuto | null; manual: LadoLateral | null; lista: LadoLateral | null; nomeLista: string | null }> = {};
   for (const a of athletes) {
     if (a.posicaoId !== 2) continue;
-    porAtleta[a.id] = { auto: comb.porAtleta[a.id] ?? null, manual: manuais.get(a.id)?.lado ?? null };
+    porAtleta[a.id] = { auto: comb.porAtleta[a.id] ?? null, manual: manuais.get(a.id)?.lado ?? null, lista: lista?.lados[a.id] ?? null, nomeLista: lista?.nomes[a.id] ?? null };
   }
   return {
     ligado,
@@ -700,6 +701,7 @@ export function resumoLados(temporada: number, athletes: Athlete[], ligado: bool
     timesSemPar,
     jogosSemRodada,
     porAtleta,
+    lista: lista && { total: lista.total, casados: Object.keys(lista.lados).length, semPar: lista.semPar, conflitos: lista.conflitos },
   };
 }
 

@@ -136,14 +136,23 @@ Colunas: GOL, LD, LE, ZAG, MEI, ATA e TEC (LAT no lugar de LD/LE enquanto nenhum
 - Ao tocar num número aparece a conta jogo a jogo (atleta por atleta) até chegar à média.
 - O "cede" bate com a Matriz de cedência nos mesmos últimos N jogos; um teste confere isso.
 
-## Lado dos laterais (LE/LD), descoberto sozinho
+## Lado dos laterais (LE/LD): lista da equipe e descoberta automática
 
-O Cartola só diz "lateral". O site descobre o lado lendo a escalação de cada jogo:
+O Cartola só diz "lateral". O lado vem de três fontes, da mais forte para a mais fraca:
+
+1. **Correção à mão** no Painel ADM → Laterais.
+2. **Lista da equipe** (`src/data/ladosLista.ts`, vinda da planilha "modelo-lateraisclassificados"): 127 laterais, 61 esquerdos e 66 direitos, cada um com nome e sigla do clube.
+   - Cada nome é procurado entre os laterais do clube no Cartola. Acento, espaço, "_" e apóstrofo não atrapalham.
+   - Se não achar no clube (atleta que trocou de time, sigla ausente), só vale nome idêntico e único entre todos os laterais, ou nome completo com todas as palavras.
+   - Quem está na lista tem um lado só, que vale em todos os jogos.
+   - O painel mostra quantos nomes casaram e, para os que não casaram, o motivo.
+   - Para atualizar a lista, troque as linhas do arquivo.
+3. **Descoberta automática** pelas escalações de cada jogo, para quem não está na lista:
 
 - **ESPN** (sem chave, fonte principal): a escalação de cada jogo do Brasileirão traz a posição escrita ("Left Back", "Right Back"). O vigia lê a lista de jogos encerrados a cada 6 h e 4 escalações por minuto; o botão **Painel ADM → Laterais → Atualizar agora** lê todas de uma vez.
 - **API-Football** (com `API_FOOTBALL_KEY`, opcional): a escalação traz a posição no desenho tático (`grid`). Usa a temporada mais recente que o plano libera (no gratuito, 2024, Série A e B), 20 jogos por chamada e só com cota sobrando, sem atrapalhar a escalação oficial. Qual ponta é a esquerda é conferido pelos próprios dados: camisa 2 (lateral direito) e 6 (esquerdo).
 
-Na cedência, cada jogo conta o lado em que o lateral jogou **naquele jogo**; o lado do atleta (filtros, ficha, Mercado) é o da maioria dos jogos — ou, para quem se divide, o dos últimos jogos quando eles são de um lado só. A correção manual no Painel ADM vence tudo. O painel mostra, para cada lateral, de onde veio o lado e quantos jogos o sustentam, além de times ou nomes que não casaram com o Cartola.
+Para quem não está na lista, a cedência conta o lado em que o lateral jogou **naquele jogo**. O lado do atleta (filtros, ficha, Mercado) é o da maioria dos jogos. Para quem se divide, vale o dos últimos jogos, quando eles são de um lado só. O painel mostra, para cada lateral, de onde veio o lado e quantos jogos o sustentam, além de times ou nomes que não casaram com o Cartola.
 
 Variáveis opcionais: `LADOS_AUTO=0` desliga; `LADOS_APIFOOTBALL=0` deixa só a ESPN; `API_FOOTBALL_LADOS_LIGAS` (padrão `71,72`); `ESPN_BASE` e `ESPN_LIGA` (padrão `bra.1`).
 
