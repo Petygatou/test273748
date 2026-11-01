@@ -10,5 +10,5 @@ dist
 *.log
 .DS_Store
 coverage
-data/
+/data/
 .vercel

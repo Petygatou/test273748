@@ -14,6 +14,7 @@ import { cached, invalidate } from "./cache";
 import { fotosMap, loadFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
 import { ladosAutoLigado, ladosAutomaticos } from "./ladosAuto";
+import { ladosDaLista, mesclarLados } from "./ladosLista";
 import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
@@ -118,24 +119,22 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
 }
 
 /**
- * Lado dos laterais: o descoberto nas escalações (ESPN / API-Football) e, por cima,
- * a marcação manual do Painel ADM. Quem foi marcado à mão vale em todos os jogos.
+ * Lado dos laterais, do mais fraco para o mais forte:
+ *  1. o descoberto nas escalações (ESPN / API-Football), jogo a jogo;
+ *  2. a lista de laterais classificados pela equipe (src/data/ladosLista.ts);
+ *  3. a marcação manual do Painel ADM.
+ * Quem está na lista ou foi marcado à mão tem um lado só, que vale em todos os jogos.
  */
 let ladosMemo: { chave: string; valor: { lados: Record<number, LadoLateral>; ladosJogo: Record<string, LadoLateral> } } | null = null;
 function ladosDaTemporada(data: SeasonData) {
   const manuais: Record<number, LadoLateral> = {};
   for (const l of db.lados.all()) manuais[l.atletaId] = l.lado;
   const auto = ladosAutoLigado(data.source) ? ladosAutomaticos(data.temporada) : null;
-  const chave = `${data.temporada}:${auto?.versao ?? "-"}:${overridesKey(manuais)}`;
+  // a lista fala dos jogadores de verdade: na demonstração (nomes fictícios) não entra
+  const lista = data.source === "demo" ? null : ladosDaLista(data.athletes, data.clubs);
+  const chave = `${data.temporada}:${auto?.versao ?? "-"}:${overridesKey(manuais)}:${lista?.chave ?? "-"}`;
   if (ladosMemo?.chave === chave) return ladosMemo.valor;
-  const lados: Record<number, LadoLateral> = {};
-  const ladosJogo: Record<string, LadoLateral> = {};
-  if (auto) {
-    for (const [id, s] of Object.entries(auto.porAtleta)) if (s.lado) lados[Number(id)] = s.lado;
-    for (const [k, v] of Object.entries(auto.porJogo)) if (!(Number(k.split(":")[1]) in manuais)) ladosJogo[k] = v;
-  }
-  Object.assign(lados, manuais);
-  ladosMemo = { chave, valor: { lados, ladosJogo } };
+  ladosMemo = { chave, valor: mesclarLados(auto, lista?.lados ?? null, manuais) };
   return ladosMemo.valor;
 }
 
