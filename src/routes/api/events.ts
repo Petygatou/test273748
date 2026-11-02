@@ -5,6 +5,9 @@ export const Route = createFileRoute("/api/events")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        // Na Vercel cada conexão aberta deixa uma função rodando o tempo todo e esgota o limite do
+        // plano: lá não há tempo real (204 = o navegador não reconecta) e o site atualiza por consulta.
+        if (process.env.VERCEL && process.env.TEMPO_REAL !== "1") return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
         const { events } = await import("../../server/db");
         const enc = new TextEncoder();
         let cleanup = () => {};

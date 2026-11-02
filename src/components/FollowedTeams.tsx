@@ -16,7 +16,7 @@ export function FollowedTeams() {
   const term = useDebounced(q.trim(), 350);
   const search = useQuery({ queryKey: ["times", term], queryFn: () => searchTeamsFn({ data: { q: term } }), enabled: term.length >= 2, retry: false });
   const lives = useQueries({
-    queries: followed.map((t) => ({ queryKey: ["team-live", t.timeId], queryFn: () => fetchTeamLiveFn({ data: { id: t.timeId } }), refetchInterval: 60_000, retry: false })),
+    queries: followed.map((t) => ({ queryKey: ["team-live", t.timeId], queryFn: () => fetchTeamLiveFn({ data: { id: t.timeId } }), refetchInterval: 3 * 60_000, retry: false })),
   });
   const [open, setOpen] = useState<number | null>(null);
 
