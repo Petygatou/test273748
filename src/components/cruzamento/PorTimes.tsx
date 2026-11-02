@@ -76,8 +76,8 @@ function corEscala(t: number) {
   const ate = [34, 197, 94];
   return de.map((v, i) => Math.round(v + (ate[i] - v) * x)).join(" ");
 }
-/** Fundo suave na cor da escala: fica mais forte (e mais verde) quanto maior a incidência. */
-const fundo = (t: number) => ({ background: `rgb(${corEscala(t)} / ${(0.08 + 0.37 * t).toFixed(3)})`, borderColor: `rgb(${corEscala(t)} / ${(0.18 + 0.42 * t).toFixed(3)})` });
+/** Fundo meio oliva (amarelo translúcido) que vai ficando verde e mais forte quanto maior a incidência. */
+const fundo = (t: number) => ({ background: `rgb(${corEscala(t)} / ${(0.3 + 0.3 * t).toFixed(3)})`, borderColor: `rgb(${corEscala(t)} / ${(0.55 + 0.4 * t).toFixed(3)})` });
 
 const ROTULO = "mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--color-ink-3)] uppercase";
 
@@ -490,7 +490,7 @@ export function PorTimes({
             </p>
             <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]" aria-hidden>
               menor
-              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)} / 0.15), rgb(${corEscala(0.5)} / 0.3), rgb(${corEscala(1)} / 0.5))` }} />
+              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)} / 0.3), rgb(${corEscala(0.5)} / 0.45), rgb(${corEscala(1)} / 0.6))` }} />
               maior incidência
             </span>
           </div>
