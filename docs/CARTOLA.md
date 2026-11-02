@@ -128,7 +128,7 @@ As duas tabelas de cada rodada, com a média dos últimos N jogos (3, 5, 10 ou t
 - **Mandantes:** o que cada posição do mandante **conquista em casa** × o que o visitante **cede fora**;
 - **Visitantes:** o que o mandante **cede em casa** × o que cada posição do visitante **conquista fora**.
 
-Colunas: GOL, LD, LE, ZAG, MEI, ATA e TEC (LAT no lugar de LD/LE enquanto nenhuma escalação disser o lado). A API do Cartola não separa volante de meia, então não há coluna VOL.
+Colunas: GOL, LD, LE, ZAG, VOL, MEI, ATA e TEC. Se não houver lado conhecido de nenhum lateral, aparece LAT no lugar de LD/LE. O Cartola chama todos os meias de "meia". A separação entre volante e meia vem da lista da equipe (`src/data/meiasLista.ts`: 234 nomes, 129 meias e 105 volantes, casados como a lista de laterais). Volante da lista entra em VOL, e os demais meias ficam em MEI. Sem lista, só existe MEI.
 
 - Cada número é a **média por atuação**: soma da métrica da posição ÷ atletas que entraram em campo, somando os N jogos. "Conquista" usa os atletas do próprio time. "Cede" usa os atletas de quem enfrentou o time. As métricas são pontos, desarmes, finalizações, G+A, faltas sofridas e defesas.
 - A cor compara com a média de todos os times no mesmo recorte e mando. Laranja nos dois lados = bom encaixe.

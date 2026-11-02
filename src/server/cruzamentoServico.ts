@@ -20,7 +20,7 @@ export async function carregar(temporada?: number) {
 }
 
 type Dados = Awaited<ReturnType<typeof carregar>>["data"];
-const versao = (d: Dados) => `${d.temporada}:${d.rodadaAtual}:${d.history.length}:${Object.keys(d.ladosJogo ?? {}).length}`;
+const versao = (d: Dados) => `${d.temporada}:${d.rodadaAtual}:${d.history.length}:${Object.keys(d.ladosJogo ?? {}).length}:${Object.keys(d.lados ?? {}).length}:${Object.keys(d.funcoesMeio ?? {}).length}`;
 
 async function baseDe(d: Dados, rodada: number) {
   const { cached } = await import("./cache");
@@ -104,8 +104,10 @@ export async function posicoes(q: PedidoPosicoes) {
   const { linhas, referencia } = cruzarPosicoes(base, q.recorte);
   const lat = base.linhas.filter((l) => l.pos === 2);
   const ladosCobertura = lat.length ? Math.round((lat.filter((l) => l.lado).length / lat.length) * 1000) / 1000 : 0;
+  // há volantes classificados pela lista da equipe? (sem lista, VOL e MEI ficam juntos em MEI)
+  const temVolantes = base.linhas.some((l) => l.volante);
   const partidas = d.matches.filter((m) => m.rodada === rodada).map((m) => ({ matchId: m.id, golsCasa: m.golsCasa ?? null, golsFora: m.golsFora ?? null }));
-  return { rodada, passada: rodada < d.rodadaAtual, rodadaAtual: d.rodadaAtual, linhas, referencia, partidas, ladosCobertura, geradoEm: new Date().toISOString() };
+  return { rodada, passada: rodada < d.rodadaAtual, rodadaAtual: d.rodadaAtual, linhas, referencia, partidas, ladosCobertura, temVolantes, geradoEm: new Date().toISOString() };
 }
 
 /** De onde sai cada número de uma partida: jogo a jogo, cada atuação (todas as posições). */

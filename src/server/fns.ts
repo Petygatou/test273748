@@ -129,9 +129,9 @@ export const fetchLadosAuto = createServerFn({ method: "GET" }).handler(async ()
   requireAdmin();
   const { loadSeason } = await import("./season");
   const { ladosAutoLigado, resumoLados } = await import("./ladosAuto");
-  const { ladosDaLista } = await import("./ladosLista");
+  const { funcoesDaLista, ladosDaLista } = await import("./ladosLista");
   const { data } = await loadSeason();
-  return resumoLados(data.temporada, data.athletes, ladosAutoLigado(data.source), data.source === "demo" ? null : ladosDaLista(data.athletes, data.clubs));
+  return resumoLados(data.temporada, data.athletes, ladosAutoLigado(data.source), data.source === "demo" ? null : ladosDaLista(data.athletes, data.clubs), data.source === "demo" ? null : funcoesDaLista(data.athletes, data.clubs));
 });
 
 /** Painel ADM → Laterais: lê agora as escalações que faltam (uns 7 s por chamada; a tela repete até acabar). */
@@ -150,8 +150,8 @@ export const atualizarLadosAuto = createServerFn({ method: "POST" }).handler(asy
     lidos = await passoLados(data, of, { maxEspn: 12, ateMs: Date.now() + 7000 });
     if (of) persistOfficial(of);
   }
-  const { ladosDaLista } = await import("./ladosLista");
-  return { lidos, resumo: resumoLados(data.temporada, data.athletes, ligado, data.source === "demo" ? null : ladosDaLista(data.athletes, data.clubs)) };
+  const { funcoesDaLista, ladosDaLista } = await import("./ladosLista");
+  return { lidos, resumo: resumoLados(data.temporada, data.athletes, ligado, data.source === "demo" ? null : ladosDaLista(data.athletes, data.clubs), data.source === "demo" ? null : funcoesDaLista(data.athletes, data.clubs)) };
 });
 
 // marcar vários laterais seguidos gera um recálculo só (alguns segundos depois do último clique)

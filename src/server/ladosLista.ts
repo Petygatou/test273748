@@ -7,17 +7,18 @@
  * casar fica numa lista "sem par" com o motivo, para a equipe conferir no Painel ADM.
  */
 import { LISTA_LATERAIS, type LinhaLista } from "../data/ladosLista";
-import { POSITIONS } from "../engine/rules";
+import { LISTA_MEIAS } from "../data/meiasLista";
+import { POSITIONS, type PositionId } from "../engine/rules";
 import type { Athlete, Club, LadoLateral } from "../engine/types";
 import { matchPlayer, norm } from "./escalacoes";
 
-export interface ResultadoLista {
-  /** atletaId → lado da lista */
-  lados: Record<number, LadoLateral>;
+export interface ResultadoLista<V extends string = LadoLateral> {
+  /** atletaId → valor da lista (lado do lateral, função do meia) */
+  lados: Record<number, V>;
   /** atletaId → nome como está na lista */
   nomes: Record<number, string>;
   total: number;
-  semPar: Array<{ nome: string; clube: string | null; lado: LadoLateral; motivo: string }>;
+  semPar: Array<{ nome: string; clube: string | null; lado: V; motivo: string }>;
   /** dois nomes da lista que caíram no mesmo atleta com lados diferentes (fica o primeiro) */
   conflitos: Array<{ atletaId: number; nomes: string[] }>;
 }
@@ -25,9 +26,15 @@ export interface ResultadoLista {
 const legivel = (nome: string) => nome.replace(/_/g, " ").replace(/\s+/g, " ").trim();
 
 export function casarLista(athletes: Athlete[], clubs: Record<number, Club>, lista: readonly LinhaLista[] = LISTA_LATERAIS): ResultadoLista {
-  const laterais = athletes.filter((a) => a.posicaoId === 2);
+  return casarPorPosicao(athletes, clubs, lista, 2);
+}
+
+/** Casa uma lista (nome, clube, valor) com os atletas de uma posição do Cartola. */
+export function casarPorPosicao<V extends string>(athletes: Athlete[], clubs: Record<number, Club>, lista: ReadonlyArray<readonly [string, string | null, V]>, posicao: PositionId): ResultadoLista<V> {
+  const nomePos = POSITIONS[posicao].name.toLowerCase();
+  const laterais = athletes.filter((a) => a.posicaoId === posicao);
   const porSigla = new Map(Object.values(clubs).map((c) => [norm(c.abreviacao), c] as const));
-  const out: ResultadoLista = { lados: {}, nomes: {}, total: lista.length, semPar: [], conflitos: [] };
+  const out: ResultadoLista<V> = { lados: {}, nomes: {}, total: lista.length, semPar: [], conflitos: [] };
   for (const [bruto, sigla, lado] of lista) {
     const nome = legivel(bruto);
     const n = norm(nome);
@@ -59,17 +66,17 @@ export function casarLista(athletes: Athlete[], clubs: Record<number, Club>, lis
       const outro = clube
         ? matchPlayer(
             nome,
-            athletes.filter((x) => x.clubeId === clube.id && x.posicaoId !== 2),
+            athletes.filter((x) => x.clubeId === clube.id && x.posicaoId !== posicao),
           )
         : null;
       const motivo =
         sigla && !clube
           ? `clube “${sigla}” não existe no Cartola`
           : outro
-            ? `no Cartola ${outro.apelido} é ${POSITIONS[outro.posicaoId].name.toLowerCase()}, não lateral`
+            ? `no Cartola ${outro.apelido} é ${POSITIONS[outro.posicaoId].name.toLowerCase()}, não ${nomePos}`
             : clube
-              ? `nenhum lateral do ${clube.abreviacao} com esse nome no Cartola`
-              : "sem clube na lista e nome não achado entre os laterais";
+              ? `nenhum ${nomePos} do ${clube.abreviacao} com esse nome no Cartola`
+              : `sem clube na lista e nome não achado entre os ${POSITIONS[posicao].plural.toLowerCase()}`;
       out.semPar.push({ nome, clube: sigla, lado, motivo });
       continue;
     }
@@ -118,4 +125,15 @@ export function ladosDaLista(athletes: Athlete[], clubs: Record<number, Club>): 
   const chave = `${LISTA_LATERAIS.length}:${(h >>> 0).toString(36)}`;
   if (memo?.chave !== chave) memo = { chave, valor: casarLista(athletes, clubs) };
   return { ...memo.valor, chave };
+}
+
+let memoMeio: { chave: string; valor: ResultadoLista<"MEI" | "VOL"> } | null = null;
+
+/** A lista de meias (MEI × VOL) casada com os meias atuais do Cartola. */
+export function funcoesDaLista(athletes: Athlete[], clubs: Record<number, Club>): ResultadoLista<"MEI" | "VOL"> & { chave: string } {
+  let h = 0;
+  for (const a of athletes) if (a.posicaoId === 4) for (const ch of `${a.id}:${a.clubeId}:${a.apelido};`) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0;
+  const chave = `${LISTA_MEIAS.length}:${(h >>> 0).toString(36)}`;
+  if (memoMeio?.chave !== chave) memoMeio = { chave, valor: casarPorPosicao(athletes, clubs, LISTA_MEIAS, 4) };
+  return { ...memoMeio.valor, chave };
 }
