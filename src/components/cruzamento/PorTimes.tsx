@@ -76,8 +76,8 @@ function corEscala(t: number) {
   const ate = [34, 197, 94];
   return de.map((v, i) => Math.round(v + (ate[i] - v) * x)).join(" ");
 }
-/** Célula cheia na cor da escala (texto escuro), como um mapa de calor: o maior salta aos olhos. */
-const fundo = (t: number) => ({ background: `rgb(${corEscala(t)} / ${(0.78 + 0.22 * t).toFixed(3)})`, borderColor: `rgb(${corEscala(t)})`, color: "#11160a" });
+/** Fundo suave na cor da escala: fica mais forte (e mais verde) quanto maior a incidência. */
+const fundo = (t: number) => ({ background: `rgb(${corEscala(t)} / ${(0.08 + 0.37 * t).toFixed(3)})`, borderColor: `rgb(${corEscala(t)} / ${(0.18 + 0.42 * t).toFixed(3)})` });
 
 const ROTULO = "mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--color-ink-3)] uppercase";
 
@@ -490,7 +490,7 @@ export function PorTimes({
             </p>
             <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]" aria-hidden>
               menor
-              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)}), rgb(${corEscala(0.5)}), rgb(${corEscala(1)}))` }} />
+              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)} / 0.15), rgb(${corEscala(0.5)} / 0.3), rgb(${corEscala(1)} / 0.5))` }} />
               maior incidência
             </span>
           </div>
@@ -499,7 +499,7 @@ export function PorTimes({
       {r && (
         <p className="flex items-start gap-1.5 text-[11px] text-[var(--color-ink-3)]">
           <Info size={12} className="mt-0.5 shrink-0" aria-hidden />
-          Fonte: pontuação oficial do Cartola, jogo a jogo, só rodadas encerradas. Jogo que faltou na fonte não conta como zero: o recorte usa o jogo anterior. Número de jogos sublinhado = o time tem
+          Fonte: pontuação oficial do Cartola, jogo a jogo, só rodadas encerradas. Jogo que faltou na fonte não conta como zero: o recorte usa o jogo anterior. Número de jogos em amarelo = o time tem
           menos jogos que o recorte nesse mando.
         </p>
       )}
@@ -549,13 +549,13 @@ function Celula({ x, valor, maximo, recorte }: { x: LadoTimes; valor: "total" | 
     <div className="relative flex w-full flex-col items-center overflow-hidden rounded-xl border py-1.5" style={fundo(t)}>
       <span className="font-display text-lg leading-tight font-bold tabular sm:text-xl">{x.jogos ? (valor === "total" ? v : fmt1(v)) : "—"}</span>
       <span
-        className={`text-[10px] leading-tight ${curta ? "font-bold underline decoration-dotted" : "opacity-70"}`}
+        className={`text-[10px] leading-tight ${curta ? "font-semibold text-[var(--color-warning)]" : "text-[var(--color-ink-3)]"}`}
         title={curta ? "Menos jogos que o recorte: o time não tem tantos jogos nesse mando" : undefined}
       >
         {x.jogos} {x.jogos === 1 ? "jogo" : "jogos"}
         {valor === "total" && x.jogos ? <span className="hidden sm:inline"> · {fmt1(x.media)}/j</span> : null}
       </span>
-      <span className="absolute bottom-0 left-0 h-[3px] rounded-r-full bg-[#11160a]/35" style={{ width: `${Math.max(0, t) * 100}%` }} aria-hidden />
+      <span className="absolute bottom-0 left-0 h-[3px] rounded-r-full" style={{ width: `${Math.max(0, t) * 100}%`, background: `rgb(${corEscala(t)})` }} aria-hidden />
     </div>
   );
 }
