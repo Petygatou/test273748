@@ -89,6 +89,8 @@ export interface SeasonData {
   lados?: Record<number, LadoLateral>;
   /** Lado em que o lateral jogou em cada jogo: "rodada:atletaId" → E/D (escalações lidas). */
   ladosJogo?: Record<string, LadoLateral>;
+  /** Volantes pela lista da equipe (o Cartola chama todos de meia): atleta → VOL/MEI. */
+  funcoesMeio?: Record<number, "MEI" | "VOL">;
   source: "cartola" | "demo";
   updatedAt: string;
 }

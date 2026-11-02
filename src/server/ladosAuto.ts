@@ -660,7 +660,7 @@ export async function passoLados(ctx: Contexto, of: OfficialState | null, opts: 
 }
 
 /** Resumo para o Painel ADM: fontes, progresso e evidências por atleta. */
-export function resumoLados(temporada: number, athletes: Athlete[], ligado: boolean, lista: ResultadoLista | null = null) {
+export function resumoLados(temporada: number, athletes: Athlete[], ligado: boolean, lista: ResultadoLista | null = null, meias: ResultadoLista<"MEI" | "VOL"> | null = null) {
   const comb = ladosAutomaticos(temporada);
   const rows = db.ladosJogos.all();
   const manuais = new Map(db.lados.all().map((l) => [l.atletaId, l] as const));
@@ -702,6 +702,13 @@ export function resumoLados(temporada: number, athletes: Athlete[], ligado: bool
     jogosSemRodada,
     porAtleta,
     lista: lista && { total: lista.total, casados: Object.keys(lista.lados).length, semPar: lista.semPar, conflitos: lista.conflitos },
+    meias: meias && {
+      total: meias.total,
+      casados: Object.keys(meias.lados).length,
+      volantes: Object.values(meias.lados).filter((f) => f === "VOL").length,
+      semPar: meias.semPar,
+      conflitos: meias.conflitos,
+    },
   };
 }
 

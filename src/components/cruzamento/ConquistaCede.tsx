@@ -34,14 +34,20 @@ const COL_INFO: Record<ColunaPos, { pos: number; plural: string }> = {
   LD: { pos: 2, plural: "Laterais direitos" },
   LE: { pos: 2, plural: "Laterais esquerdos" },
   ZAG: { pos: 3, plural: "Zagueiros" },
+  VOL: { pos: 4, plural: "Volantes" },
   MEI: { pos: 4, plural: "Meias" },
   ATA: { pos: 5, plural: "Atacantes" },
   TEC: { pos: 6, plural: "Técnicos" },
 };
 
 /** Colunas da tabela: laterais por lado quando as escalações dizem o lado; só posições em que a métrica existe. */
-function colunasPara(temLados: boolean, m: MetricaPos): ColunaPos[] {
-  const todas: ColunaPos[] = temLados ? ["GOL", "LD", "LE", "ZAG", "MEI", "ATA", "TEC"] : ["GOL", "LAT", "ZAG", "MEI", "ATA", "TEC"];
+function colunasPara(temLados: boolean, temVolantes: boolean, m: MetricaPos): ColunaPos[] {
+  const todas: ColunaPos[] = [
+    ...(temLados ? (["GOL", "LD", "LE", "ZAG"] as const) : (["GOL", "LAT", "ZAG"] as const)),
+    ...(temVolantes ? (["VOL", "MEI"] as const) : (["MEI"] as const)),
+    "ATA",
+    "TEC",
+  ];
   if (m === "pontos") return todas;
   const posicoes = DEF_POR_CODIGO.get(m)?.posicoes ?? [];
   // desarme de goleiro existe na tabela do Cartola, mas é raríssimo: a coluna só mostraria zeros
@@ -79,7 +85,7 @@ export function ConquistaCede() {
   const r = q.data;
   const clubes = useMemo(() => Object.fromEntries((o?.clubes ?? []).map((c) => [c.id, c as Club])) as Record<number, Club>, [o]);
   const sigla = (id: number) => clubes[id]?.abreviacao ?? `#${id}`;
-  const colunas = colunasPara((r?.ladosCobertura ?? 0) > 0, f.metrica);
+  const colunas = colunasPara((r?.ladosCobertura ?? 0) > 0, Boolean(r?.temVolantes), f.metrica);
   const metricaInfo = METRICAS.find((m) => m.value === f.metrica)!;
   const recorteN = f.recorte === "todos" ? null : Number(f.recorte);
   const janela = recorteN ? `últimos ${recorteN} jogos` : "todos os jogos";
@@ -496,7 +502,7 @@ function TabelaLarga({ r, tabela, colunas, metrica, recorte, fator, clubes, titu
 
 /** Cor de cada grupo de posição (fio sob o título da coluna). */
 function corPos(c: ColunaPos) {
-  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", MEI: "#5cc98a", ATA: "#f08a4b", TEC: "#9a9a92" }[c];
+  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", VOL: "#3fae6f", MEI: "#5cc98a", ATA: "#f08a4b", TEC: "#9a9a92" }[c];
 }
 
 /* ------------------------- celular: um bloco por jogo ------------------------- */

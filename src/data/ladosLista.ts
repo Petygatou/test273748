@@ -120,7 +120,7 @@ export const LISTA_LATERAIS: readonly LinhaLista[] = [
   ["samuel_xavier", "flu", "D"],
   ["román_gómez", "bah", "D"],
   ["puma_rodríguez", "vas", "D"],
-  ["matheus_silva", "vit", "D"],
+  ["mateus_silva", "vit", "D"],
   ["milans", "cor", "D"],
   ["emerson_royal", "fla", "D"],
   ["heitor", "cha", "D"],

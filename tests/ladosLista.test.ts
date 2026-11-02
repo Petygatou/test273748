@@ -118,3 +118,40 @@ describe("prioridade das fontes do lado", () => {
     expect(mesclarLados(null, { 7: "E" }, { 8: "D" })).toEqual({ lados: { 7: "E", 8: "D" }, ladosJogo: {} });
   });
 });
+
+describe("lista de meias (MEI × VOL)", () => {
+  it("a planilha de meio-campo virou 234 linhas: 129 meias e 105 volantes, siglas do Cartola", async () => {
+    const { LISTA_MEIAS } = await import("../src/data/meiasLista");
+    expect(LISTA_MEIAS).toHaveLength(234);
+    expect(LISTA_MEIAS.filter((l) => l[2] === "MEI")).toHaveLength(129);
+    expect(LISTA_MEIAS.filter((l) => l[2] === "VOL")).toHaveLength(105);
+    for (const [, sigla] of LISTA_MEIAS) expect(SIGLAS).toContain(sigla);
+  });
+
+  it("casa entre os meias do clube; homônimo de outro clube com outra função não se confunde", async () => {
+    const { casarPorPosicao } = await import("../src/server/ladosLista");
+    const mpCru = atleta("Matheus Pereira", "cru", 4);
+    const mpCor = atleta("Matheus Pereira", "cor", 4);
+    const arao = atleta("Willian Arão", "san", 4);
+    const r = casarPorPosicao(
+      [mpCru, mpCor, arao],
+      clubs,
+      [
+        ["matheus_pereira", "cru", "MEI"],
+        ["matheus_pereira", "cor", "VOL"],
+        ["willian_arão", "san", "VOL"],
+        ["neymar", "san", "MEI"],
+      ],
+      4,
+    );
+    expect(r.lados).toEqual({ [mpCru.id]: "MEI", [mpCor.id]: "VOL", [arao.id]: "VOL" });
+    expect(r.semPar.map((x) => x.motivo)).toEqual(["nenhum meia do SAN com esse nome no Cartola"]);
+  });
+
+  it("volante vai para a coluna VOL; os demais meias ficam em MEI", async () => {
+    const { colunasDaLinha } = await import("../src/engine/cruzamento");
+    expect(colunasDaLinha({ pos: 4, volante: true })).toEqual(["VOL"]);
+    expect(colunasDaLinha({ pos: 4 })).toEqual(["MEI"]);
+    expect(colunasDaLinha({ pos: 2, lado: "D" })).toEqual(["LAT", "LD"]);
+  });
+});

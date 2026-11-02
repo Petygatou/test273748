@@ -298,7 +298,7 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
     <Card className="p-3 sm:p-4">
       <SectionTitle
         title="Lista da equipe"
-        subtitle="Laterais classificados como esquerdo ou direito. Vale para a temporada inteira, por cima das escalações."
+        subtitle="Laterais classificados como esquerdo ou direito e meias como meia ou volante. Vale para a temporada inteira."
         icon={<ListChecks size={18} className="text-[var(--color-series-b)]" />}
       />
       {!l ? (
@@ -331,6 +331,30 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
               </ul>
               <p className="mt-1.5">Quem não casou continua com o lado das escalações (ou a correção à mão).</p>
             </details>
+          )}
+          {resumo.meias && (
+            <div className="mt-3 border-t border-[var(--color-line)] pt-3">
+              <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
+                <span>
+                  Meio-campo: <b className="text-[var(--color-ink)]">{resumo.meias.casados}</b> de {resumo.meias.total} nomes achados · {resumo.meias.volantes} volantes (coluna VOL nas tabelas)
+                </span>
+                <span className="tabular">{resumo.meias.total ? Math.round((resumo.meias.casados / resumo.meias.total) * 100) : 0}%</span>
+              </div>
+              <Progresso valor={resumo.meias.casados} total={resumo.meias.total} />
+              {resumo.meias.conflitos.length > 0 && <p className="mt-1 text-xs text-[var(--color-warning)]">Mesmo atleta com funções diferentes na lista: {resumo.meias.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.</p>}
+              {resumo.meias.semPar.length > 0 && (
+                <details className="mt-2 text-xs text-[var(--color-ink-3)]">
+                  <summary className="cursor-pointer">{resumo.meias.semPar.length} meias da lista sem par no Cartola</summary>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {resumo.meias.semPar.map((x, i) => (
+                      <li key={i}>
+                        <b className="text-[var(--color-ink-2)]">{x.nome}</b> ({x.clube?.toUpperCase()}, {x.lado}): {x.motivo}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
           )}
         </>
       )}

@@ -25,6 +25,8 @@ export interface Linha {
   golsPro: number | null;
   golsContra: number | null;
   lado?: LadoLateral;
+  /** meia classificado como volante pela lista da equipe */
+  volante?: boolean;
 }
 
 export interface JogoClube {
@@ -47,7 +49,7 @@ export interface BaseCruzamento {
   memo: Map<string, unknown>;
 }
 
-type DadosBase = Pick<SeasonData, "temporada" | "history" | "matches"> & Partial<Pick<SeasonData, "lados" | "ladosJogo">>;
+type DadosBase = Pick<SeasonData, "temporada" | "history" | "matches"> & Partial<Pick<SeasonData, "lados" | "ladosJogo" | "funcoesMeio">>;
 
 /** Monta o histórico até a rodada anterior à `rodadaAlvo` (nada de jogo futuro ou parcial). */
 export function prepararBase(data: DadosBase, rodadaAlvo: number): BaseCruzamento {
@@ -88,6 +90,7 @@ export function prepararBase(data: DadosBase, rodadaAlvo: number): BaseCruzament
       golsPro: pl?.pro ?? null,
       golsContra: pl?.contra ?? null,
       lado,
+      volante: pr.posicaoId === 4 && data.funcoesMeio?.[pr.atletaId] === "VOL" ? true : undefined,
     };
     linhas.push(l);
     const lista = porAtleta.get(pr.atletaId) ?? [];
@@ -225,8 +228,8 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
 /* ------------------- conquistado × cedido por posição ------------------- */
 
 /** Colunas da tabela por posição: as do Cartola, com os laterais também por lado. */
-export type ColunaPos = "GOL" | "LAT" | "LD" | "LE" | "ZAG" | "MEI" | "ATA" | "TEC";
-export const COLUNAS_POS: ColunaPos[] = ["GOL", "LAT", "LD", "LE", "ZAG", "MEI", "ATA", "TEC"];
+export type ColunaPos = "GOL" | "LAT" | "LD" | "LE" | "ZAG" | "VOL" | "MEI" | "ATA" | "TEC";
+export const COLUNAS_POS: ColunaPos[] = ["GOL", "LAT", "LD", "LE", "ZAG", "VOL", "MEI", "ATA", "TEC"];
 const COLUNA_DA_POS: Record<PositionId, ColunaPos> = { 1: "GOL", 2: "LAT", 3: "ZAG", 4: "MEI", 5: "ATA", 6: "TEC" };
 
 /** Métricas da tabela: a média é sempre por atuação (cada atleta em cada jogo). */
@@ -235,7 +238,9 @@ export type MetricaPos = (typeof METRICAS_POS)[number];
 export type SomaPos = Record<MetricaPos, number> & { /** atuações */ n: number };
 
 /** Colunas em que a atuação entra: a posição e, para lateral com lado conhecido, o lado. */
-export const colunasDaLinha = (l: Pick<Linha, "pos" | "lado">): ColunaPos[] => (l.pos === 2 && l.lado ? ["LAT", l.lado === "E" ? "LE" : "LD"] : [COLUNA_DA_POS[l.pos]]);
+/** Lateral com lado também entra em LE/LD; volante (pela lista) vai para VOL e os demais meias ficam em MEI. */
+export const colunasDaLinha = (l: Pick<Linha, "pos" | "lado" | "volante">): ColunaPos[] =>
+  l.pos === 2 && l.lado ? ["LAT", l.lado === "E" ? "LE" : "LD"] : l.pos === 4 && l.volante ? ["VOL"] : [COLUNA_DA_POS[l.pos]];
 export const valorMetrica = (s: Scouts, pontos: number, m: MetricaPos) => (m === "pontos" ? pontos : valorScout(s, m));
 
 export interface JogoPos {

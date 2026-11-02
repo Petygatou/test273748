@@ -14,7 +14,7 @@ import { cached, invalidate } from "./cache";
 import { fotosMap, loadFotos } from "./fotosApiFootball";
 import { loadImported } from "./importada";
 import { ladosAutoLigado, ladosAutomaticos } from "./ladosAuto";
-import { ladosDaLista, mesclarLados } from "./ladosLista";
+import { funcoesDaLista, ladosDaLista, mesclarLados } from "./ladosLista";
 import { ensureWatcher, fingerprint, newsSignals, officialOverrides } from "./watcher";
 import { fetchCartolaSeason } from "./cartolaApi";
 import { loadOverrides } from "./store";
@@ -101,7 +101,9 @@ export async function loadSeason(): Promise<{ data: SeasonData; meta: SeasonMeta
   loadFotos(data.temporada);
   const overrides = await loadOverrides(data.temporada, data.rodadaAtual);
   const { lados, ladosJogo } = ladosDaTemporada(data);
-  const merged: SeasonData = { ...data, lados, ladosJogo, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
+  // meia × volante pela lista da equipe (só com jogadores de verdade)
+  const funcoesMeio = data.source === "demo" ? undefined : funcoesDaLista(data.athletes, data.clubs).lados;
+  const merged: SeasonData = { ...data, lados, ladosJogo, funcoesMeio, athletes: data.athletes /* sem rostos: só a camisa do clube que o Cartola usa */, overrides: { ...(data.overrides ?? {}), ...(data.source === "cartola" ? officialOverrides() : {}), ...overrides }, sinais: data.source === "cartola" ? newsSignals() : undefined };
   return {
     data: merged,
     meta: {
