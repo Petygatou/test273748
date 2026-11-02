@@ -302,7 +302,7 @@ export interface PlayerProjection {
 
   /** Mínimo para valorizar e variação esperada (C$). */
   mpv: number;
-  mpvFonte: "oficial" | "modelo";
+  mpvFonte: "oficial" | "formula" | "modelo";
   valorizacaoEsperada: number;
 
   /** % de escalação (efeito manada), quando disponível. */
