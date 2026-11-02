@@ -9,6 +9,7 @@ import { computeCedencia } from "./cedencia";
 import { clamp, round } from "./math";
 import { estimatePlayers, type FixtureContext, type PlayerDetail } from "./playerModel";
 import { calibratePmv, mpvFor } from "./pmv";
+import { formulaDaRodada, type FormulaAtleta } from "./valorizacao";
 import { BASE_SCOUTS, SCORING, type PositionId, type ScoutKey } from "./rules";
 import { validateScoring } from "./rulesCheck";
 import { probAtLeast, quantile, simulateRound, type PlayerDistribution } from "./simulate";
@@ -91,9 +92,14 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
   const gols = new Map<number, number>();
   for (const h of history) if (h.scout.G) gols.set(h.atletaId, (gols.get(h.atletaId) ?? 0) + h.scout.G);
 
+  // fórmula de valorização do Cartola: preço médio recuperado da variação da rodada passada
+  const pontosPassada = new Map<number, number>();
+  for (const h of history) if (h.rodada === R - 1) pontosPassada.set(h.atletaId, h.pontos);
+  const formula = formulaDaRodada(data.athletes, pontosPassada);
+
   const players: PlayerProjection[] = [];
   for (const d of details.values()) {
-    players.push({ ...toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total, data.lados), gols: gols.get(d.athlete.id) ?? 0 });
+    players.push({ ...toProjection(d, dists.get(d.athlete.id), pmvModel, data.ownership, total, data.lados, formula.get(d.athlete.id)), gols: gols.get(d.athlete.id) ?? 0 });
   }
   players.sort((a, b) => b.xP - a.xP);
 
@@ -162,6 +168,7 @@ function toProjection(
   ownership: SeasonData["ownership"],
   totalTimes: number,
   lados?: SeasonData["lados"],
+  formula?: FormulaAtleta,
 ): PlayerProjection {
   const a = d.athlete;
   const scouts: ScoutProjection[] = [];
@@ -182,7 +189,10 @@ function toProjection(
   }
   scouts.sort((x, y) => Math.abs(y.pontos) - Math.abs(x.pontos));
 
-  const { mpv, fonte } = mpvFor(a, pmvModel);
+  // ordem: mínimo oficial do Cartola > fórmula de valorização > regressão calibrada
+  const oficial = mpvFor(a, pmvModel);
+  const { mpv, fonte } = oficial.fonte === "oficial" || !formula ? oficial : { mpv: round(Math.min(40, Math.max(-5, formula.mpv)), 1), fonte: "formula" as const };
+  const porPonto = formula?.porPonto ?? pmvModel.cpp;
   const xPJ = d.xPJogando;
   const s = dist?.sorted;
   const q = (p: number) => (s && s.length ? round(quantile(s, p), 1) : round(xPJ, 1));
@@ -229,7 +239,7 @@ function toProjection(
     },
     mpv,
     mpvFonte: fonte,
-    valorizacaoEsperada: round(d.pJogar * pmvModel.cpp * (xPJ - mpv), 2),
+    valorizacaoEsperada: round(d.pJogar * porPonto * (xPJ - mpv), 2),
     posse: owned != null && totalTimes > 0 ? round((owned / totalTimes) * 100, 1) : undefined,
     mediaCasa: d.mediaCasa != null ? round(d.mediaCasa, 2) : null,
     mediaFora: d.mediaFora != null ? round(d.mediaFora, 2) : null,
