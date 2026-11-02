@@ -14,7 +14,10 @@ export const Route = createFileRoute("/api/analise")({
         try {
           const { analysis, meta, versao } = await loadAnalysis();
           const etag = `"${createHash("sha1").update(`${versao}|${meta.mercadoStatus}|${meta.updatedAt}`).digest("base64url").slice(0, 20)}"`;
-          const headers = { ETag: etag, "Cache-Control": "no-cache", "Content-Type": "application/json; charset=utf-8" };
+          const headers: Record<string, string> = { ETag: etag, "Cache-Control": "no-cache", "Content-Type": "application/json; charset=utf-8" };
+          // na Vercel a CDN guarda a análise por 1 min (é a mesma para todo mundo): a maioria das
+          // visitas nem chega a ligar o servidor
+          if (process.env.VERCEL) headers["Vercel-CDN-Cache-Control"] = "max-age=60, stale-while-revalidate=300";
           if (request.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
           return new Response(JSON.stringify({ analysis, meta }), { headers });
         } catch (e) {

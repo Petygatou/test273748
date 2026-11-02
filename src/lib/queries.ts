@@ -15,18 +15,19 @@ async function fetchAnalysisJson(): Promise<AnalysisPayload> {
 export const analysisQuery = queryOptions({
   queryKey: ["analysis"],
   queryFn: fetchAnalysisJson,
-  // o servidor avisa por SSE quando algo muda; o intervalo é só rede de segurança
-  staleTime: 30_000,
+  // o servidor avisa por SSE quando algo muda (fora da Vercel); o intervalo é a rede de segurança,
+  // espaçado para não gastar o limite do plano (só roda com a aba visível)
+  staleTime: 2 * 60_000,
   gcTime: 60 * 60_000,
-  refetchInterval: 90_000,
+  refetchInterval: 5 * 60_000,
   refetchOnWindowFocus: true,
 });
 
 export const mudancasQuery = queryOptions({
   queryKey: ["mudancas"],
   queryFn: () => fetchMudancas(),
-  staleTime: 15_000,
-  refetchInterval: 60_000,
+  staleTime: 60_000,
+  refetchInterval: 3 * 60_000,
 });
 
 export const backtestQuery = queryOptions({
@@ -39,8 +40,8 @@ export const backtestQuery = queryOptions({
 export const liveQuery = queryOptions({
   queryKey: ["live"],
   queryFn: () => fetchLive(),
-  refetchInterval: 60_000,
-  staleTime: 30_000,
+  refetchInterval: 2 * 60_000,
+  staleTime: 60_000,
 });
 
 export const newsQuery = queryOptions({
