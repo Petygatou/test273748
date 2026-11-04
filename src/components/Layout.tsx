@@ -328,7 +328,12 @@ function Shell({ children }: { children: ReactNode }) {
                 {s.label}
               </Link>
             ))}
-            <p className="col-span-full mt-3 text-xs text-[var(--color-ink-3)]">Tropa — o site da mitagem. Projeções do nosso modelo estatístico; não é afiliado à Globo nem ao Cartola FC.</p>
+            <p className="col-span-full mt-3 text-xs text-[var(--color-ink-3)]">Tropa — o site da mitagem. Projeções do nosso modelo estatístico; não é afiliado à Globo nem ao Cartola FC. Fórmula de valorização (mínimo para valorizar):{" "}
+              <a href="https://cartolaanalitico.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-ink)]">
+                CartolaAnalítico
+              </a>
+              .
+            </p>
           </div>
         </div>
       </footer>

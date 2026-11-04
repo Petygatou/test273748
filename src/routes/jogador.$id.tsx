@@ -93,7 +93,7 @@ function PlayerPage() {
         <StatTile
           label="Precisa para valorizar"
           value={fmt1(p.mpv)}
-          hint={`${p.mpvFonte === "oficial" ? "oficial" : p.mpvFonte === "formula" ? "fórmula do Cartola" : "calibrado"} · esperado ${signed(p.valorizacaoEsperada)} C$`}
+          hint={`${p.mpvFonte === "oficial" ? "oficial" : p.mpvFonte === "formula" ? "fórmula CartolaAnalítico" : "calibrado"} · esperado ${signed(p.valorizacaoEsperada)} C$`}
           accent={p.valorizacaoEsperada >= 0 ? "good" : undefined}
         />
       </div>
