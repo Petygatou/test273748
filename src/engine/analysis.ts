@@ -93,8 +93,15 @@ export function buildRoundAnalysis(data: SeasonData, partial: Partial<ModelConfi
   for (const h of history) if (h.scout.G) gols.set(h.atletaId, (gols.get(h.atletaId) ?? 0) + h.scout.G);
 
   // fórmula de valorização do Cartola: preço médio recuperado da variação da rodada passada
+  // pontos da última rodada em que o atleta jogou: quem ficou fora depois dela manteve preço,
+  // média e jogos, então a variação daquela rodada ainda vale para recuperar o preço médio
   const pontosPassada = new Map<number, number>();
-  for (const h of history) if (h.rodada === R - 1) pontosPassada.set(h.atletaId, h.pontos);
+  const ultimaRodada = new Map<number, number>();
+  for (const h of history) {
+    if ((ultimaRodada.get(h.atletaId) ?? -1) >= h.rodada) continue;
+    ultimaRodada.set(h.atletaId, h.rodada);
+    pontosPassada.set(h.atletaId, h.pontos);
+  }
   const formula = formulaDaRodada(data.athletes, pontosPassada);
 
   const players: PlayerProjection[] = [];
