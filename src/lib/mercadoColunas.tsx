@@ -120,7 +120,7 @@ export const COLUNAS: Coluna[] = [
   { id: "base", rotulo: "Básica", titulo: "Pontos de scouts básicos esperados (sem G, A, SG): o piso de quem joga", grupo: "Scouts esperados", valor: (p) => p.base, render: (p) => fmt1(p.base) },
 
   // ---------------- mercado ----------------
-  { id: "mpv", rotulo: "MPV", titulo: "Mínimo para valorizar", grupo: "Mercado", padrao: true, valor: (p) => p.mpv, asc: true, render: (p) => fmt1(p.mpv) },
+  { id: "mpv", rotulo: "MPV", titulo: "Mínimo para valorizar (fórmula do CartolaAnalítico)", grupo: "Mercado", padrao: true, valor: (p) => p.mpv, asc: true, render: (p) => fmt1(p.mpv) },
   { id: "valorizacaoEsperada", rotulo: "Val.", titulo: "Variação esperada de preço (C$)", grupo: "Mercado", padrao: true, valor: (p) => p.valorizacaoEsperada, render: (p) => <span className={p.valorizacaoEsperada >= 0 ? "text-[var(--color-good-ink)]" : "text-[var(--color-critical-ink)]"}>{signed(p.valorizacaoEsperada)}</span> },
   { id: "posse", rotulo: "% escal.", titulo: "% dos times que escalam o atleta", grupo: "Mercado", valor: (p) => p.posse ?? null, render: (p) => num(p.posse ?? null, (v) => `${fmt1(v)}%`) },
 ];

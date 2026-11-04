@@ -21,7 +21,7 @@ const METHOD = [
   ["Cedência posicional", "Para cada adversário e posição, quanto ele cede de cada scout (participação relativa), encolhido para a média da liga."],
   ["Chance de jogar", "Regressão logística treinada na própria temporada, rodada a rodada: últimos jogos, sequência, disputa pela posição, suspensão por cartões e o status que o Cartola mostrava antes de cada rodada (guardado a cada rodada). Por cima entram os ajustes do Painel ADM."],
   ["Monte Carlo", "Milhares de rodadas simuladas: placar sorteado, gols distribuídos entre os atletas, demais scouts por binomial negativa. Daí saem piso, teto e probabilidades — e a distribuição da tropa inteira, com banco e reserva de luxo."],
-  ["MPV e valorização", "V = CPP × (pontos − MPV), recalibrado toda rodada por regressão sobre o mercado inteiro (ou o valor oficial, quando a API fornece)."],
+  ["MPV e valorização", "Fórmula de valorização do Cartola 2025, descoberta e publicada pelo CartolaAnalítico (cartolaanalitico.com): preço novo = s × (pontos + ka × média + kc × preço médio). Usa o valor oficial quando a API fornece; sem histórico do atleta, uma regressão sobre o mercado."],
   ["Otimizador exato", "Programação dinâmica sobre fronteiras de Pareto por posição, com o capitão dentro da otimização. Garante o ótimo global — não é heurística."],
 ];
 
@@ -168,7 +168,14 @@ function ModelPage() {
               <div className="font-display tabular text-lg font-bold">{fmt2(a.pmvModel.r2)}</div>
             </div>
           </div>
-          <p className="mt-2 text-xs text-[var(--color-ink-3)]">{a.pmvModel.amostras.toLocaleString("pt-BR")} variações de preço usadas na calibração desta rodada.</p>
+          <p className="mt-2 text-xs text-[var(--color-ink-3)]">{a.pmvModel.amostras.toLocaleString("pt-BR")} variações de preço usadas na calibração desta rodada (reserva para quem ainda não tem jogo).</p>
+          <p className="mt-2 text-xs text-[var(--color-ink-2)]">
+            O mínimo para valorizar usa a fórmula de valorização do Cartola descoberta e publicada pelo{" "}
+            <a href="https://cartolaanalitico.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-[var(--color-brand)] underline">
+              CartolaAnalítico
+            </a>
+            . Créditos a eles.
+          </p>
         </Card>
       </div>
 
