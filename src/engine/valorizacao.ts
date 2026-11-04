@@ -91,14 +91,17 @@ export interface FormulaAtleta {
   mpv: number;
   /** C$ por ponto acima (ou abaixo) do mínimo */
   porPonto: number;
-  /** preço médio do ano recuperado da última variação */
+  /** preço médio que entra no próximo jogo (média dos preços antes de cada jogo) */
   precoMedio: number;
 }
 
 /**
- * Prepara a fórmula para a próxima rodada de cada atleta que jogou a rodada passada:
- * o preço médio sai da variação real dessa rodada (fórmula ao contrário) e vale como
- * aproximação para a próxima (ele muda devagar ao longo do ano).
+ * Prepara a fórmula para o próximo jogo de cada atleta:
+ *  1. o preço médio usado no último jogo sai da variação real dele (fórmula ao contrário);
+ *  2. o preço médio é a média dos preços do atleta antes de cada jogo que ele disputou, então
+ *     para o próximo jogo ele entra com o preço atual: (médio × jogos + preço) ÷ (jogos + 1).
+ * Conferido com dados reais da rodada 33 de 2026 (Kauan Jesus, 2 jogos: 4,3 → 2,3; o
+ * CartolaAnalítico mostra 2,2).
  */
 export function formulaDaRodada(
   athletes: Array<{ id: number; preco: number; variacao: number; media: number; jogos: number }>,
@@ -109,8 +112,9 @@ export function formulaDaRodada(
   for (const a of athletes) {
     const pontos = pontosRodadaPassada.get(a.id);
     if (pontos == null || a.jogos < 1 || !Number.isFinite(a.variacao)) continue;
-    const precoMedio = precoMedioReverso({ precoAtual: a.preco, pontos, mediaDepois: a.media, jogosDepois: a.jogos }, s);
-    if (precoMedio == null || !(precoMedio > 0)) continue;
+    const usado = precoMedioReverso({ precoAtual: a.preco, pontos, mediaDepois: a.media, jogosDepois: a.jogos }, s);
+    if (usado == null || !(usado > 0)) continue;
+    const precoMedio = (usado * a.jogos + a.preco) / (a.jogos + 1);
     const mpv = minimoParaValorizar({ preco: a.preco, precoMedio, media: a.media, jogos: a.jogos }, s);
     if (!Number.isFinite(mpv)) continue;
     out.set(a.id, { mpv, porPonto: cartoletaPorPonto(a.jogos, s), precoMedio });

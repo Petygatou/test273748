@@ -79,8 +79,28 @@ describe("fórmula de valorização do Cartola (2025)", () => {
     const f = formulaDaRodada(athletes, new Map([[1, 8]]), 0.13);
     expect([...f.keys()]).toEqual([1]);
     const x = f.get(1)!;
-    // com o preço médio recuperado, a fórmula devolve exatamente o preço atual para os pontos feitos
-    expect(valorizacao({ pontos: 8, preco: 0, precoMedio: x.precoMedio, media: (5 * 10 - 8) / 9, jogos: 9 }, 0.13)).toBeCloseTo(10, 6);
+    // o preço médio do último jogo devolve exatamente o preço atual para os pontos feitos;
+    // para o próximo jogo, o preço atual entra na média: (médio × jogos + preço) ÷ (jogos + 1)
+    const usado = (x.precoMedio * 11 - 10) / 10;
+    expect(valorizacao({ pontos: 8, preco: 0, precoMedio: usado, media: (5 * 10 - 8) / 9, jogos: 9 }, 0.13)).toBeCloseTo(10, 6);
     expect(x.porPonto).toBeCloseTo(0.13 * (1 + 4 / 11), 9);
+  });
+
+  it("dados reais da rodada 33 de 2026: mínimos perto dos do CartolaAnalítico", () => {
+    // [preço, variação, média, jogos, pontos no último jogo, mínimo mostrado pelo CartolaAnalítico]
+    const reais: Record<string, [number, number, number, number, number, number]> = {
+      "Kauan Jesus": [5.05, 0.28, 6.95, 2, 3.7, 2.2],
+      Fábio: [9.03, 0.66, 4.38, 32, 4.7, 5.1],
+      Mycael: [7.8, -0.55, 5.04, 8, 1.9, 3.1],
+      "Gabriel Batista": [5.36, -0.5, 4.25, 10, 0.6, 1.6],
+      "Lucas Arcanjo": [8.54, 0, 5.58, 26, -1, 0.2],
+      "Pedro Morisco": [8.04, 0, 4.85, 14, 4.2, 4.5],
+    };
+    const ids = Object.keys(reais);
+    const f = formulaDaRodada(
+      ids.map((nome, id) => ({ id, preco: reais[nome][0], variacao: reais[nome][1], media: reais[nome][2], jogos: reais[nome][3] })),
+      new Map(ids.map((nome, id) => [id, reais[nome][4]])),
+    );
+    ids.forEach((nome, id) => expect(Math.abs(f.get(id)!.mpv - reais[nome][5]), nome).toBeLessThan(0.35));
   });
 });
