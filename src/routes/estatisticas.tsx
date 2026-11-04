@@ -251,7 +251,7 @@ function Mercado({ a }: { a: RoundAnalysis }) {
 
 /* ================================ CONFRONTOS ================================ */
 
-type ConfSort = "pVitoria" | "marca1" | "marca2" | "marca3" | "xgPro" | "xgContra" | "sg" | "sofre2" | "venceDe2";
+type ConfSort = "pVitoria" | "marca1" | "marca2" | "marca3" | "xgPro" | "xgContra" | "sg";
 const CONF_COLS: Array<{ k: ConfSort; label: string; title: string; asc?: boolean }> = [
   { k: "pVitoria", label: "Vitória", title: "Chance de vencer o jogo" },
   { k: "marca1", label: "Marca 1+", title: "Chance de marcar pelo menos 1 gol" },
@@ -260,8 +260,6 @@ const CONF_COLS: Array<{ k: ConfSort; label: string; title: string; asc?: boolea
   { k: "xgPro", label: "xG pró", title: "Gols esperados a favor" },
   { k: "xgContra", label: "xG contra", title: "Gols esperados contra", asc: true },
   { k: "sg", label: "SG", title: "Chance de não sofrer gol (saldo de gols no Cartola)" },
-  { k: "sofre2", label: "Sofre 2+", title: "Chance de sofrer 2 ou mais gols", asc: true },
-  { k: "venceDe2", label: "Vence por 2+", title: "Chance de vencer com 2 ou mais gols de diferença" },
 ];
 
 function Confrontos({ a }: { a: RoundAnalysis }) {
@@ -279,7 +277,7 @@ function Confrontos({ a }: { a: RoundAnalysis }) {
   return (
     <div className="space-y-4">
       <Card className="p-3 sm:p-4">
-        <SectionTitle title="Matriz de confrontos" subtitle="Cada time na rodada: vitória, chance de marcar 1, 2 ou 3+ gols, gols esperados, SG e mais. Toque no título de uma coluna para ordenar." />
+        <SectionTitle title="Matriz de confrontos" subtitle="Cada time na rodada: vitória, chance de marcar 1, 2 ou 3+ gols, gols esperados e SG. Toque no título de uma coluna para ordenar." />
         <div className="overflow-x-auto">
           <table className="data w-full text-sm">
             <thead>
