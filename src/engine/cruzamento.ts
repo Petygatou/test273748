@@ -113,7 +113,7 @@ const r3 = (x: number) => Math.round(x * 1000) / 1000;
 /* ------------------------- cruzamento por times ------------------------- */
 
 /** Setor analisado: uma posição, laterais por lado, ou o time inteiro (sem técnico). */
-export type SetorTimes = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD";
+export type SetorTimes = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD" | "VOL" | "MEI";
 
 export interface JogoTimes {
   rodada: number;
@@ -155,8 +155,19 @@ export interface OpcoesTimes {
   lado: "mandantes" | "visitantes";
 }
 
+/** "VOL": volantes da lista da equipe; "MEI": os demais meias (4 = meio-campo inteiro). */
 const doSetor = (setor: SetorTimes) => (l: Linha) =>
-  setor === "time" ? l.pos !== 6 : setor === "LE" ? l.pos === 2 && l.lado === "E" : setor === "LD" ? l.pos === 2 && l.lado === "D" : l.pos === setor;
+  setor === "time"
+    ? l.pos !== 6
+    : setor === "LE"
+      ? l.pos === 2 && l.lado === "E"
+      : setor === "LD"
+        ? l.pos === 2 && l.lado === "D"
+        : setor === "VOL"
+          ? l.pos === 4 && Boolean(l.volante)
+          : setor === "MEI"
+            ? l.pos === 4 && !l.volante
+            : l.pos === setor;
 
 /**
  * Cruzamento por times, jogo a jogo da rodada:
@@ -217,7 +228,8 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
         real = gc == null ? null : gc === 0 ? 1 : 0;
       } else {
         const lado = (h: PlayerRound) => (h.posicaoId === 2 ? base.porAtleta.get(h.atletaId)?.find((l) => l.lado)?.lado : undefined);
-        real = linhas.filter((h) => noSetor({ pos: h.posicaoId, lado: lado(h) } as Linha)).reduce((s, h) => s + valorScout(h.scout, opts.scout), 0);
+        const volante = (h: PlayerRound) => h.posicaoId === 4 && Boolean(base.porAtleta.get(h.atletaId)?.some((l) => l.volante));
+        real = linhas.filter((h) => noSetor({ pos: h.posicaoId, lado: lado(h), volante: volante(h) } as Linha)).reduce((s, h) => s + valorScout(h.scout, opts.scout), 0);
       }
     }
     out.push({ matchId: m.id, timeId: time, adversarioId: adv, timeEmCasa: emCasa, conquistado, cedido, real });

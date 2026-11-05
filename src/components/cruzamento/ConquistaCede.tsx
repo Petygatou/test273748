@@ -7,7 +7,6 @@ import type { Club } from "../../engine/types";
 import { fmt1, fmt2, pct, signed } from "../../lib/format";
 import { KEYS, useLocal } from "../../lib/storage";
 import { fetchConquistaCede, fetchConquistaCedeDetalhe, fetchCruzamentoOpcoes, type ConquistaCede as Dados } from "../../server/fnsCruzamento";
-import { divergingColor } from "../charts";
 import { Sheet } from "../Sheet";
 import { Card, ClubBadge, ErrorBox, SectionTitle, Seg, Skeleton } from "../ui";
 
@@ -52,6 +51,16 @@ function colunasPara(temLados: boolean, temVolantes: boolean, m: MetricaPos): Co
   const posicoes = DEF_POR_CODIGO.get(m)?.posicoes ?? [];
   // desarme de goleiro existe na tabela do Cartola, mas é raríssimo: a coluna só mostraria zeros
   return todas.filter((c) => posicoes.includes(COL_INFO[c].pos as 1) && !(m === "DS" && c === "GOL"));
+}
+
+/** Cor pela comparação com a média: vermelho abaixo, cinza na média, verde acima. */
+function corMedia(f: number, spread = 0.35) {
+  const t = Math.max(-1, Math.min(1, (f - 1) / spread));
+  const neutro = [56, 56, 53];
+  const polo = t >= 0 ? [34, 197, 94] : [239, 68, 68];
+  const k = Math.abs(t) * 0.9;
+  const mix = neutro.map((n, i) => Math.round(n + (polo[i] - n) * k));
+  return { bg: `rgb(${mix.join(" ")})`, fg: k > 0.55 ? "#0b1206" : "#f2f1ee" };
 }
 
 const media = (s: SomaPos | undefined, m: MetricaPos) => (s && s.n ? s[m] / s.n : null);
@@ -325,16 +334,16 @@ export function ConquistaCede() {
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[var(--color-line)] bg-[var(--color-surface-1)] px-3 py-3 text-xs text-[var(--color-ink-3)] sm:px-4">
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-5 rounded-sm" style={{ background: divergingColor(0.7).bg }} aria-hidden /> abaixo da média
+              <span className="h-3 w-5 rounded-sm" style={{ background: corMedia(0.7).bg }} aria-hidden /> abaixo da média
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-5 rounded-sm" style={{ background: divergingColor(1).bg }} aria-hidden /> na média
+              <span className="h-3 w-5 rounded-sm" style={{ background: corMedia(1).bg }} aria-hidden /> na média
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-3 w-5 rounded-sm" style={{ background: divergingColor(1.3).bg }} aria-hidden /> acima da média
+              <span className="h-3 w-5 rounded-sm" style={{ background: corMedia(1.3).bg }} aria-hidden /> acima da média
             </span>
             <span>
-              Laranja nos dois lados = bom encaixe para o {mandantes ? "mandante" : "visitante"}. Média = {metricaInfo.unidade} da posição ÷ atuações (cada atleta em cada jogo). Toque num número para
+              Verde nos dois lados = bom encaixe para o {mandantes ? "mandante" : "visitante"}. Média = {metricaInfo.unidade} da posição ÷ atuações (cada atleta em cada jogo). Toque num número para
               ver jogo a jogo.
             </span>
           </div>
@@ -392,7 +401,7 @@ function Numero({
       </span>
     );
   const f = fator(s, c);
-  const cor = divergingColor(f ?? 1);
+  const cor = corMedia(f ?? 1);
   return (
     <button
       type="button"
