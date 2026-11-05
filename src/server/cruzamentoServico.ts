@@ -90,7 +90,9 @@ export async function times(q: PedidoTimes) {
   // quanto das atuações de laterais tem o lado (LE/LD) conhecido: sem isso o filtro por lado fica incompleto
   const lat = base.linhas.filter((l) => l.pos === 2);
   const ladosCobertura = lat.length ? Math.round((lat.filter((l) => l.lado).length / lat.length) * 1000) / 1000 : 0;
-  return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, ladosCobertura, geradoEm: new Date().toISOString() };
+  // volantes da lista da equipe: sem eles, VOL/MEI separados ficam indisponíveis
+  const temVolantes = base.linhas.some((l) => l.volante);
+  return { rodada, passada, rodadaAtual: d.rodadaAtual, partidas, linhas, nomes, ladosCobertura, temVolantes, geradoEm: new Date().toISOString() };
 }
 
 export type PedidoPosicoes = { temporada?: number; rodada?: number; recorte: number | null };

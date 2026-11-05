@@ -23,7 +23,7 @@ export const fetchCruzamentoTimes = createServerFn({ method: "GET" })
       temporada: int(d?.temporada),
       rodada: int(d?.rodada),
       scout: (CODIGOS as readonly string[]).includes(String(d?.scout)) ? (d!.scout as CruzScout) : ("G" as CruzScout),
-      setor: (setor === "time" || setor === "LE" || setor === "LD" ? setor : ["1", "2", "3", "4", "5"].includes(setor) ? Number(setor) : 5) as SetorTimes,
+      setor: (["time", "LE", "LD", "VOL", "MEI"].includes(setor) ? setor : ["1", "2", "3", "4", "5"].includes(setor) ? Number(setor) : 5) as SetorTimes,
       recorte: recorte === 3 || recorte === 5 || recorte === 10 ? recorte : null,
       lado: (d?.lado === "visitantes" ? "visitantes" : "mandantes") as "mandantes" | "visitantes",
     };

@@ -37,10 +37,12 @@ const OUTROS: Array<{ codigo: CruzScout; rotulo: string }> = [
 ];
 const rotuloScout = (c: CruzScout) => [...PRINCIPAIS, ...OUTROS].find((x) => x.codigo === c)?.rotulo ?? DEF_POR_CODIGO.get(c)?.nome ?? c;
 
-type SetorUi = "time" | "1" | "2" | "3" | "4" | "5" | "LE" | "LD";
+type SetorUi = "time" | "1" | "2" | "3" | "4" | "5" | "LE" | "LD" | "VOL" | "MEI";
 const SETORES: Array<{ value: SetorUi; rotulo: string; plural: string }> = [
   { value: "5", rotulo: "Atacantes", plural: "atacantes" },
-  { value: "4", rotulo: "Meias", plural: "meias" },
+  { value: "MEI", rotulo: "Meias", plural: "meias" },
+  { value: "VOL", rotulo: "Volantes", plural: "volantes" },
+  { value: "4", rotulo: "Meio-campo (meias + volantes)", plural: "meias e volantes" },
   { value: "3", rotulo: "Zagueiros", plural: "zagueiros" },
   { value: "2", rotulo: "Laterais", plural: "laterais" },
   { value: "LE", rotulo: "Laterais esquerdos", plural: "laterais esquerdos" },
@@ -63,7 +65,7 @@ const PADRAO: Filtros = { scout: "G", setor: "5", recorte: "5", lado: "mandantes
 function setorValido(scout: CruzScout, setor: SetorUi): SetorUi {
   if (scout === "SG" || setor === "time") return setor;
   const pos = DEF_POR_CODIGO.get(scout)?.posicoes ?? [];
-  const num = setor === "LE" || setor === "LD" ? 2 : Number(setor);
+  const num = setor === "LE" || setor === "LD" ? 2 : setor === "VOL" || setor === "MEI" ? 4 : Number(setor);
   if (pos.includes(num as 1)) return setor;
   return pos.includes(5) ? "5" : pos.includes(1) ? "1" : "time";
 }
@@ -193,7 +195,15 @@ export function PorTimes({
                 <span className={ROTULO}>Posição analisada</span>
                 <select className="input" value={setor} onChange={(e) => set({ setor: e.target.value as SetorUi })} disabled={sg} aria-label="Posição analisada">
                   {SETORES.map((s) => (
-                    <option key={s.value} value={s.value} disabled={setorValido(f.scout, s.value) !== s.value || ((s.value === "LE" || s.value === "LD") && r != null && r.ladosCobertura === 0)}>
+                    <option
+                      key={s.value}
+                      value={s.value}
+                      disabled={
+                        setorValido(f.scout, s.value) !== s.value ||
+                        ((s.value === "LE" || s.value === "LD") && r != null && r.ladosCobertura === 0) ||
+                        ((s.value === "VOL" || s.value === "MEI") && r != null && !r.temVolantes)
+                      }
+                    >
                       {s.rotulo}
                     </option>
                   ))}

@@ -332,3 +332,22 @@ describe("conquistado × cedido por posição (tabelas de mandantes e visitantes
     }
   });
 });
+
+describe("cruzamento por times: meias × volantes", () => {
+  it("VOL soma só os volantes da lista, MEI os demais meias e 4 o meio-campo inteiro", () => {
+    const matches: Match[] = [
+      { id: 1, rodada: 1, casaId: 1, foraId: 2, golsCasa: 1, golsFora: 0, valida: true },
+      { id: 2, rodada: 2, casaId: 1, foraId: 2, golsCasa: null, golsFora: null, valida: true },
+    ];
+    const history: PlayerRound[] = [
+      { atletaId: 10, rodada: 1, clubeId: 1, posicaoId: 4, pontos: 3, scout: { DS: 4 } }, // volante
+      { atletaId: 11, rodada: 1, clubeId: 1, posicaoId: 4, pontos: 5, scout: { DS: 1 } }, // meia
+      { atletaId: 20, rodada: 1, clubeId: 2, posicaoId: 4, pontos: 2, scout: { DS: 2 } },
+    ];
+    const base = prepararBase({ temporada: 2026, history, matches, funcoesMeio: { 10: "VOL", 11: "MEI" } }, 2);
+    const total = (setor: "VOL" | "MEI" | 4) => cruzarTimes(base, { scout: "DS", setor, recorte: null, lado: "mandantes" })[0].conquistado.total;
+    expect(total("VOL")).toBe(4);
+    expect(total("MEI")).toBe(1);
+    expect(total(4)).toBe(5);
+  });
+});
