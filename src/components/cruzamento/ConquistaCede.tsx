@@ -286,7 +286,7 @@ export function ConquistaCede() {
                       fazem {formatar(e.conq, f.metrica)} {conquista.casa ? "em casa" : "fora"} · {sigla(cede.clubeId)} cede {formatar(e.ced, f.metrica)}
                     </span>
                   </span>
-                  <span className="font-display text-lg font-extrabold text-[var(--color-brand)] tabular">{signed((e.nota - 1) * 100, 0)}%</span>
+                  <span className="font-display text-lg font-extrabold text-[rgb(34_197_94)] tabular">{signed((e.nota - 1) * 100, 0)}%</span>
                 </button>
               );
             })}
