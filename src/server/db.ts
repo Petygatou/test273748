@@ -21,7 +21,7 @@ export function dataDir(): string {
 export const events = new EventEmitter();
 events.setMaxListeners(1000);
 
-export type Topic = "community" | "alerts" | "overrides" | "users" | "dados";
+export type Topic = "community" | "alerts" | "overrides" | "users" | "dados" | "campinhos";
 
 /** Avisa os navegadores abertos (SSE) que um tópico mudou. */
 export const emit = (topic: Topic) => events.emit("change", topic);
@@ -350,6 +350,9 @@ export interface AparelhoRow {
 }
 
 /** Cada vez que alguém entra na conta. */
+/** Gol lançado à mão no Campinhos (posição de quem fez, de quem assistiu e forma do gol). */
+export type GolRow = import("../engine/campinhos").GolLancado;
+
 export interface LoginRow {
   id: string;
   userId: string;
@@ -468,6 +471,7 @@ export const db = {
   scoutAtletas: new Collection<AtletaScoutRow>("scout-atletas"),
   scoutTemporadas: new Collection<TemporadaScoutRow>("scout-temporadas"),
   syncLogs: new Collection<SyncLogRow>("sync-logs"),
+  gols: new Collection<GolRow>("gols", "campinhos"),
 };
 
 export function newId(): string {

@@ -40,7 +40,27 @@ interface RawClube {
   nome: string;
   abreviacao: string;
   nome_fantasia?: string;
+  /** apelido da torcida ("Tricolor", "Mengão"): não é o nome do clube */
+  apelido?: string;
+  slug?: string;
   escudos?: Record<string, string>;
+}
+
+/** Nome oficial pela sigla: a API de 2026 põe a sigla em nome e nome_fantasia, e o apelido é o da torcida. */
+const NOME_POR_SIGLA: Record<string, string> = {
+  FLA: "Flamengo", PAL: "Palmeiras", COR: "Corinthians", SAO: "São Paulo", SAN: "Santos", FLU: "Fluminense", BOT: "Botafogo", VAS: "Vasco", GRE: "Grêmio",
+  INT: "Internacional", CAM: "Atlético-MG", CRU: "Cruzeiro", BAH: "Bahia", VIT: "Vitória", CAP: "Athletico-PR", CFC: "Coritiba", CHA: "Chapecoense", REM: "Remo",
+  MIR: "Mirassol", RBB: "Bragantino", FOR: "Fortaleza", CEA: "Ceará", JUV: "Juventude", SPT: "Sport", GOI: "Goiás", CUI: "Cuiabá", AMG: "América-MG",
+  ACG: "Atlético-GO", CRI: "Criciúma", PAY: "Paysandu", AVA: "Avaí", PON: "Ponte Preta", GUA: "Guarani", NOV: "Novorizontino",
+};
+
+function nomeClube(c: RawClube): string {
+  const sigla = c.abreviacao?.toUpperCase();
+  if (sigla && NOME_POR_SIGLA[sigla]) return NOME_POR_SIGLA[sigla];
+  const cheio = [c.nome_fantasia, c.nome].find((x) => x && x.trim() && x.trim().toUpperCase() !== sigla);
+  if (cheio) return cheio;
+  if (c.slug) return c.slug.split("-").map((p) => (p.length > 2 ? p[0].toUpperCase() + p.slice(1) : p.toUpperCase())).join("-");
+  return c.nome;
 }
 
 interface RawAtleta {
@@ -149,7 +169,8 @@ export async function fetchCartolaSeason(): Promise<SeasonData> {
   const clubs: Record<number, Club> = {};
   for (const c of Object.values(mercado.clubes ?? {})) {
     if (!c?.id || c.id === 1) continue;
-    clubs[c.id] = { id: c.id, nome: c.nome_fantasia || c.nome, abreviacao: c.abreviacao, escudo: c.escudos?.["60x60"] ?? c.escudos?.["45x45"] };
+    const nome = nomeClube(c);
+    clubs[c.id] = { id: c.id, nome, abreviacao: c.abreviacao, escudo: c.escudos?.["60x60"] ?? c.escudos?.["45x45"] };
   }
 
   // sem rostos: todo atleta usa a camisa (silhueta) que o Cartola mostra para o clube

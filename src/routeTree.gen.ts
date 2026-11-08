@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AoVivoRouteImport } from './routes/ao-vivo'
 import { Route as AssistenteRouteImport } from './routes/assistente'
+import { Route as CampinhosRouteImport } from './routes/campinhos'
 import { Route as ComunidadeRouteImport } from './routes/comunidade'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as EscalacaoRouteImport } from './routes/escalacao'
@@ -53,6 +54,11 @@ const AoVivoRoute = AoVivoRouteImport.update({
 const AssistenteRoute = AssistenteRouteImport.update({
   id: '/assistente',
   path: '/assistente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampinhosRoute = CampinhosRouteImport.update({
+  id: '/campinhos',
+  path: '/campinhos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ComunidadeRoute = ComunidadeRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
   '/assistente': typeof AssistenteRoute
+  '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
   '/assistente': typeof AssistenteRoute
+  '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
@@ -221,6 +229,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
   '/assistente': typeof AssistenteRoute
+  '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
   '/conta': typeof ContaRoute
   '/escalacao': typeof EscalacaoRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ao-vivo'
     | '/assistente'
+    | '/campinhos'
     | '/comunidade'
     | '/conta'
     | '/escalacao'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ao-vivo'
     | '/assistente'
+    | '/campinhos'
     | '/comunidade'
     | '/conta'
     | '/escalacao'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ao-vivo'
     | '/assistente'
+    | '/campinhos'
     | '/comunidade'
     | '/conta'
     | '/escalacao'
@@ -332,6 +344,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AoVivoRoute: typeof AoVivoRoute
   AssistenteRoute: typeof AssistenteRoute
+  CampinhosRoute: typeof CampinhosRoute
   ComunidadeRoute: typeof ComunidadeRoute
   ContaRoute: typeof ContaRoute
   EscalacaoRoute: typeof EscalacaoRoute
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/assistente'
       fullPath: '/assistente'
       preLoaderRoute: typeof AssistenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campinhos': {
+      id: '/campinhos'
+      path: '/campinhos'
+      fullPath: '/campinhos'
+      preLoaderRoute: typeof CampinhosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/comunidade': {
@@ -540,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AoVivoRoute: AoVivoRoute,
   AssistenteRoute: AssistenteRoute,
+  CampinhosRoute: CampinhosRoute,
   ComunidadeRoute: ComunidadeRoute,
   ContaRoute: ContaRoute,
   EscalacaoRoute: EscalacaoRoute,
