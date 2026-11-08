@@ -748,7 +748,7 @@ const GLOSSARY: Array<{ term: string; def: string }> = [
   },
   { term: "Matriz de cedência", def: "Pontos médios que os atletas de cada posição fazem contra cada time, encolhidos em direção à média da liga para não exagerar amostras pequenas." },
   { term: "SG (saldo de gol)", def: "Probabilidade do time não sofrer gol, calculada pela matriz de placares do modelo Dixon-Coles, multiplicada pela taxa histórica do atleta de receber o SG quando o time não sofre gol." },
-  { term: "MPV (mínimo para valorizar)", def: "Pontuação a partir da qual o atleta ganha cartoletas. Usa o valor oficial quando a API fornece; senão, a fórmula de valorização do Cartola descoberta pelo CartolaAnalítico (cartolaanalitico.com)." },
+  { term: "MPV (mínimo para valorizar)", def: "Pontuação a partir da qual o atleta ganha cartoletas. Usa o valor oficial quando a API fornece; senão, a fórmula de valorização do Cartola descoberta pelo CartolaAnalítico (@canalitico no X)." },
   { term: "Valorização esperada", def: "Chance de jogar × CPP × (pontos se jogar − MPV). Positiva = deve valorizar." },
   { term: "Regularidade", def: "Porcentagem dos jogos da temporada com 3 pontos ou mais (com leve ajuste para poucas amostras)." },
   { term: "Diferencial", def: "Atleta com boa projeção e pouca gente escalando: se ele mitar, você ganha posições na liga." },
