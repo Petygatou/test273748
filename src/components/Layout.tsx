@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
+import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, Goal, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
@@ -31,6 +31,7 @@ const SECTIONS: PageEntry[] = [
 const EXTRA: PageEntry[] = [
   { to: "/estatisticas", label: "Duelo X1", Icon: BarChart3, keywords: "x1 comparar duelo versus", search: { tab: "x1" } },
   { to: "/estatisticas", label: "Cruzamento de Scout", Icon: BarChart3, keywords: "cruzamento scout probabilidade finalizacoes desarmes adversario projecao", search: { tab: "cruzamento" } },
+  { to: "/campinhos", label: "Campinhos", Icon: Goal, keywords: "campinhos gols assistencias posicao ataque defesa confronto lancar gols" },
   { to: "/modelo", label: "Precisão do modelo", Icon: FlaskConical, keywords: "modelo precisao backtest acerto" },
   { to: "/guia", label: "Guia do site", Icon: CircleHelp, keywords: "guia ajuda tour tutorial como usar" },
 ];
