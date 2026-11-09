@@ -53,14 +53,14 @@ function colunasPara(temLados: boolean, temVolantes: boolean, m: MetricaPos): Co
   return todas.filter((c) => posicoes.includes(COL_INFO[c].pos as 1) && !(m === "DS" && c === "GOL"));
 }
 
-/** Cor pela comparação com a média: vermelho abaixo, cinza na média, verde acima. */
+/** Cor pela comparação com a média: do amarelo (abaixo) ao verde (acima), passando pelo verde-limão na média. */
 function corMedia(f: number, spread = 0.35) {
   const t = Math.max(-1, Math.min(1, (f - 1) / spread));
-  const neutro = [56, 56, 53];
-  const polo = t >= 0 ? [34, 197, 94] : [239, 68, 68];
-  const k = Math.abs(t) * 0.9;
-  const mix = neutro.map((n, i) => Math.round(n + (polo[i] - n) * k));
-  return { bg: `rgb(${mix.join(" ")})`, fg: k > 0.55 ? "#0b1206" : "#f2f1ee" };
+  const x = (t + 1) / 2;
+  const amarelo = [250, 204, 21];
+  const verde = [22, 163, 74];
+  const mix = amarelo.map((v, i) => Math.round(v + (verde[i] - v) * x));
+  return { bg: `rgb(${mix.join(" ")})`, fg: "#0b1206" };
 }
 
 const media = (s: SomaPos | undefined, m: MetricaPos) => (s && s.n ? s[m] / s.n : null);
