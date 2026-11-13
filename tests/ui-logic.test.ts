@@ -109,3 +109,18 @@ describe("token do Cartola colado pela pessoa", async () => {
     expect(extrairTokenCartola("oi")).toBeNull();
   });
 });
+
+describe("favorito Conectar ao Tropa", () => {
+  it("lê o acesso que chega no endereço e ignora o resto", async () => {
+    const { tokenDoEndereco, codigoFavorito, fonteFavorito } = await import("../src/lib/cartolaToken");
+    const jwt = "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjE5OTk5OTk5OTl9.assinatura_123";
+    expect(tokenDoEndereco("#ctoken=" + encodeURIComponent(jwt))).toBe(jwt);
+    expect(tokenDoEndereco("#outra=1&ctoken=" + encodeURIComponent("Bearer " + jwt))).toBe(jwt);
+    expect(tokenDoEndereco("#nada")).toBeNull();
+    const f = fonteFavorito("https://meusite.com/meu-time");
+    expect(f).toContain('"https://meusite.com/meu-time"');
+    expect(codigoFavorito("https://meusite.com/meu-time").startsWith("javascript:")).toBe(true);
+    // o código do favorito é JavaScript válido
+    expect(() => new Function(f)).not.toThrow();
+  });
+});
