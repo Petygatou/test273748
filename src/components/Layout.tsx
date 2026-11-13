@@ -12,6 +12,7 @@ import { GlobalSearch, type PageEntry } from "./GlobalSearch";
 import { useScrollLock } from "./ui";
 import { TourProvider, useTour } from "./Tour";
 import { useAvisosAparelho } from "../lib/avisos";
+import { RecebeTokenCartola } from "./CartolaConnect";
 
 /** Todas as seções ficam à vista: nada importante escondido em menus. */
 const SECTIONS: PageEntry[] = [
@@ -316,6 +317,7 @@ function Shell({ children }: { children: ReactNode }) {
         <DemoNotice />
       </div>
       {navegando && <div className="loading-bar" role="progressbar" aria-label="Carregando" />}
+      <RecebeTokenCartola />
       <main key={path} className="animate-page mx-auto w-full max-w-7xl flex-1 px-4 pt-3">
         {children}
       </main>
