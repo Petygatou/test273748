@@ -14,8 +14,20 @@ import { join } from "node:path";
 import { pipeline, remoteEnabled, type Cmd } from "./remote";
 import type { AtletaScoutRow, RodadaScoutRow, SyncLogRow, TemporadaScoutRow } from "./scoutStore";
 
+/**
+ * Pasta do banco, mídias e snapshots:
+ *  - DATA_DIR, se definida;
+ *  - na Vercel, /tmp (disco temporário: use o Upstash lá);
+ *  - em produção (npm start), uma pasta FORA do app, na pasta pessoal do servidor: hospedagens
+ *    como a Hostinger recriam a pasta do app a cada deploy, e os dados não podem ir junto;
+ *  - em desenvolvimento, ./data.
+ */
 export function dataDir(): string {
-  return process.env.DATA_DIR ?? (process.env.VERCEL ? "/tmp/cfc-data" : join(process.cwd(), "data"));
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  if (process.env.VERCEL) return "/tmp/cfc-data";
+  const home = process.env.HOME;
+  if (process.env.NODE_ENV === "production" && home && home !== "/") return join(home, "tropa-data");
+  return join(process.cwd(), "data");
 }
 
 export const events = new EventEmitter();

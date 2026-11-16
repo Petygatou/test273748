@@ -18,7 +18,7 @@ O **Business Web Hosting** é o plano mais barato da Hostinger com "Node.js web 
    | Instalar | `npm install --include=dev` |
    | Build | `npm run build` |
    | Iniciar (start) | `npm start` |
-5. **Variáveis de ambiente** (em "Environment variables"; veja a tabela abaixo).
+5. **Variáveis de ambiente** (em "Environment variables"; veja a tabela abaixo). Na Hostinger **não** precisa de `KV_REST_API_URL`/`KV_REST_API_TOKEN`: os dados (contas, Comunidade, Campinhos) ficam no disco do servidor, na pasta `~/tropa-data`, fora da pasta do app, e não se perdem a cada deploy.
 6. **Deploy.** A Hostinger dá um endereço provisório; abra e confira.
 7. **Domínio.** Aponte o domínio para o app em **Domínios** e ative o **SSL** grátis.
 8. **Teste os dados reais.** Entre como admin → **Painel ADM → Dados reais → Testar conexão com a Globo**. Se der bloqueio (403), use o relay da Cloudflare (`docs/CARTOLA.md`, saída 1).
@@ -44,7 +44,7 @@ Confira também em **Settings → Git** da Vercel se a **Production Branch** é 
 | `ADMIN_EMAILS` | e-mail do admin |
 | `ADMIN_PASSWORD` | senha do admin (8+ caracteres) |
 | `SESSION_SECRET` | texto aleatório longo |
-| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | do Upstash Redis (o mesmo banco em qualquer hospedagem: contas, Campinhos e listas vêm junto) |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | **só na Vercel** (Upstash Redis). Na Hostinger deixe sem: os dados ficam em `~/tropa-data` |
 | `API_FOOTBALL_KEY` | opcional: escalações oficiais e lados dos laterais |
 | `SIMULATIONS` | `1500` (ou `1000` em servidor fraco) |
 | `CARTOLA_API_HOSTS` / `CARTOLA_RELAY_KEY` | só se a Globo bloquear o servidor (relay da Cloudflare) |
