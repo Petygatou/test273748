@@ -15,7 +15,7 @@ O **Business Web Hosting** é o plano mais barato da Hostinger com "Node.js web 
    | Campo | Valor |
    |---|---|
    | Versão do Node | 22 |
-   | Instalar | `npm install` |
+   | Instalar | `npm install --include=dev` |
    | Build | `npm run build` |
    | Iniciar (start) | `npm start` |
 5. **Variáveis de ambiente** (em "Environment variables"; veja a tabela abaixo).
@@ -40,7 +40,6 @@ Confira também em **Settings → Git** da Vercel se a **Production Branch** é 
 
 | Nome | Valor |
 |---|---|
-| `NODE_ENV` | `production` |
 | `DATA_MODE` | `live` (só dados reais; nunca `auto` em produção) |
 | `ADMIN_EMAILS` | e-mail do admin |
 | `ADMIN_PASSWORD` | senha do admin (8+ caracteres) |
@@ -50,4 +49,4 @@ Confira também em **Settings → Git** da Vercel se a **Production Branch** é 
 | `SIMULATIONS` | `1500` (ou `1000` em servidor fraco) |
 | `CARTOLA_API_HOSTS` / `CARTOLA_RELAY_KEY` | só se a Globo bloquear o servidor (relay da Cloudflare) |
 
-Não defina `PORT` nem `DATA_DIR`: a hospedagem cuida disso.
+Não defina `PORT`, `DATA_DIR` nem `NODE_ENV`. A hospedagem cuida da porta, e o servidor já liga em modo produção sozinho (`scripts/serve.mjs`). Com `NODE_ENV=production` na instalação, o npm pula as ferramentas de build (vite) e o build falha.
