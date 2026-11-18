@@ -1,0 +1,44 @@
+/* cartões de foto e frases (âncoras da placa): passam por trás da lente, nítidos só dentro dela */
+.lentes__cartoes { position: absolute; inset: 0; }
+.cartao {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: min(80vw, 138vh);
+  aspect-ratio: 3 / 2;
+  translate: -50% -50%;
+}
+.lentes__texto {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.9em;
+}
+.lentes__tipo { margin: 0; font-weight: 700; font-size: clamp(15px, 1.15vw, 18px); letter-spacing: 0.01em; }
+.lentes__frase { margin: 0; font-weight: 900; font-size: clamp(28px, 2.7vw, 44px); line-height: 1.02; letter-spacing: -0.035em; }
+
+/* interface fora da lente: só a contagem, a lente é que mostra o resto */
+.lentes { position: absolute; inset: 0; color: var(--ui); visibility: hidden; }
+.lentes.ativa { visibility: visible; }
+.lentes__conta {
+  position: absolute; left: var(--gutter); bottom: clamp(36px, 7.2vh, 72px);
+  margin: 0; display: flex; gap: 14px; font-size: var(--t-legenda); font-variant-numeric: tabular-nums;
+}
+.lentes__conta span { display: block; }
+.lentes__n { color: var(--ui-2); }
+.lentes__nota {
+  position: absolute; right: var(--gutter); bottom: clamp(36px, 7.2vh, 72px);
+  margin: 0; font-size: var(--t-legenda); color: var(--ui-2); overflow: clip;
+}
+.lentes__nota span { display: block; }
+
+@media (max-width: 720px) {
+  .cartao { width: 100vw; aspect-ratio: auto; height: 74vh; }
+  .lentes__frase { font-size: 18px; }
+  .lentes__tipo { font-size: 14px; }
+  .lentes__nota { display: none; }
+  .lentes__conta { bottom: 40px; }
+}

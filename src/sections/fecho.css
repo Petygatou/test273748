@@ -1,0 +1,21 @@
+/* a promessa da hero volta, gigante, na camada de leitura (lida pela lente até os óculos entrarem no estojo) */
+.fecho__titulo {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: min(12.6vw, 23vh);
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+  text-align: center;
+  white-space: nowrap;
+}
+.fecho__titulo span { display: block; }
+
+@media (max-width: 720px) {
+  .fecho__titulo { font-size: 16vw; }
+}

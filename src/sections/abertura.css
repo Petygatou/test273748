@@ -1,0 +1,127 @@
+/* título gigante (âncora da placa): o WebGL desenha por cima, desfocado, e nítido pela lente */
+.abertura__titulo {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: min(18.5vw, 32vh);
+  line-height: 0.64;
+  letter-spacing: -0.045em;
+  text-align: center;
+  transform: translateY(-0.2em);
+}
+.abertura__titulo span { display: block; }
+
+/* interface da hero */
+.hero { position: absolute; inset: 0; color: var(--ui); }
+
+.setas {
+  position: absolute;
+  top: calc(var(--nav-h) + 4px);
+  right: var(--gutter);
+  display: flex;
+  gap: 18px;
+}
+.seta {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: grid; place-items: center;
+  transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s;
+}
+.seta svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.seta:hover { background: var(--ui); color: var(--breu); }
+.seta[data-dir='1']:hover svg { transform: translateX(2px); }
+.seta[data-dir='-1']:hover svg { transform: translateX(-2px); }
+.seta:active { transform: scale(0.96); }
+.seta[disabled] { opacity: 0.32; pointer-events: none; }
+
+.pontos {
+  position: absolute;
+  right: calc(var(--gutter) + 15px);
+  top: 50%;
+  translate: 0 -50%;
+  margin: 0; padding: 0; list-style: none;
+  display: grid; gap: 22px;
+}
+.pontos button { display: block; width: 12px; height: 12px; position: relative; }
+.pontos button::before {
+  content: ''; position: absolute; inset: 1.5px; border-radius: 50%;
+  background: currentColor; border: 1.5px solid currentColor;
+  transition: background-color 0.4s, inset 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pontos button[aria-current='true']::before { background: transparent; inset: -1px; }
+
+.prazo {
+  position: absolute;
+  left: var(--gutter);
+  bottom: clamp(36px, 7.2vh, 72px);
+  margin: 0;
+  font-size: clamp(19px, 1.62vw, 24px);
+  line-height: 1.12;
+  letter-spacing: -0.012em;
+  font-weight: 500;
+}
+.prazo strong { font-weight: 700; }
+
+.chamada {
+  position: absolute;
+  left: 37.8%;
+  right: 37.2%;
+  bottom: clamp(30px, 5.6vh, 56px);
+  display: flex;
+  align-items: center;
+}
+.pilula {
+  position: relative;
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 44px; padding: 0 34px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  font-size: 15px;
+  overflow: clip;
+  isolation: isolate;
+  transition: color 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pilula::before {
+  content: ''; position: absolute; inset: -2px; z-index: -1;
+  background: var(--ui);
+  border-radius: inherit;
+  transform: scaleY(0); transform-origin: bottom;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pilula:hover { color: var(--breu); }
+.pilula:hover::before { transform: scaleY(1); }
+.pilula:active { scale: 0.97; }
+.chamada__fio { flex: 1; height: 1.5px; background: currentColor; margin-left: 8px; transform-origin: left; }
+
+.vinte {
+  position: absolute;
+  left: 63.4%;
+  bottom: -0.3em;
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(140px, 15.4vw, 280px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: transparent;
+  -webkit-text-stroke: 1.6px var(--ui);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .abertura__titulo { font-size: 33vw; line-height: 0.69; padding-top: 0; transform: translateY(-4vh); }
+  .setas { top: auto; bottom: 168px; right: var(--gutter); gap: 12px; }
+  .seta { width: 38px; height: 38px; }
+  .pontos { right: calc(var(--gutter) - 2px); top: auto; bottom: 182px; translate: none; display: flex; gap: 14px; left: auto; }
+  .pontos { display: none; }
+  .prazo { bottom: 116px; font-size: 18px; }
+  .chamada { left: var(--gutter); right: 42%; width: auto; bottom: 40px; }
+  .pilula { height: 46px; padding: 0 26px; }
+  .vinte { font-size: 19.5vw; left: 59.5%; bottom: -0.12em; -webkit-text-stroke-width: 1.2px; }
+}

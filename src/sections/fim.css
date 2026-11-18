@@ -1,0 +1,93 @@
+/* formulário e rodapé num painel só, de vidro fosco (o WebGL desenha o vidro atrás do DOM).
+   O estojo fechado, em 3D, pousa na borda de cima do painel e sobe com ele. */
+.fim { position: relative; padding: 100vh var(--gutter) var(--gutter); }
+.fim__painel {
+  position: relative;
+  border-radius: 34px;
+  padding: clamp(110px, 12vw, 170px) clamp(24px, 4.4vw, 72px) 0;
+  overflow: clip;
+  box-shadow: inset 0 0 0 1px rgba(241, 241, 239, 0.14);
+  color: var(--osso);
+}
+.fim__estojo {
+  position: absolute;
+  left: 50%; top: 0;
+  width: clamp(230px, 22vw, 340px);
+  aspect-ratio: 2.5;
+  translate: -50% -50%;
+}
+
+/* formulário */
+.agenda { max-width: 760px; margin: 0 auto; text-align: center; }
+.agenda__titulo { margin: 0; font-weight: 900; font-size: clamp(40px, 5vw, 76px); line-height: 0.95; letter-spacing: -0.045em; }
+.agenda__sub { margin: 16px 0 40px; font-size: var(--t-legenda); color: var(--cinza); }
+.campos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 26px; margin-bottom: 28px; text-align: left; }
+.campo { display: grid; gap: 8px; font-size: var(--t-micro); color: var(--cinza); }
+.campo input {
+  font: inherit; font-size: 18px; color: var(--osso);
+  background: transparent; border: 0; border-bottom: 1.5px solid rgba(241, 241, 239, 0.3);
+  padding: 8px 0 10px; outline: none; border-radius: 0;
+  transition: border-color 0.3s;
+}
+.campo input:focus { border-color: var(--osso); }
+.campo input[aria-invalid='true'] { border-color: #ff7a5c; }
+.escolha { border: 0; padding: 0; margin: 0 0 22px; text-align: left; }
+.escolha legend { padding: 0; margin-bottom: 10px; font-size: var(--t-micro); color: var(--cinza); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips label { position: relative; cursor: pointer; }
+.chips input { position: absolute; opacity: 0; pointer-events: none; }
+.chips span {
+  display: inline-flex; align-items: center; height: 40px; padding: 0 18px;
+  border-radius: 999px; box-shadow: inset 0 0 0 1.5px rgba(241, 241, 239, 0.3); font-size: 14px;
+  transition: background-color 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.35s, box-shadow 0.35s;
+}
+.chips label:hover span { box-shadow: inset 0 0 0 1.5px var(--osso); }
+.chips input:checked + span { background: var(--osso); color: var(--breu); box-shadow: inset 0 0 0 1.5px var(--osso); }
+.chips input:focus-visible + span { outline: 2px solid var(--osso); outline-offset: 3px; }
+.pilula--cheia { margin-top: 14px; height: 54px; padding: 0 40px; font-size: 16px; }
+.agenda__ok { margin: 16px 0 0; min-height: 1.4em; font-size: var(--t-legenda); color: var(--osso); }
+
+/* rodapé */
+.rodape {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 32px;
+  margin-top: clamp(80px, 10vw, 150px);
+  padding-top: 34px;
+  border-top: 1px solid rgba(241, 241, 239, 0.14);
+  font-size: var(--t-legenda);
+}
+.rodape__marca { display: grid; gap: 18px; align-content: start; }
+.rodape__marca svg { width: 60px; height: 28px; overflow: visible; }
+.rodape__marca p { margin: 0; font-size: clamp(22px, 2vw, 30px); line-height: 1.08; letter-spacing: -0.02em; }
+.rodape__marca strong { font-weight: 700; }
+.rodape__links { display: grid; gap: 10px; justify-items: start; align-content: start; }
+.rodape__links a, .rodape__loja a { position: relative; }
+.rodape__links a::after, .rodape__loja a::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 1px; background: currentColor;
+  transform: scaleX(0); transform-origin: right; transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.rodape__links a:hover::after, .rodape__loja a:hover::after { transform: scaleX(1); transform-origin: left; }
+.rodape__loja p { margin: 0 0 10px; color: var(--cinza); line-height: 1.45; }
+.rodape__loja p:last-child { color: var(--osso); }
+
+.fim__palavra {
+  margin: clamp(20px, 3vw, 40px) 0 0;
+  font-weight: 900;
+  font-size: clamp(130px, 26vw, 420px);
+  line-height: 0.72;
+  letter-spacing: -0.06em;
+  text-align: center;
+  translate: 0 0.14em;
+  white-space: nowrap;
+}
+.fim__legal { margin: 40px 0 0; text-align: center; font-size: var(--t-micro); color: var(--cinza); }
+
+@media (max-width: 720px) {
+  .fim { padding-top: 100vh; }
+  .fim__painel { border-radius: 26px; }
+  .campos { grid-template-columns: 1fr; }
+  .rodape { grid-template-columns: 1fr 1fr; }
+  .rodape__marca { grid-column: 1 / -1; }
+  .fim__palavra { font-size: 40vw; }
+}

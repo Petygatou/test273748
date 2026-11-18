@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# a licença da Satoshi não deixa redistribuir: o npm i baixa de novo
+public/fonts/
+.vercel

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Grau · Ótica</title>
+  <meta name="description" content="Armações, lentes, óculos de sol com grau e exame de vista com hora marcada. Óculos prontos em até 7 dias." />
+  <meta name="theme-color" content="#050505" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <!-- antes do CSS chegar (o Vite o injeta pelo JS): fundo escuro e nada cru na tela -->
+  <style>html { background: #050505; color-scheme: dark; } body { visibility: hidden; }</style>
+  <link rel="preload" href="/fonts/satoshi-black.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/satoshi-medium.woff2" as="font" type="font/woff2" crossorigin />
+</head>
+<body>
+  <!-- o palco: WebGL fixo atrás de tudo -->
+  <canvas class="palco" aria-hidden="true"></canvas>
+
+  <!-- camada de leitura: o WebGL redesenha estes textos e fotos no mesmo lugar (desfocados fora da lente, nítidos dentro) -->
+  <div class="placa">
+    <h1 class="abertura__titulo"><span>Tudo</span> <span>em</span> <span>foco</span></h1>
+
+    <div class="armacoes__nomes">
+      <p class="armacoes__nome">Quadrada</p>
+      <p class="armacoes__nome">Gatinho</p>
+      <p class="armacoes__nome">Aviador</p>
+      <p class="armacoes__nome">Redonda</p>
+    </div>
+
+    <div class="lentes__cartoes">
+      <div class="cartao" data-src="/img/lente-simples.webp"></div>
+      <div class="cartao" data-src="/img/lente-multifocal.webp"></div>
+      <div class="cartao" data-src="/img/lente-antirreflexo.webp"></div>
+      <div class="cartao" data-src="/img/praia.webp" data-foco-y="0.62"></div>
+      <div class="lentes__texto">
+        <p class="lentes__tipo">Visão simples</p>
+        <p class="lentes__frase">Uma distância só,<br />nítida de borda a borda.</p>
+      </div>
+      <div class="lentes__texto">
+        <p class="lentes__tipo">Multifocal</p>
+        <p class="lentes__frase">Longe, meio e perto<br />na mesma lente.</p>
+      </div>
+      <div class="lentes__texto">
+        <p class="lentes__tipo">Antirreflexo</p>
+        <p class="lentes__frase">Sem reflexo na tela<br />nem no farol.</p>
+      </div>
+      <div class="lentes__texto">
+        <p class="lentes__tipo">Lente fina</p>
+        <p class="lentes__frase">Grau alto sem<br />fundo de garrafa.</p>
+      </div>
+    </div>
+
+    <div class="sol__praia" data-src="/img/praia.webp" data-foco-y="0.62"></div>
+    <p class="sol__titulo">Sol com grau.</p>
+    <p class="sol__titulo">Sem brilho<br> na água.</p>
+
+    <div class="dias__fotos">
+      <div class="dias__foto" data-src="/img/dia-1-exame.webp"></div>
+      <div class="dias__foto" data-src="/img/dia-3-medida.webp"></div>
+      <div class="dias__foto" data-src="/img/dia-5-bancada.webp"></div>
+      <div class="dias__foto" data-src="/img/dia-7-entrega.webp"></div>
+    </div>
+
+    <p class="fecho__titulo"><span>Prontos em</span> <span>até 7 dias.</span></p>
+  </div>
+
+  <!-- interface fixa: sempre nítida -->
+  <div class="interface">
+    <header class="nav">
+      <a class="nav__marca" href="#topo" aria-label="Grau, voltar ao início">
+        <svg class="marca" viewBox="0 0 52 24" aria-hidden="true"><circle cx="12" cy="12" r="10" pathLength="1000" stroke-dasharray="1000" transform="rotate(-90 12 12)" /><circle cx="40" cy="12" r="10" pathLength="1000" stroke-dasharray="1000" transform="rotate(-90 40 12)" /><path d="M22 10.5c1.6-1.6 6.4-1.6 8 0" pathLength="1000" stroke-dasharray="1000" /></svg>
+        <span>Grau</span>
+      </a>
+      <nav class="nav__links" aria-label="Seções">
+        <a href="#armacoes">Armações</a>
+        <a href="#lentes">Lentes</a>
+        <a href="#agendar"><span class="longo">Exame de vista</span><span class="curto">Exame</span></a>
+      </nav>
+    </header>
+
+    <div class="setas">
+      <button class="seta" data-dir="-1" aria-label="Modelo anterior"><svg viewBox="0 0 16 16"><path d="M13 8H3M7.5 3.5 3 8l4.5 4.5" /></svg></button>
+      <button class="seta" data-dir="1" aria-label="Próximo modelo"><svg viewBox="0 0 16 16"><path d="M3 8h10M8.5 3.5 13 8l-4.5 4.5" /></svg></button>
+    </div>
+    <ol class="pontos" aria-label="Modelos">
+      <li><button data-modelo="0" aria-label="Quadrada" aria-current="true"></button></li>
+      <li><button data-modelo="1" aria-label="Gatinho"></button></li>
+      <li><button data-modelo="2" aria-label="Aviador"></button></li>
+      <li><button data-modelo="3" aria-label="Redonda"></button></li>
+    </ol>
+
+    <section class="hero" aria-label="Abertura">
+      <p class="prazo"><span class="mascara"><span>Óculos prontos</span></span><span class="mascara"><span>em até</span></span><span class="mascara"><span><strong>7 dias.</strong></span></span></p>
+      <div class="chamada">
+        <a class="pilula" href="#agendar"><span>Agendar exame</span></a>
+        <span class="chamada__fio" aria-hidden="true"></span>
+      </div>
+      <p class="vinte" aria-hidden="true"><span>20/20</span></p>
+    </section>
+
+    <section class="armacoes" aria-label="Armações">
+      <p class="medida" aria-hidden="true"><span>50□21</span><span>52□18</span><span>56□16</span><span>47□22</span></p>
+      <div class="ficha">
+        <p class="ficha__conta"><span class="ficha__n">01</span>/04</p>
+        <div class="ficha__itens">
+          <div class="ficha__item"><p class="ficha__cor">Tartaruga</p><p class="ficha__linha">Aro grosso, ponte baixa.</p><p class="ficha__preco">R$ 420</p></div>
+          <div class="ficha__item"><p class="ficha__cor">Preto</p><p class="ficha__linha">O canto puxado para cima.</p><p class="ficha__preco">R$ 460</p></div>
+          <div class="ficha__item"><p class="ficha__cor">Verde-garrafa</p><p class="ficha__linha">A gota do aviador, em acetato.</p><p class="ficha__preco">R$ 480</p></div>
+          <div class="ficha__item"><p class="ficha__cor">Cristal</p><p class="ficha__linha">Transparente, ponte alta.</p><p class="ficha__preco">R$ 440</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="lentes" aria-label="Lentes">
+      <p class="lentes__conta"><span>Lentes</span><span class="lentes__n">01/04</span></p>
+      <p class="lentes__nota"><span>Feitas no seu grau, com o seu exame.</span></p>
+    </section>
+
+    <section class="sol" aria-label="Óculos de sol">
+      <div class="sol__info">
+        <p class="sol__lead"><span class="mascara"><span>Óculos de sol</span></span><span class="mascara"><span>com o seu grau.</span></span></p>
+        <p class="sol__det"><span class="mascara"><span>Lente G-15 polarizada, proteção UV400.</span></span><span class="mascara"><span>A partir de R$ 590.</span></span></p>
+      </div>
+    </section>
+
+    <section class="dias" aria-label="Do exame à entrega">
+      <ol class="dias__legendas">
+        <li class="dias__legenda"><strong>Dia 1</strong><span>Exame de vista com hora marcada, aqui na loja.</span></li>
+        <li class="dias__legenda"><strong>Dia 3</strong><span>A armação conferida, medida por medida.</span></li>
+        <li class="dias__legenda"><strong>Dia 5</strong><span>As lentes cortadas e montadas na bancada.</span></li>
+        <li class="dias__legenda"><strong>Dia 7</strong><span>Prontos, no estojo, esperando por você.</span></li>
+      </ol>
+    </section>
+  </div>
+
+  <!-- trilha de rolagem: um bloco por cena; o formulário e o rodapé sobem por cima do palco -->
+  <main class="trilha" id="topo">
+    <section class="cena" id="abertura" data-cena="abertura"></section>
+    <section class="cena" id="armacoes" data-cena="armacoes"></section>
+    <section class="cena" id="lentes" data-cena="lentes"></section>
+    <section class="cena" id="sol" data-cena="sol"></section>
+    <section class="cena" id="dias" data-cena="dias"></section>
+    <section class="cena" id="fecho" data-cena="fecho"></section>
+
+    <section class="fim" id="agendar" aria-labelledby="agenda-titulo">
+      <div class="fim__painel">
+        <div class="fim__estojo" aria-hidden="true"></div>
+        <form class="agenda" novalidate>
+          <h2 class="agenda__titulo" id="agenda-titulo">Agende seu exame</h2>
+          <p class="agenda__sub">Escolha o dia e o período. A gente confirma pelo WhatsApp.</p>
+          <div class="campos">
+            <label class="campo"><span>Nome</span><input name="nome" autocomplete="name" required /></label>
+            <label class="campo"><span>WhatsApp</span><input name="whatsapp" type="tel" inputmode="tel" autocomplete="tel" required /></label>
+          </div>
+          <fieldset class="escolha">
+            <legend>Dia</legend>
+            <div class="chips">
+              <label><input type="radio" name="dia" value="seg" checked /><span>Seg</span></label>
+              <label><input type="radio" name="dia" value="ter" /><span>Ter</span></label>
+              <label><input type="radio" name="dia" value="qua" /><span>Qua</span></label>
+              <label><input type="radio" name="dia" value="qui" /><span>Qui</span></label>
+              <label><input type="radio" name="dia" value="sex" /><span>Sex</span></label>
+              <label><input type="radio" name="dia" value="sab" /><span>Sáb</span></label>
+            </div>
+          </fieldset>
+          <fieldset class="escolha">
+            <legend>Período</legend>
+            <div class="chips">
+              <label><input type="radio" name="periodo" value="manha" checked /><span>Manhã</span></label>
+              <label><input type="radio" name="periodo" value="tarde" /><span>Tarde</span></label>
+            </div>
+          </fieldset>
+          <button class="pilula pilula--cheia" type="submit"><span>Agendar exame</span></button>
+          <p class="agenda__ok" role="status"></p>
+        </form>
+
+        <footer class="rodape" id="contato">
+          <div class="rodape__marca">
+            <svg class="marca" viewBox="0 0 52 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><circle cx="40" cy="12" r="10" /><path d="M22 10.5c1.6-1.6 6.4-1.6 8 0" /></svg>
+            <p>Óculos prontos<br />em até <strong>7 dias.</strong></p>
+          </div>
+          <nav class="rodape__links" aria-label="Rodapé">
+            <a href="#armacoes">Armações</a>
+            <a href="#lentes">Lentes</a>
+            <a href="#sol">Óculos de sol</a>
+            <a href="#agendar">Exame de vista</a>
+          </nav>
+          <div class="rodape__loja">
+            <p>Rua das Acácias, 120</p>
+            <p>Seg a sex, 9h às 19h<br />Sáb, 9h às 14h</p>
+            <p><a href="#" rel="noopener">Instagram</a> · <a href="#" rel="noopener">WhatsApp</a></p>
+          </div>
+        </footer>
+        <p class="fim__legal">© 2026 Grau Ótica · CNPJ 00.000.000/0001-00</p>
+        <p class="fim__palavra" aria-hidden="true">Grau</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- loader: o símbolo se desenha e a acuidade sobe com o carregamento -->
+  <div class="carga" aria-hidden="true">
+    <svg class="carga__marca" viewBox="0 0 52 24"><circle cx="12" cy="12" r="10" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000" transform="rotate(-90 12 12)" /><circle cx="40" cy="12" r="10" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000" transform="rotate(-90 40 12)" /><path d="M22 10.5c1.6-1.6 6.4-1.6 8 0" pathLength="1000" stroke-dasharray="1000" stroke-dashoffset="1000" /></svg>
+    <p class="carga__acuidade">20/200</p>
+  </div>
+
+  <div class="barra" aria-hidden="true"><span class="barra__polegar"></span></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

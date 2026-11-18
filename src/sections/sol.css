@@ -1,0 +1,26 @@
+/* praia e título (âncoras da placa): estourados fora da lente, na exposição certa pela lente G-15 */
+.sol__praia { position: absolute; inset: 0; }
+.sol__titulo {
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  margin: 0;
+  translate: 0 -52%;
+  text-align: center;
+  font-weight: 900;
+  font-size: min(12.4vw, 22vh);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.sol { position: absolute; inset: 0; color: var(--ui); visibility: hidden; }
+.sol.ativa { visibility: visible; }
+.sol__info { position: absolute; left: var(--gutter); bottom: clamp(36px, 7.2vh, 72px); }
+.sol__lead { margin: 0 0 12px; font-size: clamp(22px, 1.9vw, 30px); font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; }
+.sol__det { margin: 0; font-size: var(--t-legenda); line-height: 1.45; color: var(--ui-2); }
+
+@media (max-width: 720px) {
+  .sol__titulo { font-size: 15vw; white-space: normal; translate: 0 -150%; }
+  .sol__info { bottom: 40px; right: var(--gutter); }
+  .sol__lead { font-size: 22px; }
+}

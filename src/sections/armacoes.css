@@ -1,0 +1,50 @@
+/* nomes gigantes (âncoras da placa), um por modelo, no mesmo lugar */
+.armacoes__nomes { position: absolute; inset: 0; }
+.armacoes__nome {
+  position: absolute;
+  left: 50%; top: 50%;
+  margin: 0;
+  translate: -50% -54%;
+  text-align: center;
+  font-weight: 900;
+  font-size: min(16.2vw, 29vh);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+/* interface */
+.armacoes { position: absolute; inset: 0; color: var(--ui); visibility: hidden; }
+.armacoes.ativa { visibility: visible; }
+
+.medida {
+  position: absolute;
+  left: 0; top: 0;
+  margin: 0;
+  font-size: clamp(15px, 1.25vw, 19px);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.medida span { position: absolute; left: 0; top: 0; white-space: nowrap; opacity: 0; }
+
+.ficha {
+  position: absolute;
+  left: var(--gutter);
+  bottom: clamp(36px, 7.2vh, 72px);
+  min-width: 280px;
+}
+.ficha__conta { margin: 0 0 14px; font-size: var(--t-legenda); color: var(--ui-2); font-variant-numeric: tabular-nums; overflow: clip; }
+.ficha__n { display: inline-block; color: var(--ui); }
+.ficha__itens { display: grid; }
+.ficha__item { grid-area: 1 / 1; }
+.ficha__item p { margin: 0; overflow: clip; padding: 0.08em 0 0.2em; }
+.ficha__item p > span { display: block; }
+.ficha__cor { font-size: clamp(24px, 2.1vw, 32px); font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; }
+.ficha__linha { margin-top: 4px !important; font-size: var(--t-legenda); color: var(--ui-2); }
+.ficha__preco { margin-top: 10px !important; font-size: var(--t-legenda); }
+
+@media (max-width: 720px) {
+  .armacoes__nome { font-size: 17.5vw; translate: -50% -150%; }
+  .ficha { bottom: 40px; min-width: 0; right: var(--gutter); }
+  .ficha__cor { font-size: 24px; }
+}

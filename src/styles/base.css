@@ -1,0 +1,64 @@
+*, *::before, *::after { box-sizing: border-box; }
+html { scrollbar-width: none; -webkit-text-size-adjust: 100%; }
+html::-webkit-scrollbar { display: none; }
+body {
+  margin: 0;
+  visibility: visible;
+  background: var(--breu);
+  color: var(--ui);
+  font-family: var(--fonte);
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: clip; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+img { display: block; max-width: 100%; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; border-radius: 4px; }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* o palco: canvas fixo atrás de tudo */
+.palco {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100lvh;
+  display: block;
+  z-index: 0;
+}
+
+/* camada de leitura: âncoras do HTML que a placa redesenha (o texto fica transparente aqui) */
+.placa {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100lvh;
+  pointer-events: none;
+  z-index: 1;
+  color: transparent;
+}
+.placa * { color: transparent !important; }
+
+/* interface fixa por cima do palco */
+.interface {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 3;
+  pointer-events: none;
+}
+.interface a, .interface button, .interface .clicavel { pointer-events: auto; }
+
+/* a trilha de rolagem: um bloco por cena, sem conteúdo visível (a cena acontece no palco) */
+.trilha { position: relative; z-index: 2; }
+.cena { position: relative; height: calc(var(--h, 100) * 1vh); }
+
+/* linha que entra por máscara: folga para acentos em cima e descendentes embaixo */
+.mascara { display: block; overflow: clip; padding: 0.12em 0 0.3em; margin: -0.12em 0 -0.3em; }
+.mascara > span { display: block; }

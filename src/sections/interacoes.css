@@ -1,0 +1,111 @@
+/* Interações na linguagem da Grau: o foco vai para onde você aponta.
+   - hover: o item apontado fica nítido e os vizinhos saem um pouco de foco;
+   - foco do teclado: um anel fino, como o aro de uma lente, que entra em foco (de borrado a nítido);
+   - clique e toque: o item afunda um pouco e volta em foco;
+   - preenchimentos abrem como uma íris a partir do ponto do toque (--x, --y vêm do JS). */
+
+:root { --ease-foco: cubic-bezier(0.16, 0.84, 0.3, 1); }
+a, button, input, label { -webkit-tap-highlight-color: transparent; }
+a, button, .chips label { touch-action: manipulation; }
+
+/* foco do teclado: aro de lente */
+.interface :focus-visible, .fim :focus-visible { outline: none; }
+.nav__links a:focus-visible, .nav__marca:focus-visible, .rodape a:focus-visible,
+.pilula:focus-visible, .seta:focus-visible, .pontos button:focus-visible {
+  outline: 1.5px solid currentColor;
+  outline-offset: 5px;
+  animation: aro-em-foco 0.42s var(--ease-foco) both;
+}
+.nav__links a:focus-visible, .rodape a:focus-visible, .nav__marca:focus-visible { border-radius: 6px; }
+.pilula:focus-visible, .seta:focus-visible, .pontos button:focus-visible { border-radius: 999px; }
+.chips input:focus-visible + span { outline: 1.5px solid var(--osso); outline-offset: 4px; animation: aro-em-foco 0.42s var(--ease-foco) both; }
+.campo input:focus-visible { outline: none; }
+@keyframes aro-em-foco {
+  from { outline-offset: 14px; outline-color: transparent; filter: blur(1.5px); }
+  to { outline-offset: 5px; filter: blur(0); }
+}
+
+/* clique e toque: afunda e volta em foco */
+@keyframes refoca { 0% { filter: blur(0); } 35% { filter: blur(1.2px); } 100% { filter: blur(0); } }
+.nav__links a:active, .rodape a:active, .nav__marca:active { animation: refoca 0.45s var(--ease-foco); }
+.pilula:active, .seta:active, .chips label:active span, .pontos button:active { scale: 0.96; transition: scale 0.12s; }
+
+/* hover só onde existe mouse (no toque o :active faz o papel) */
+@media (hover: hover) {
+  /* grupos: o apontado fica nítido, os vizinhos desfocam */
+  .nav__links:has(a:hover) a:not(:hover),
+  .rodape__links:has(a:hover) a:not(:hover),
+  .rodape__loja:has(a:hover) a:not(:hover),
+  .chips:has(label:hover) label:not(:hover) span,
+  .setas:has(.seta:not([disabled]):hover) .seta:not(:hover) {
+    filter: blur(1.4px);
+    opacity: 0.5;
+  }
+  .nav__links a, .rodape a, .chips span, .seta { transition: filter 0.4s var(--ease-foco), opacity 0.4s var(--ease-foco), background-color 0.45s var(--ease-foco), color 0.45s var(--ease-foco), box-shadow 0.35s; }
+  .nav__marca:hover .marca * { animation: desenha 0.9s var(--ease-foco); }
+}
+@keyframes desenha { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+
+/* íris: o preenchimento da pílula e das setas abre num círculo a partir do ponto do mouse ou do toque */
+.pilula::before, .seta::before {
+  transform: none !important;
+  clip-path: circle(0% at var(--x, 50%) var(--y, 50%));
+  transition: clip-path 0.55s var(--ease-foco) !important;
+}
+.seta { position: relative; overflow: clip; isolation: isolate; }
+.seta::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--ui); border-radius: inherit; }
+.seta:hover { background: transparent !important; }
+@media (hover: hover) {
+  .pilula:hover::before, .seta:not([disabled]):hover::before { clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); }
+}
+.pilula:active::before, .seta:active::before,
+.pilula.toque::before, .seta.toque::before { clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); }
+.pilula.toque { color: var(--breu); scale: 0.96; }
+.seta.toque, .pontos button.toque { scale: 0.96; }
+.seta.toque svg { stroke: var(--breu); }
+.nav__links a.toque, .rodape a.toque, .nav__marca.toque { animation: refoca 0.45s var(--ease-foco); }
+.nav__links a.toque::after, .rodape a.toque::after { transform: scaleX(1); transform-origin: left; }
+.chips label.toque span { scale: 0.96; box-shadow: inset 0 0 0 1.5px var(--osso); }
+.seta:hover svg, .seta:active svg { color: var(--breu); stroke: var(--breu); }
+.seta svg { position: relative; }
+
+/* pontos: o nome do modelo entra em foco ao lado do ponto */
+.pontos button::after {
+  content: attr(aria-label);
+  position: absolute; right: calc(100% + 14px); top: 50%;
+  translate: 6px -50%;
+  font-size: var(--t-micro); letter-spacing: 0.02em; white-space: nowrap;
+  opacity: 0; filter: blur(3px);
+  transition: opacity 0.35s var(--ease-foco), filter 0.45s var(--ease-foco), translate 0.45s var(--ease-foco);
+  pointer-events: none;
+}
+.pontos button:hover::after, .pontos button:focus-visible::after { opacity: 1; filter: blur(0); translate: 0 -50%; }
+@media (hover: hover) { .pontos button:hover::before { inset: -1px; background: transparent; } }
+
+/* campos: a linha se desenha no foco, fica no preenchido, vira coral no erro */
+.campo { position: relative; }
+.campo::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px;
+  background: var(--osso);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.6s var(--ease-foco), background-color 0.3s;
+}
+.campo:focus-within::after, .campo.preenchido::after { transform: scaleX(1); }
+.campo:focus-within > span, .campo.preenchido > span { color: var(--osso); }
+.campo > span { transition: color 0.3s; }
+.campo.erro::after { background: #ff7a5c; transform: scaleX(1); }
+.campo.erro > span { color: #ff7a5c; animation: refoca 0.5s var(--ease-foco); }
+.chips span { position: relative; overflow: clip; isolation: isolate; }
+.chips span::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: var(--osso); border-radius: inherit;
+  clip-path: circle(0% at var(--x, 50%) var(--y, 50%));
+  transition: clip-path 0.5s var(--ease-foco);
+}
+.chips input:checked + span { background: transparent !important; }
+.chips input:checked + span::before { clip-path: circle(150% at var(--x, 50%) var(--y, 50%)); }
+
+/* enviado: o formulário sai de foco e a confirmação entra em foco */
+.agenda > :not(.agenda__ok):not(.agenda__titulo) { transition: filter 0.7s var(--ease-foco), opacity 0.7s var(--ease-foco); }
+.agenda.enviada > :not(.agenda__ok):not(.agenda__titulo) { filter: blur(6px); opacity: 0.25; pointer-events: none; }
+.agenda__ok { transition: filter 0.6s var(--ease-foco); }
+.agenda.enviada .agenda__ok { font-size: clamp(18px, 1.6vw, 22px); }

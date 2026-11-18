@@ -1,0 +1,46 @@
+.nav {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--nav-h);
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ui);
+  transition: color 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav::before {
+  content: '';
+  position: absolute; inset: 0 0 -28px 0; z-index: -1;
+  background: linear-gradient(var(--breu) 38%, rgba(5, 5, 5, 0));
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+/* no painel do fim o conteúdo rola por baixo da nav: um fundo escuro em degradê separa os dois */
+.nav.nav--fundo::before { opacity: 1; }
+.nav__marca { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 28px; letter-spacing: -0.035em; line-height: 1; }
+.nav__marca svg { width: 52px; height: 24px; overflow: visible; }
+.nav__links { display: flex; gap: clamp(28px, 3.2vw, 48px); font-size: var(--t-nav); }
+.nav__links a { position: relative; padding: 6px 0; }
+.nav__links a::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: currentColor;
+  transform: scaleX(0); transform-origin: right;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav__links a:hover::after { transform: scaleX(1); transform-origin: left; }
+
+/* símbolo: dois aros e a ponte, desenhados por traço */
+.marca circle, .marca path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+
+@media (max-width: 720px) {
+  .nav__marca { font-size: 24px; gap: 8px; }
+  .nav__marca svg { width: 42px; height: 20px; }
+  .nav__links { gap: 18px; }
+  .nav__links .longo { display: none; }
+}
+@media (min-width: 721px) {
+  .nav__links .curto { display: none; }
+}

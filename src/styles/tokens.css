@@ -1,0 +1,42 @@
+@font-face { font-family: 'Satoshi'; src: url('/fonts/satoshi-regular.woff2') format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Satoshi'; src: url('/fonts/satoshi-medium.woff2') format('woff2'); font-weight: 500; font-display: block; }
+@font-face { font-family: 'Satoshi'; src: url('/fonts/satoshi-bold.woff2') format('woff2'); font-weight: 700; font-display: block; }
+@font-face { font-family: 'Satoshi'; src: url('/fonts/satoshi-black.woff2') format('woff2'); font-weight: 900; font-display: block; }
+
+:root {
+  /* página escura */
+  --breu: #050505;
+  --osso: #f1f1ef;
+  --cinza: #8d8d88;
+  --fio: rgba(241, 241, 239, 0.24);
+  /* sol e exame */
+  --papel: #f6f3ec;
+  --tinta: #111110;
+  --cinza-q: #6f6b63;
+  /* acetato e lente (as cores de verdade estão no shader; aqui para a interface e o guia) */
+  --tartaruga: #3a1d10;
+  --mel: #b8742f;
+  --verde-garrafa: #1e3b2c;
+  --g15: #3c4838;
+
+  /* a interface troca de cor por marco quando a página clareia */
+  --ui: var(--osso);
+  --ui-2: var(--cinza);
+  --ui-fio: var(--fio);
+
+  --gutter: clamp(20px, 4.4vw, 64px);
+  --nav-h: clamp(72px, 9.4vh, 104px);
+  --raio-card: 28px;
+
+  --fonte: 'Satoshi', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --optico: 'Optician Sans', 'Satoshi', ui-sans-serif, sans-serif;
+
+  --t-nav: 15px;
+  --t-legenda: 14px;
+  --t-micro: 12.5px;
+  --t-lead: clamp(19px, 1.65vw, 24px);
+}
+
+@media (max-width: 720px) {
+  :root { --t-nav: 14px; --t-legenda: 13px; --t-micro: 12px; --raio-card: 20px; }
+}

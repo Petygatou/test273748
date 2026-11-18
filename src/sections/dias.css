@@ -1,0 +1,39 @@
+/* os 7 dias: fotos do processo soltas no papel, em duas colunas desencontradas (âncoras da placa).
+   O conjunto atravessa a tela de baixo para cima com o scroll; desfocadas fora da lente, nítidas dentro. */
+.dias__fotos { position: absolute; left: 0; right: 0; top: 0; height: 196vh; }
+.dias__foto { position: absolute; }
+.dias__foto:nth-child(1) { left: 9vw; top: 0; width: 22vw; aspect-ratio: 2 / 3; }
+.dias__foto:nth-child(2) { right: 9vw; top: 36vh; width: 34vw; aspect-ratio: 3 / 2; }
+.dias__foto:nth-child(3) { left: 17vw; top: 104vh; width: 22vw; aspect-ratio: 2 / 3; }
+.dias__foto:nth-child(4) { right: 12vw; top: 150vh; width: 36vw; aspect-ratio: 3 / 2; }
+
+/* legendas: interface (sempre nítida), presas ao pé de cada foto pelo módulo da cena */
+.dias {
+  position: absolute; inset: 0; color: var(--ui); visibility: hidden; pointer-events: none;
+  /* as legendas somem antes de chegar na nav (passam por baixo dela sem se misturar) */
+  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--nav-h) + 8px), #000 calc(var(--nav-h) + 72px));
+  mask-image: linear-gradient(to bottom, transparent calc(var(--nav-h) + 8px), #000 calc(var(--nav-h) + 72px));
+}
+.dias.ativa { visibility: visible; }
+.dias__legendas { margin: 0; padding: 0; list-style: none; }
+.dias__legenda {
+  position: absolute;
+  left: 0; top: 0;
+  display: grid;
+  gap: 4px;
+  max-width: 26ch;
+  font-size: var(--t-legenda);
+  line-height: 1.35;
+  will-change: transform;
+}
+.dias__legenda strong { font-weight: 700; font-size: clamp(18px, 1.5vw, 24px); letter-spacing: -0.02em; }
+.dias__legenda span { color: var(--ui-2); }
+
+@media (max-width: 720px) {
+  .dias__fotos { height: 250vh; }
+  .dias__foto:nth-child(1) { left: var(--gutter); top: 0; width: 58vw; }
+  .dias__foto:nth-child(2) { left: auto; right: var(--gutter); top: 56vh; width: 74vw; }
+  .dias__foto:nth-child(3) { left: var(--gutter); top: 112vh; width: 58vw; }
+  .dias__foto:nth-child(4) { left: auto; right: var(--gutter); top: 186vh; width: 74vw; }
+  .dias__legenda { max-width: 22ch; }
+}
