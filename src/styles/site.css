@@ -1,0 +1,14 @@
+@import '@fontsource-variable/bricolage-grotesque/standard.css';
+@import '@fontsource/mr-dafoe/latin-400.css';
+@import '@fontsource/mr-dafoe/latin-ext-400.css';
+@import 'lenis/dist/lenis.css';
+
+@import './tokens.css';
+@import './base.css';
+@import './topo.css';
+@import './hero.css';
+@import './apelidos.css';
+@import './faixa.css';
+@import './cardapio.css';
+@import './casa.css';
+@import './rodape.css';

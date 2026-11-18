@@ -1,0 +1,137 @@
+/* Rodapé: o mural (rastro de cartões no mouse), o recado por e-mail e o nome gigante cortado no pé. */
+.rodape { --foco: var(--cheddar); position: relative; z-index: 4; width: 100%; overflow: hidden; color: var(--pao); background: var(--carvao); isolation: isolate; }
+/* a mesma máscara, de cabeça para baixo: pinta de pão o que fica ACIMA do rasgo */
+.rasgo--vira { top: -1px; rotate: 180deg; }
+.rodape__rasgo { z-index: 5; color: var(--pao); }
+
+/* —— mural —— */
+.mural { position: relative; z-index: 3; display: grid; place-items: center; height: clamp(420px, 41vw, 610px); padding-top: var(--rasgo); }
+.mural__chamada { position: relative; z-index: 4; pointer-events: none; }
+.mural__titulo {
+  display: flex; flex-direction: column; align-items: center;
+  color: var(--cheddar); font-weight: 800; font-size: clamp(34px, 5.1vw, 80px); line-height: 1.06; letter-spacing: -.03em;
+  text-align: center; font-variation-settings: 'opsz' 96, 'wdth' 92;
+}
+.mural__titulo > span { display: block; white-space: nowrap; }
+.mural__toque {
+  position: absolute; top: .4vw; left: calc(100% + .6vw); display: flex; align-items: center; gap: 2px;
+  width: max-content; min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--pao); cursor: pointer;
+  pointer-events: auto; rotate: -5.4deg; transition: rotate 210ms, scale 210ms;
+  font-weight: 800; font-size: 12px; line-height: 1; letter-spacing: .07em; text-align: left; text-transform: uppercase;
+}
+.mural__toque svg { width: clamp(50px, 5.2vw, 76px); height: auto; overflow: visible; }
+.mural__risco { fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: hover) { .mural__toque:hover { rotate: -1.5deg; scale: 1.07; } }
+.mural__toque:active { scale: .93; }
+
+/* os cartões nascem aqui, no ponto do mouse (src/motion/mural.js); o formato é o dos arquivos: 9:16 */
+.mural__rastro { position: absolute; z-index: 2; top: 0; left: 0; width: 100%; height: var(--zona, 100%); pointer-events: none; }
+.mural__foto {
+  position: absolute; width: clamp(150px, 14.2vw, 204px); height: auto; aspect-ratio: 9 / 16; max-width: none;
+  border-radius: 15px; object-fit: cover; opacity: 0; transform: translate(-50%, -50%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / .42); user-select: none; -webkit-user-drag: none; will-change: transform, opacity;
+}
+.mural__dica {
+  position: absolute; z-index: 6; top: 0; left: 0; padding: 7px 13px 8px; border-radius: 999px;
+  background: var(--cheddar); color: var(--carvao);
+  font-weight: 800; font-size: 12px; line-height: 1; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap;
+  /* o aro escuro separa a etiqueta do título, que é do mesmo amarelo */
+  box-shadow: 0 0 0 3px var(--carvao);
+  opacity: 0; pointer-events: none; transform: translate(-50%, -50%) rotate(-3.5deg) scale(.88);
+  transition: opacity 170ms, transform 230ms var(--sai);
+}
+.mural__dica.visivel { opacity: 1; transform: translate(-50%, -50%) rotate(-3.5deg) scale(1); }
+
+/* no celular, em vez do rastro: uma pilha de cartões que troca a cada toque */
+.mural__pilha { display: none; }
+
+/* —— recado —— */
+.rodape__miolo { position: relative; z-index: 3; width: min(100% - 2 * var(--margem), 1290px); margin-inline: auto; padding-bottom: clamp(56px, 5.8vw, 86px); }
+.recado { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 2vw, 30px); padding-top: clamp(8px, 1.8vw, 26px); }
+.recado__retrato {
+  display: grid; place-items: center; flex: 0 0 auto; width: clamp(136px, 14.8vw, 214px); aspect-ratio: 1; border-radius: 50%;
+  box-shadow: inset 0 0 0 clamp(5px, .46vw, 6.5px) var(--pao);
+}
+.recado__retrato svg { width: 70%; height: auto; margin-top: 6%; }
+.recado__titulo {
+  margin-bottom: clamp(16px, 1.55vw, 22px); padding-left: 14px;
+  font-weight: 800; font-size: clamp(34px, 3.9vw, 56px); line-height: 1; letter-spacing: -.03em;
+  font-variation-settings: 'opsz' 96, 'wdth' 92;
+}
+.recado__form { display: flex; align-items: stretch; gap: 14px; }
+.recado__campo {
+  width: clamp(200px, 23.4vw, 340px); height: 54px; padding: 0 22px; border: 0; outline-offset: 3px;
+  border-radius: 27px 25px 29px 27px / 27px 29px 25px 27px; background: var(--branco); color: var(--carvao);
+  font: inherit; font-size: 16px;
+}
+.recado__campo::placeholder { color: rgb(22 19 15 / .6); }
+/* o enviar é o mesmo pãozinho dos botões (--pao-c, em tokens.css) */
+.recado__enviar {
+  display: inline-flex; align-items: center; gap: 10px; height: 54px; padding: 3px 26px 0; border: 0; cursor: pointer;
+  border-radius: var(--pao-c); background: var(--tomate); color: var(--branco);
+  font-weight: 700; font-size: 17px; line-height: 1; transition: background-color 190ms, color 190ms, translate 190ms, scale 190ms;
+}
+@media (hover: hover) { .recado__enviar:hover { background: var(--cheddar); color: var(--carvao); translate: 0 -3px; } }
+.recado__enviar:active { translate: 0 0; scale: .97; }
+.recado__aviso { min-height: 22px; margin-top: 12px; padding-left: 14px; color: var(--cheddar); font-weight: 600; font-size: 14px; }
+
+.rodape__pe { display: grid; gap: 6px; width: max-content; max-width: 100%; margin: clamp(58px, 8.5vw, 122px) auto 0; font-weight: 600; font-size: 12px; line-height: 1.2; }
+.rodape__linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; }
+.rodape__linha p { margin: 0; }
+.rodape__links { display: flex; gap: 8px; }
+.rodape__links a, .rodape__pe a { text-decoration: none; }
+/* a área de toque dos links miúdos é maior que a letra */
+.rodape__links a { position: relative; }
+.rodape__links a::after { content: ''; position: absolute; inset: -16px -4px; }
+@media (hover: hover) { .rodape__links a:hover { color: var(--cheddar); } }
+.rodape__links a:active { opacity: .65; }
+.rodape__redes { display: flex; gap: 6px; margin-left: 6px; }
+.rodape__redes a { display: grid; place-items: center; width: 44px; height: 44px; margin: -8px -6px; transition: color 190ms, translate 190ms; }
+.rodape__redes svg { width: 27px; height: 27px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.rodape__redes .cheio { fill: currentColor; stroke: none; }
+@media (hover: hover) { .rodape__redes a:hover { color: var(--cheddar); translate: 0 -2px; } }
+.rodape__redes a:active { translate: 0 0; scale: .9; }
+
+/* o nome gigante: vai de uma margem à outra e o pé da página corta o que passa da linha de base.
+   O tamanho é medido, não chutado: a frase inteira tem 9,44 em de largura, então 10,3vw ocupam 97vw
+   (trocou a frase? meça de novo: largura do texto ÷ tamanho da fonte) */
+.rodape__gigante {
+  position: relative; z-index: 1; height: .85em; margin: 0; padding-left: 1.4vw; overflow: hidden;
+  font-weight: 800; font-size: 10.3vw; line-height: 1; letter-spacing: -.04em; white-space: nowrap;
+  font-variation-settings: 'opsz' 96, 'wdth' 94; pointer-events: none; user-select: none;
+}
+.rodape__gigante span:last-child { color: var(--cheddar); }
+
+@media (max-width: 767px) {
+  .mural { height: auto; padding: calc(var(--rasgo) + 64px) 20px 34px; gap: 26px; }
+  .mural__titulo { font-size: clamp(30px, 8.9vw, 38px); }
+  .mural__toque { top: auto; bottom: -46px; left: 50%; translate: -50% 0; rotate: -4deg; }
+  .mural__pilha {
+    position: relative; display: block; width: min(62vw, 240px); aspect-ratio: 9 / 16; margin-top: 46px; padding: 0;
+    border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: scale 150ms;
+  }
+  .mural__pilha:active { scale: .98; }
+  .mural__carta {
+    --gira: 0deg;
+    position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 15px; object-fit: cover;
+    opacity: 0; transform: rotate(var(--gira)); box-shadow: 0 12px 28px rgb(0 0 0 / .42);
+    transition: opacity 220ms, transform 380ms cubic-bezier(.22, .82, .3, 1);
+  }
+  .mural__carta[data-papel='frente'] { z-index: 3; opacity: 1; }
+  .mural__carta[data-papel='perto'] { z-index: 2; opacity: 1; transform: translate(16px, 9px) rotate(5.5deg) scale(.955); }
+  .mural__carta[data-papel='longe'] { z-index: 1; opacity: 1; transform: translate(-15px, 18px) rotate(-6.5deg) scale(.915); }
+  .mural__rastro, .mural__dica { display: none; }
+  .recado { flex-direction: column; text-align: center; }
+  .recado__titulo { padding-left: 0; }
+  .recado__form { flex-direction: column; align-items: center; width: 100%; }
+  .recado__campo { width: min(100%, 340px); }
+  .recado__enviar { justify-content: center; width: min(100%, 340px); }
+  .recado__aviso { padding-left: 0; }
+  .rodape__pe { justify-items: center; text-align: center; margin-top: 54px; }
+  .rodape__linha { justify-content: center; }
+  /* no celular o nome vem em duas linhas e cabe inteiro na largura (a linha mais larga tem 5,08 em: 18,1vw dão
+     92vw); o pé corta a de baixo */
+  .rodape__gigante { height: 1.73em; padding-left: 4vw; font-size: 18.1vw; line-height: .88; white-space: normal; }
+  .rodape__gigante span { display: block; white-space: nowrap; }
+}

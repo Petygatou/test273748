@@ -1,0 +1,73 @@
+/* A casa: os cinco selos, o texto e as fotos recortadas em forma de pedra de rio. Seção comum, na escala de site
+   (--su). Selos e fotos sobem, crescem e aparecem conforme entram na tela (src/motion/casa.js escreve --vis,
+   --sobe e --cresce em cada um). */
+/* overflow-x: clip: foto ou selo girado não pode alargar a página (o rasgo de cima continua livre) */
+.casa { position: relative; z-index: 3; width: 100%; overflow-x: clip; padding: calc(112 * var(--su)) 0 calc(104 * var(--su)); color: var(--pao); background: var(--pao); }
+.casa__rasgo { z-index: 4; }
+.casa__tela {
+  position: relative; width: min(100% - 48px, 1220px); height: calc(800 * var(--su)); margin-inline: auto; color: var(--carvao);
+}
+
+.casa__selos {
+  position: absolute; z-index: 4; top: 0; left: 50%; translate: -50% 0;
+  display: flex; align-items: center; justify-content: center; gap: calc(50 * var(--su)); width: max-content;
+}
+.casa__selo, .casa__foto {
+  --vis: 1; --sobe: 0px; --cresce: 1;
+  opacity: var(--vis); translate: 0 var(--sobe); scale: var(--cresce);
+  backface-visibility: hidden; will-change: translate, scale, opacity;
+}
+.casa__selo {
+  display: grid; place-items: center; min-width: calc(124 * var(--su)); padding: calc(15 * var(--su)) calc(24 * var(--su)) calc(16 * var(--su));
+  border-radius: 33% 31% 35% 29% / 37% 31% 39% 33%; background: var(--cheddar); color: var(--carvao);
+  font-weight: 800; font-size: calc(22 * var(--su)); line-height: .95; letter-spacing: -.01em; text-align: center;
+  text-transform: uppercase; font-variation-settings: 'opsz' 96, 'wdth' 80;
+}
+.casa__selo--1 { rotate: -7.2deg; }
+.casa__selo--2 { rotate: 3.4deg; background: var(--tomate); color: var(--branco); border-radius: 31% 35% 29% 33% / 35% 39% 31% 37%; }
+.casa__selo--3 { rotate: -4.4deg; background: var(--mate); color: var(--branco); }
+.casa__selo--4 { rotate: 3.6deg; background: var(--carvao); color: var(--pao); border-radius: 29% 33% 31% 35% / 39% 33% 37% 31%; }
+.casa__selo--5 { rotate: -2.6deg; background: var(--branco); color: var(--carvao); box-shadow: inset 0 0 0 calc(3 * var(--su)) var(--carvao); }
+
+.casa__texto { position: absolute; z-index: 8; top: calc(146 * var(--su)); left: 50%; width: calc(580 * var(--su)); translate: -50% 0; text-align: center; }
+.casa__titulo {
+  margin-bottom: calc(20 * var(--su));
+  font-weight: 800; font-size: calc(58 * var(--su)); line-height: 1.05; letter-spacing: -.03em;
+  font-variation-settings: 'opsz' 96, 'wdth' 92;
+}
+.casa__texto p { font-size: calc(18 * var(--su)); line-height: 1.5; text-wrap: pretty; }
+
+.casa__foto { --acento: var(--tomate); --forma: url(#forma-a); position: absolute; z-index: 3; isolation: isolate; }
+.casa__foto::before { content: ''; position: absolute; z-index: -1; inset: 6% -1% -8% 1%; background: var(--acento); clip-path: var(--forma); rotate: -2.6deg; }
+.casa__foto > img { width: 100%; height: 100%; object-fit: cover; clip-path: var(--forma); }
+.casa__foto--1 { top: calc(196 * var(--su)); left: 1.5%; width: 20.4%; aspect-ratio: 3 / 2; rotate: 4deg; --acento: var(--tomate); --forma: url(#forma-a); }
+.casa__foto--2 { top: calc(134 * var(--su)); left: 77%; width: 20.8%; aspect-ratio: 3 / 2; rotate: -10.4deg; --acento: var(--cheddar); --forma: url(#forma-b); }
+.casa__foto--2::before { inset: 5% -1% -9% 1%; rotate: 4.4deg; }
+.casa__foto--3 { top: calc(530 * var(--su)); left: .5%; width: 26.6%; aspect-ratio: 3 / 2.05; rotate: 1deg; --acento: var(--mate); --forma: url(#forma-c); }
+.casa__foto--3::before { inset: -3% -2% -5% 1%; rotate: -1.2deg; }
+.casa__foto--4 { top: calc(492 * var(--su)); left: 33%; width: 34%; aspect-ratio: 3 / 2; rotate: -.6deg; --acento: var(--cheddar); --forma: url(#forma-b); }
+.casa__foto--4::before { inset: -4% 1% 6%; rotate: 1.2deg; }
+.casa__foto--5 { top: calc(506 * var(--su)); left: 73.6%; width: 25.4%; aspect-ratio: 3 / 2.2; rotate: 2.1deg; --acento: var(--carvao); --forma: url(#forma-a); }
+.casa__foto--5::before { inset: 4% -1% -8% 1%; rotate: -2.6deg; }
+
+.casa__carimbo { position: absolute; z-index: 6; top: -12%; right: -14%; width: 33%; aspect-ratio: 1; color: var(--carvao); }
+.casa__carimbo::before { content: ''; position: absolute; inset: 10%; border-radius: 50%; background: var(--pao); }
+.casa__carimbo > svg { position: relative; }
+.casa__carimbo .selo__capi { position: absolute; }
+
+@media (max-width: 767px) {
+  .casa { padding: 84px 0 96px; }
+  .casa__tela { width: calc(100% - 40px); height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 26px 16px; }
+  .casa__selos { position: relative; top: auto; left: auto; translate: none; grid-column: 1 / -1; width: 100%; flex-wrap: wrap; gap: 14px 12px; }
+  .casa__selo { min-width: 0; padding: 12px 16px 13px; font-size: 18px; }
+  .casa__texto { position: relative; top: auto; left: auto; translate: none; grid-column: 1 / -1; width: 100%; margin-block: 14px 8px; }
+  .casa__titulo { font-size: 38px; margin-bottom: 16px; }
+  .casa__texto p { font-size: 16px; }
+  .casa__foto { position: relative; top: auto; left: auto; width: 100%; }
+  .casa__foto--1 { rotate: 3deg; }
+  .casa__foto--2 { rotate: -4deg; }
+  .casa__foto--4 { order: 5; grid-column: 1 / -1; width: 92%; margin: 22px auto 6px; }
+  .casa__foto--5 { order: 4; rotate: 3deg; }
+  .casa__foto--3 { rotate: -2deg; }
+  .casa__carimbo { top: -18%; right: -6%; width: 34%; }
+}

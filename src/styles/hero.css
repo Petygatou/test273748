@@ -1,0 +1,101 @@
+/* Hero: a primeira tela. Tudo aqui acompanha a largura da tela: as medidas são em cqw da .hero__tela, que para de
+   crescer em 1920 px (dali para cima a composição fica do mesmo tamanho, centrada). */
+.hero {
+  position: relative; width: 100%; height: clamp(600px, 54vw, 930px); overflow: hidden;
+  --foco: var(--cheddar);
+  color: var(--pao); background: var(--carvao); isolation: isolate;
+}
+.hero__tela { position: relative; width: min(100%, 1920px); height: 100%; margin-inline: auto; container-type: inline-size; }
+
+.hero__texto { position: absolute; z-index: 8; top: 10.6cqw; left: 7.1%; width: 46%; }
+.hero__titulo { position: relative; width: 100%; height: max(186px, 14.4cqw); font-size: inherit; font-weight: inherit; }
+.hero__forte, .hero__mao {
+  position: absolute; left: 0; display: block; width: max-content; white-space: nowrap;
+  rotate: -2.4deg; transform-origin: left center;
+}
+.hero__forte {
+  top: 0; left: 13%;
+  font-weight: 800; font-size: max(58px, 6.7cqw); line-height: .86; letter-spacing: -.03em;
+  font-variation-settings: 'opsz' 96, 'wdth' 92;
+}
+.hero__mao {
+  top: 43%;
+  color: var(--cheddar); font-family: var(--fonte-mao); font-weight: 400;
+  font-size: max(60px, 7.3cqw); line-height: .8;
+}
+/* o botão do hero: o mesmo pãozinho dos outros botões (--pao-b), claro e meio torto */
+.hero__botao {
+  position: absolute; top: max(232px, 18.9cqw); left: 15.2%;
+  display: inline-flex; align-items: center; gap: .7em;
+  padding: 1.02em 1.7em .82em; border-radius: var(--pao-b);
+  background: var(--branco); color: var(--carvao);
+  font-weight: 700; font-size: max(17px, 1.46cqw); line-height: 1; text-decoration: none; white-space: nowrap;
+  rotate: -3.6deg; transition: translate 190ms, scale 190ms, background-color 190ms;
+}
+@media (hover: hover) { .hero__botao:hover { translate: 0 -4px; background: var(--cheddar); } }
+.hero__botao:active { translate: 0 0; scale: .97; }
+
+/* selo redondo, parado, no canto de cima */
+.hero__selo { position: absolute; z-index: 5; top: 6.1cqw; left: 80.2%; width: 11.3%; aspect-ratio: 1; }
+.hero__selo > svg:first-child, .casa__carimbo > svg:first-child { width: 100%; height: 100%; overflow: visible; }
+.selo__capi { position: absolute; top: 50%; left: 50%; width: 37%; height: auto; translate: -50% -53%; }
+
+/* o lanche e a etiqueta que leva ao cardápio */
+.hero__produto { position: absolute; z-index: 7; top: 18.8cqw; left: 60.6%; width: 28.4%; }
+.hero__produto > img { width: 100%; height: auto; filter: drop-shadow(0 1.5cqw 2cqw rgb(0 0 0 / .42)); }
+.hero__etiqueta {
+  position: absolute; z-index: 4; top: 61%; left: -29%; width: 50%; aspect-ratio: 5 / 2.2;
+  display: block; padding: 9% 11% 8%;
+  border-radius: 19% 15% 18% 21% / 32% 34% 30% 38%; background: var(--tomate); color: var(--branco);
+  container-type: inline-size; text-decoration: none;
+  rotate: 2.6deg; transition: translate 190ms, scale 190ms;
+}
+.hero__etiqueta:active { translate: 0 0; scale: .97; }
+.hero__etiqueta > span:first-child { display: block; font-weight: 800; font-size: 20cqw; line-height: 1; letter-spacing: -.025em; }
+.hero__etiqueta-seta { position: absolute; right: 10%; bottom: 13%; font-weight: 800; font-size: 22cqw; line-height: 1; }
+@media (hover: hover) { .hero__etiqueta:hover { translate: 0 -4px; } }
+
+/* ingredientes soltos: cada um sobe, desce e gira um pouco no próprio ritmo */
+.hero__peca {
+  --fx: 4px; --fy: 9px; --fr: 2.8deg;
+  position: absolute; z-index: 2; max-width: none; height: auto; pointer-events: none;
+  animation: flutua 8s ease-in-out infinite both; will-change: transform;
+}
+.hero__peca--1 { top: 12.6cqw; left: 57.6%; width: 9%; --fx: 5.5px; --fy: 10px; --fr: 2.9deg; animation-duration: 7.9s; animation-delay: -2.1s; }
+.hero__peca--2 { top: 11.2cqw; left: 68.9%; width: 9.6%; --fx: -4.5px; --fy: 9px; --fr: -2.7deg; animation-duration: 8.2s; animation-delay: -4.6s; }
+.hero__peca--3 { top: 21cqw; left: 89.8%; width: 5.9%; --fx: 3.5px; --fy: 8px; --fr: -3.1deg; animation-duration: 7.3s; animation-delay: -3.6s; filter: blur(.26cqw); opacity: .88; }
+.hero__peca--4 { top: 31.2cqw; left: 50.6%; width: 8%; --fx: -3.5px; --fy: 7.5px; --fr: 2.5deg; animation-duration: 9.8s; animation-delay: -5.8s; }
+.hero__peca--5 { top: 20.8cqw; left: 52.9%; width: 7.8%; --fx: 5.5px; --fy: 11px; --fr: 3.4deg; animation-duration: 8.6s; animation-delay: -4.2s; }
+.hero__peca--6 { top: 41.2cqw; left: 46.9%; width: 4.7%; --fx: -3px; --fy: 6.5px; --fr: -2.2deg; animation-duration: 6.6s; animation-delay: -2.9s; filter: blur(.31cqw); opacity: .83; }
+
+@keyframes flutua {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  30% { transform: translate3d(var(--fx), calc(0px - var(--fy)), 0) rotate(var(--fr)); }
+  70% { transform: translate3d(calc(0px - var(--fx)), var(--fy), 0) rotate(calc(0deg - var(--fr))); }
+}
+
+/* a onda de pão que fecha o hero; o lanche passa na frente dela */
+.hero__onda { position: absolute; z-index: 6; inset: 0 -1px; width: calc(100% + 2px); height: 100%; pointer-events: none; }
+.hero__onda path { fill: var(--pao); }
+
+@media (max-width: 767px) {
+  .hero { height: max(660px, 100svh); }
+  .hero__texto { top: 112px; left: 6%; width: 88%; }
+  .hero__titulo { height: 124px; }
+  .hero__forte { left: 5%; font-size: clamp(46px, 14.4cqw, 64px); }
+  .hero__mao { top: 44%; font-size: clamp(50px, 15.6cqw, 70px); }
+  .hero__botao { top: 168px; left: 9%; font-size: 17px; }
+  .hero__selo { top: auto; bottom: 47%; left: 72%; width: 23%; }
+  .hero__produto { top: auto; bottom: 6%; left: 22%; width: 76%; max-width: 430px; }
+  .hero__etiqueta { top: 64%; left: -23%; width: 50%; }
+  /* tomate e alface flutuam entre o botão e o lanche. Em tela baixa (o iPhone com as barras do Safari, ~660 px)
+     não sobra espaço ali: eles descem até o lanche e ficam atrás dele, nunca atrás do botão (342 px é onde o
+     botão termina, com uma folga) */
+  .hero__peca--1 { top: auto; bottom: min(50%, calc(100% - 342px - 17cqw)); left: 22%; width: 17%; }
+  .hero__peca--2 { top: auto; bottom: min(52%, calc(100% - 342px - 20cqw)); left: 46%; width: 20%; }
+  .hero__peca--3 { top: auto; bottom: 30%; left: 88%; width: 12%; filter: blur(2px); }
+  .hero__peca--4 { top: auto; bottom: 38%; left: 4%; width: 16%; }
+  .hero__peca--5 { top: auto; bottom: 42%; left: 2%; width: 15%; display: none; }
+  .hero__peca--6 { top: auto; bottom: 9%; left: 4%; width: 10%; filter: blur(3px); }
+  .hero__onda { height: 46%; top: auto; }
+}

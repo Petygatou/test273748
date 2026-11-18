@@ -1,0 +1,38 @@
+/* Marca Capiá. As cores saem do próprio lanche: a chapa, o pão, o queijo, o tomate e a erva-mate. */
+:root {
+  --carvao: #16130f;
+  --carvao-2: #231e19;
+  --pao: #f5eddf;
+  --branco: #fffaf1;
+  --cheddar: #f8b21b;
+  --tomate: #dc4126;
+  --mate: #3f8040;
+
+  /* versões para letra sobre o carvão (as cheias ficam apagadas no escuro) */
+  --tomate-claro: #ff6b4d;
+  --mate-claro: #93cf74;
+
+  --fonte: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fonte-mao: 'Mr Dafoe', 'Brush Script MT', cursive;
+
+  /* curvas do movimento */
+  --sai-forte: cubic-bezier(.16, 1, .3, 1);
+  --sai: cubic-bezier(.22, 1, .36, 1);
+
+  /* escala de site (seções comuns): 1 px de desenho vale 1 px a partir de 1280 e só encolhe abaixo disso */
+  --su: min(1px, calc(100vw / 1280));
+
+  /* a forma dos botões: um pãozinho visto de lado, com a cúpula em cima e a base mais reta, um lado um nada maior
+     que o outro (feito à mão: nunca uma pílula perfeita, nunca uma elipse). São três pães para não saírem todos
+     iguais. Os raios são em "em": o desenho acompanha o tamanho da letra de quem usa */
+  --pao-a: 1.85em 2.15em .95em .8em / 1.7em 1.9em .78em .7em;
+  --pao-b: 2.1em 1.8em .85em 1em / 1.85em 1.65em .72em .84em;
+  --pao-c: 1.95em 2em .8em .92em / 1.76em 1.8em .7em .8em;
+
+  --margem: clamp(20px, 4vw, 64px);
+  --rasgo: clamp(17px, 2.4vw, 38px);
+}
+
+@media (max-width: 767px) {
+  :root { --su: min(1px, calc(100vw / 390)); }
+}

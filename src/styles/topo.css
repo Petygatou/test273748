@@ -1,0 +1,98 @@
+/* Cabeçalho: fica só sobre o hero e sobe junto com a página (não gruda). */
+.topo { --foco: var(--cheddar); position: absolute; z-index: 50; top: 0; left: 0; width: 100%; color: var(--pao); }
+.topo__faixa {
+  display: flex; align-items: center; justify-content: space-between;
+  width: min(100% - 44px, 1500px); height: clamp(84px, 7.6vw, 110px); margin-inline: auto;
+}
+.topo__marca { display: inline-flex; align-items: flex-end; gap: 12px; color: inherit; text-decoration: none; }
+.topo__capi { width: clamp(64px, 6vw, 84px); height: auto; transform-origin: 50% 92%; transition: rotate 230ms var(--sai), translate 230ms var(--sai); }
+/* o logo: o Capiá dá uma inclinada no hover e assenta no clique */
+@media (hover: hover) { .topo__marca:hover .topo__capi { rotate: -5deg; translate: 0 -2px; } }
+.topo__marca:active .topo__capi { rotate: 0deg; translate: 0 1px; }
+.topo__nome {
+  font-weight: 800; font-size: clamp(34px, 3.1vw, 44px); line-height: .8; letter-spacing: -.045em;
+  font-variation-settings: 'opsz' 96, 'wdth' 88;
+  padding-bottom: .1em;
+}
+
+.topo__nav { display: flex; align-items: center; gap: clamp(26px, 3.1vw, 46px); }
+.topo__link {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0;
+  border: 0; background: none; color: inherit; cursor: pointer;
+  font-weight: 700; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; text-decoration: none;
+  transition: translate 150ms;
+}
+.topo__link:active { translate: 0 1px; }
+.topo__link::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 8px; height: 2px; background: var(--cheddar);
+  scale: 0 1; transform-origin: left center; transition: scale 220ms var(--sai);
+}
+.topo__link--suspenso::before {
+  content: ''; order: 2; width: 0; height: 0; margin-top: 2px;
+  border: 5px solid transparent; border-top-color: currentColor; border-bottom-width: 0;
+  transition: rotate 210ms;
+}
+.topo__link--suspenso[aria-expanded='true']::before { rotate: 180deg; }
+@media (hover: hover) { .topo__link:hover::after { scale: 1 1; } }
+.topo__link:focus-visible::after { scale: 1 1; }
+
+.topo__grupo { position: relative; }
+.topo__suspenso {
+  position: absolute; top: calc(100% + 6px); left: -20px; min-width: 236px; padding: 10px;
+  display: grid; gap: 2px;
+  border-radius: 22px 26px 20px 24px / 22px 20px 26px 22px; background: var(--pao); color: var(--carvao);
+  box-shadow: 0 16px 38px rgb(0 0 0 / .32);
+  opacity: 0; visibility: hidden; translate: 0 -7px;
+  transition: opacity 170ms, translate 230ms var(--sai), visibility 0s 230ms;
+}
+.topo__grupo.aberto .topo__suspenso { opacity: 1; visibility: visible; translate: 0 0; transition-delay: 0s; }
+.topo__opcao {
+  display: block; padding: 11px 14px; border-radius: 14px; font-weight: 700; font-size: 16px; text-decoration: none;
+  transition: background-color 150ms, color 150ms;
+}
+@media (hover: hover) { .topo__opcao:hover { background: var(--carvao); color: var(--cheddar); } }
+.topo__opcao:focus-visible { background: var(--carvao); color: var(--cheddar); outline: none; }
+
+.topo__abre {
+  display: none; place-items: center; align-content: center; gap: 5px; width: 50px; height: 50px; padding: 0;
+  border: 0; border-radius: 50%; background: var(--pao); cursor: pointer;
+}
+.topo__abre span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: var(--carvao); }
+
+/* —— Gaveta do menu (telas menores) —— */
+.gaveta {
+  --foco: var(--cheddar);
+  position: fixed; z-index: 120; top: 0; right: 0; width: min(420px, 100%); height: 100dvh; padding: 0 24px 32px;
+  background: var(--carvao); color: var(--pao); overflow-y: auto;
+  transform: translateX(100%); visibility: hidden;
+  transition: transform 320ms ease-in-out, visibility 0s 320ms;
+}
+.gaveta.aberta { transform: none; visibility: visible; transition-delay: 0s; }
+.gaveta__topo { display: flex; align-items: center; justify-content: space-between; height: 92px; }
+.gaveta__fecha {
+  position: relative; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--tomate); cursor: pointer;
+}
+.gaveta__fecha span { position: absolute; top: 50%; left: 50%; width: 18px; height: 2.5px; margin: -1.25px 0 0 -9px; border-radius: 2px; background: var(--branco); rotate: 45deg; }
+.gaveta__fecha span + span { rotate: -45deg; }
+.gaveta__nav { display: grid; padding-top: 26px; }
+.gaveta__link {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 64px; padding: 0;
+  border: 0; border-bottom: 1px solid rgb(245 237 223 / .16); background: none; color: inherit; cursor: pointer;
+  font-weight: 700; font-size: 30px; line-height: 1; letter-spacing: -.022em; text-align: left; text-decoration: none;
+  transition: opacity 150ms;
+}
+.gaveta__link:active, .gaveta__opcao:active { opacity: .7; }
+.gaveta__sinal { transition: rotate 230ms; }
+.gaveta__link[aria-expanded='true'] .gaveta__sinal { rotate: 45deg; }
+.gaveta__sub { display: grid; padding: 8px 0 14px; border-bottom: 1px solid rgb(245 237 223 / .16); }
+.gaveta__sub[hidden] { display: none; }
+.gaveta__opcao { padding: 12px 0 12px 18px; color: var(--cheddar); font-weight: 600; font-size: 20px; text-decoration: none; }
+.gaveta__fundo { position: fixed; z-index: 110; inset: 0; background: rgb(0 0 0 / .5); opacity: 0; transition: opacity 320ms; }
+.gaveta__fundo.aberta { opacity: 1; }
+
+@media (max-width: 899px) {
+  .topo__nav { display: none; }
+  .topo__abre { display: grid; }
+  .topo__faixa { width: calc(100% - 36px); }
+}

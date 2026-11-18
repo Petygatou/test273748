@@ -1,0 +1,37 @@
+<section class="casa" id="casa" data-casa aria-labelledby="casa-titulo">
+  <span class="rasgo rasgo--topo casa__rasgo" aria-hidden="true"></span>
+  <svg class="so-leitor" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- formas de pedra de rio, uma para cada foto (em fração da caixa, para servirem em qualquer tamanho) -->
+      <clipPath id="forma-a" clipPathUnits="objectBoundingBox"><path d="M.06 .2C.16 .02 .42 .08 .6 .05C.8 .02 .97 .1 .97 .36C.98 .58 .99 .84 .78 .93C.58 1.01 .36 .93 .2 .95C.02 .97 0 .74 .02 .56C.03 .42 0 .3 .06 .2Z"/></clipPath>
+      <clipPath id="forma-b" clipPathUnits="objectBoundingBox"><path d="M.1 .1C.3 0 .5 .08 .7 .04C.9 .01 1 .2 .98 .42C.96 .62 1 .86 .82 .95C.62 1.04 .4 .9 .22 .96C.04 1.01 0 .78 .03 .58C.05 .4 -.02 .22 .1 .1Z"/></clipPath>
+      <clipPath id="forma-c" clipPathUnits="objectBoundingBox"><path d="M.04 .3C.08 .08 .3 .03 .5 .06C.68 .09 .86 0 .95 .2C1.03 .4 .97 .62 .98 .78C.99 .96 .78 1 .58 .96C.4 .93 .2 1.02 .08 .88C-.03 .74 .01 .5 .04 .3Z"/></clipPath>
+    </defs>
+  </svg>
+  <div class="casa__tela">
+    <ul class="casa__selos" aria-label="O que a casa garante">
+      <li class="casa__selo casa__selo--1" data-selo>Pão<br>do dia</li>
+      <li class="casa__selo casa__selo--2" data-selo>Carne<br>fresca</li>
+      <li class="casa__selo casa__selo--3" data-selo>Feito<br>na chapa</li>
+      <li class="casa__selo casa__selo--4" data-selo>Pinhão<br>da serra</li>
+      <li class="casa__selo casa__selo--5" data-selo>Sem<br>pressa</li>
+    </ul>
+
+    <div class="casa__texto">
+      <h2 class="casa__titulo" id="casa-titulo">Deixa a chapa<br>falar por si</h2>
+      <p>O Capiá nasceu numa esquina de Curitiba com uma ideia simples: pão que sai do forno de manhã, carne moída no dia e chapa bem quente. Quando o frio chega, o pinhão da serra entra no cardápio. No resto do ano a gente segue igual, sem pressa: cada lanche é montado na hora, do jeito que você pediu.</p>
+    </div>
+
+    <figure class="casa__foto casa__foto--1" data-foto><img src="./img/fotos/parque-640.webp" srcset="./img/fotos/parque-640.webp 640w, ./img/fotos/parque-1200.webp 1200w" sizes="(max-width: 767px) 46vw, 20vw" alt="Amigos comendo um lanche na beira do lago, com uma capivara descansando ao fundo" width="640" height="427" loading="lazy" decoding="async"></figure>
+    <figure class="casa__foto casa__foto--2" data-foto><img src="./img/fotos/pinhao-640.webp" srcset="./img/fotos/pinhao-640.webp 640w, ./img/fotos/pinhao-1200.webp 1200w" sizes="(max-width: 767px) 46vw, 21vw" alt="Tigela de pinhão assado sobre a mesa" width="640" height="427" loading="lazy" decoding="async"></figure>
+    <figure class="casa__foto casa__foto--3" data-foto><img src="./img/fotos/pao-640.webp" srcset="./img/fotos/pao-640.webp 640w, ./img/fotos/pao-1200.webp 1200w" sizes="(max-width: 767px) 46vw, 27vw" alt="Pães brioche esfriando na grade, ao lado da janela" width="640" height="427" loading="lazy" decoding="async"></figure>
+    <figure class="casa__foto casa__foto--4" data-foto>
+      <img src="./img/fotos/chapa-640.webp" srcset="./img/fotos/chapa-640.webp 640w, ./img/fotos/chapa-1200.webp 1200w" sizes="(max-width: 767px) 92vw, 34vw" alt="Smash burgers na chapa quente, com a espátula amassando a carne" width="640" height="427" loading="lazy" decoding="async">
+      <span class="casa__carimbo" aria-hidden="true">
+        <svg viewBox="0 0 200 200"><defs><path id="selo-volta-casa" d="M100 100m-74 0a74 74 0 1 1 148 0a74 74 0 1 1-148 0"/></defs><text class="selo__texto"><textPath href="#selo-volta-casa" startOffset="0" textLength="452" lengthAdjust="spacing">feito na chapa · sem pressa · na calma ·</textPath></text><circle class="selo__miolo" cx="100" cy="100" r="52"/></svg>
+        <svg class="selo__capi" viewBox="%caixa:sentado%"><use href="#capi-sentado"/></svg>
+      </span>
+    </figure>
+    <figure class="casa__foto casa__foto--5" data-foto><img src="./img/fotos/casa-640.webp" srcset="./img/fotos/casa-640.webp 640w, ./img/fotos/casa-1200.webp 1200w" sizes="(max-width: 767px) 46vw, 25vw" alt="A fachada do Capiá no começo da noite, com mesas na calçada" width="640" height="427" loading="lazy" decoding="async"></figure>
+  </div>
+</section>

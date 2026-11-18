@@ -1,0 +1,247 @@
+/* O cardápio: painéis de tela cheia que ficam presos no topo enquanto o seguinte sobe por cima, com a borda de
+   papel rasgado. Cada painel é um palco de 1440 × 750 "u": a unidade --u encolhe ou cresce para o palco caber na
+   largura E na altura da tela, então a composição é sempre a mesma.
+   O que se mexe vem de src/motion/cardapio.js (variáveis --entra-*, --rx/--ry/--rr da rolagem e --fx/--fy/--fr da
+   flutuação) e de src/motion/seletor.js (o trilho das pílulas e a troca da cena). */
+/* flow-root: a margem da navegação não pode escapar e empurrar o bloco inteiro. O fundo é a cor do primeiro painel
+   (--primeiro-painel vem do config.js). data-cor é a cor do painel da vez (src/motion/cardapio.js): dela saem a
+   bolinha destacada e o contorno do foco das bolinhas */
+.cardapio { --foco: var(--carvao); position: relative; z-index: 2; display: flow-root; width: 100%; background: var(--primeiro-painel, var(--cheddar)); isolation: isolate; }
+.cardapio[data-cor='tomate'], .cardapio[data-cor='mate'] { --foco: var(--branco); }
+.cardapio[data-cor='carvao'] { --foco: var(--cheddar); }
+.cardapio__ancora { display: block; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+/* o tempo de respiro: a página continua rolando e o painel fica parado */
+.cardapio__folga { height: 56svh; pointer-events: none; }
+
+/* —— navegação lateral (uma bolinha por painel) —— */
+.cardapio__nav {
+  --alt: calc(30px + var(--n, 4) * 43px);
+  position: sticky; z-index: 100; top: 50svh; left: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+  width: 38px; height: var(--alt); margin: 220px 0 calc(-220px - var(--alt)) min(4.7vw, 94px); padding: 8px 6px;
+  border-radius: 999px; background: rgb(255 255 255 / .24);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  transform: translateY(-50%);
+}
+.cardapio__ponto {
+  position: relative; flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--branco); box-shadow: 0 1px 6px rgb(22 19 15 / .16); cursor: pointer;
+  transition: transform 230ms, background-color 230ms;
+}
+.cardapio__ponto::after { content: ''; position: absolute; inset: -11px; }
+@media (hover: hover) { .cardapio__ponto:hover { transform: scale(1.2); } }
+.cardapio__ponto:active { transform: scale(.9); }
+.cardapio__ponto.ativo { background: var(--carvao); transform: scale(1.12); }
+/* no painel escuro a bolinha da vez é amarela (vale para qualquer painel de cor carvao, não para um nome) */
+.cardapio[data-cor='carvao'] .cardapio__ponto.ativo { background: var(--cheddar); }
+
+/* —— painel —— */
+.painel {
+  --u: min(calc(100vw / 1440), calc(100svh / 750));
+  --cor: var(--cheddar); --tinta: var(--carvao);
+  --pilula: rgb(255 250 241 / .32); --pilula-forte: rgb(255 250 241 / .52); --ativo: var(--carvao); --ativo-tinta: var(--pao);
+  --marca-op: .4;
+  --foco: var(--carvao);
+  position: sticky; z-index: var(--ordem); top: 0;
+  width: 100%; height: 100svh; min-height: 520px;
+  color: var(--tinta);
+}
+.painel--tomate, .painel--mate { --foco: var(--branco); }
+.painel--carvao { --foco: var(--cheddar); }
+.painel--tomate { --cor: var(--tomate); --tinta: var(--branco); --pilula: rgb(255 250 241 / .2); --pilula-forte: rgb(255 250 241 / .34); --marca-op: .2; }
+.painel--mate { --cor: var(--mate); --tinta: var(--branco); --pilula: rgb(255 250 241 / .2); --pilula-forte: rgb(255 250 241 / .34); --marca-op: .17; }
+.painel--carvao { --cor: var(--carvao); --tinta: var(--pao); --pilula: rgb(245 237 223 / .14); --pilula-forte: rgb(245 237 223 / .26); --ativo: var(--cheddar); --ativo-tinta: var(--carvao); --marca-op: .06; }
+
+/* o rasgo fica DENTRO do topo do painel. Atrás dele, uma tira da cor do painel anterior (--cor-de-tras, posta pelo
+   paineis.js): é ela que aparece pelas falhas do rasgo, tanto na subida quanto com o painel já preso, como uma
+   folha de papel por cima da outra. O primeiro painel não tem anterior: ali aparece o fundo do cardápio */
+.painel::before {
+  content: ''; position: absolute; z-index: 29; top: 0; left: 0; width: 100%; height: var(--rasgo);
+  background: var(--cor-de-tras, transparent); pointer-events: none;
+}
+.painel__borda {
+  position: absolute; z-index: 30; top: 0; left: 0; width: 100%; height: var(--rasgo); background: var(--cor);
+  pointer-events: none;
+  -webkit-mask: var(--borda) center / 100% 100% no-repeat; mask: var(--borda) center / 100% 100% no-repeat;
+}
+.painel__recorte { position: absolute; inset: calc(var(--rasgo) - 1px) 0 0; overflow: hidden; background: var(--cor); }
+.painel__palco {
+  position: absolute; top: 50%; left: 50%; width: calc(1440 * var(--u)); height: calc(750 * var(--u));
+  translate: -50% calc(-50% - var(--rasgo) / 2);
+}
+
+.painel__titulo {
+  position: absolute; z-index: 8; top: calc(50 * var(--u)); left: 0; width: 100%;
+  font-weight: 800; font-size: min(calc(54 * var(--u)), 64px); line-height: 1.02; letter-spacing: -.03em; text-align: center;
+  font-variation-settings: 'opsz' 96, 'wdth' 92;
+}
+
+/* —— seletor: as pílulas —— */
+.seletor {
+  position: absolute; z-index: 9; top: calc(128 * var(--u)); left: calc(150 * var(--u));
+  display: grid; grid-template-columns: calc(52 * var(--u)) minmax(0, 1fr) calc(52 * var(--u)); align-items: center;
+  width: calc(1140 * var(--u)); height: calc(104 * var(--u));
+}
+.seletor__seta {
+  position: relative; z-index: 5; display: inline-flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer;
+  font-family: Arial, sans-serif; font-weight: 300; font-size: calc(54 * var(--u)); line-height: 1;
+  transition: translate 190ms, scale 190ms;
+}
+.seletor__seta:active { scale: .86; }
+.seletor__seta span { display: block; margin-top: -.1em; }
+@media (hover: hover) {
+  .seletor__seta[data-anterior]:hover { translate: -3px 0; }
+  .seletor__seta[data-proximo]:hover { translate: 3px 0; }
+}
+/* até quatro itens cabem inteiros na tela grande: sem setas */
+.seletor:not(.seletor--laco) .seletor__seta { visibility: hidden; }
+.seletor__janela { width: 100%; height: 100%; clip-path: inset(-40px 0); touch-action: pan-y; }
+.seletor__trilho {
+  --vao: calc(12.5 * var(--u));
+  display: flex; align-items: center; gap: var(--vao); width: 100%; height: 100%;
+  transition: transform 410ms var(--sai); will-change: transform;
+}
+.seletor__trilho.sem-transicao { transition: none; }
+/* com até quatro itens, na tela grande, a fila não anda: as cópias do laço somem de verdade (o display da .pilula
+   ganharia do atributo hidden) e, se forem menos de quatro, os itens ficam no meio */
+.pilula[hidden] { display: none; }
+@media (min-width: 768px) {
+  .seletor:not(.seletor--laco) .seletor__trilho { justify-content: center; }
+}
+
+.pilula {
+  position: relative; flex: 0 0 calc((100% - 3 * var(--vao)) / 4); display: flex; align-items: center;
+  height: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer;
+  isolation: isolate; -webkit-tap-highlight-color: transparent;
+  transition: color 230ms;
+}
+/* o fundo de cada item é o mesmo pãozinho dos botões (tokens.css), um dos três por item. O "em" daqui só dá a
+   medida dos raios: 24u para uma faixa de uns 80u de altura, a mesma proporção do botão */
+.pilula::before {
+  content: ''; position: absolute; z-index: 0; inset: 12% 0 10% 13%;
+  font-size: calc(24 * var(--u));
+  border-radius: var(--pao-a); background: var(--pilula);
+  -webkit-backdrop-filter: blur(5px) saturate(106%); backdrop-filter: blur(5px) saturate(106%);
+  transition: background-color 230ms;
+}
+.pilula--b::before { border-radius: var(--pao-b); }
+.pilula--c::before { border-radius: var(--pao-c); }
+/* passar o mouse: o papel do item acende um pouco e a miniatura dá um pulinho; o clique assenta */
+.pilula__foto { transition: translate 230ms var(--sai), rotate 230ms var(--sai); }
+@media (hover: hover) {
+  .pilula:not(.ativa):hover::before { background: var(--pilula-forte); }
+  .pilula:hover .pilula__foto { translate: 0 calc(-50% - 4px); rotate: -3deg; }
+}
+.pilula:active .pilula__foto { translate: 0 -50%; rotate: 0deg; }
+.pilula.ativa { color: var(--ativo-tinta); }
+.pilula.ativa::before { background: var(--ativo); }
+.pilula__foto { position: absolute; z-index: 2; top: 50%; left: 0; width: calc(100 * var(--u)); aspect-ratio: 1; translate: 0 -50%; pointer-events: none; }
+.pilula__foto img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 5px rgb(0 0 0 / .22)); }
+.pilula__texto { position: relative; z-index: 3; display: flex; flex-direction: column; gap: 3px; min-width: 0; margin: 0 5% 0 42.5%; pointer-events: none; }
+.pilula__texto strong { font-weight: 700; font-size: max(12px, calc(15 * var(--u))); line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; }
+.pilula__texto small { overflow: hidden; font-weight: 500; font-size: max(12px, calc(12 * var(--u))); line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; opacity: .8; }
+.pilula:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; border-radius: 40px; }
+
+/* —— cena: o produto no meio e as peças em volta —— */
+.cena { position: absolute; top: calc(202 * var(--u)); left: calc(205 * var(--u)); width: calc(1030 * var(--u)); height: calc(424 * var(--u)); }
+.cena__marca {
+  position: absolute; z-index: 0; top: 48%; left: 50%; translate: -50% -50%; rotate: -6.2deg;
+  color: var(--branco); opacity: var(--marca-op);
+  font-family: var(--fonte-mao); font-size: calc(380 * var(--u)); line-height: 1; white-space: nowrap;
+  pointer-events: none; user-select: none;
+}
+.cena__peca {
+  --x: 0%; --y: 0%; --w: 20%; --giro: 0deg;
+  --rx: 0px; --ry: 0px; --rr: 0deg; --fx: 0px; --fy: 0px; --fr: 0deg;
+  position: absolute; z-index: 3; top: var(--y); left: var(--x); width: var(--w); aspect-ratio: 1;
+  translate: calc(var(--rx) + var(--fx)) calc(var(--ry) + var(--fy));
+  rotate: calc(var(--giro) + var(--rr) + var(--fr));
+  pointer-events: none; backface-visibility: hidden; will-change: translate, rotate;
+}
+.cena__peca img { width: 100%; height: 100%; object-fit: contain; }
+.cena__peca--1 { --x: 4.2%; --y: 17.5%; --w: 22%; --giro: -7deg; }
+.cena__peca--2 { --x: 58.5%; --y: -3%; --w: 19%; --giro: 12.5deg; z-index: 2; filter: blur(calc(5.5 * var(--u))); }
+.cena__peca--3 { --x: 70.5%; --y: 7%; --w: 22%; --giro: 8deg; }
+.cena__peca--4 { --x: 65.5%; --y: 58.5%; --w: 14.5%; --giro: -12.5deg; }
+.cena__peca--5 { --x: 79%; --y: 46.5%; --w: 20%; --giro: 6.8deg; }
+.cena__peca--6 { --x: 12%; --y: 61.5%; --w: 16.5%; --giro: 10.5deg; }
+.cena__peca--7 { --x: 25.5%; --y: 54.5%; --w: 16%; --giro: -5.6deg; z-index: 2; filter: blur(calc(6.5 * var(--u))); }
+.cena__peca--2 img, .cena__peca--7 img { opacity: .86; }
+
+.cena__produto {
+  --entra-y: 0px; --entra-s: 1;
+  position: absolute; z-index: 5; top: 12%; left: 32%; width: 36%; height: 80%;
+  translate: 0 var(--entra-y); scale: var(--entra-s); transform-origin: 50% 62%;
+  pointer-events: none; backface-visibility: hidden; will-change: translate, scale;
+}
+.cena__produto img {
+  width: 100%; height: 100%; object-fit: contain; rotate: var(--inclina, -2.6deg);
+  filter: drop-shadow(0 calc(15 * var(--u)) calc(20 * var(--u)) rgb(22 19 15 / .28));
+}
+.painel--mate .cena__produto { --inclina: 2.6deg; top: 5%; height: 91%; }
+.painel--carvao .cena__produto { --inclina: 1.7deg; }
+
+/* características do item, em adesivo */
+.cena__selos { position: absolute; z-index: 6; inset: 0; pointer-events: none; }
+.cena__selos li {
+  position: absolute; display: inline-flex; align-items: center; height: max(28px, calc(37 * var(--u)));
+  padding: 0 max(12px, calc(17 * var(--u))) 1px; border-radius: 27px 35px 25px 33px / 26px 30px 29px 33px;
+  background: var(--ativo); color: var(--ativo-tinta);
+  font-weight: 800; font-size: max(12px, calc(13 * var(--u))); line-height: 1; letter-spacing: .04em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.cena__selos li::after {
+  content: ''; position: absolute; bottom: -8px; left: 58%; width: 18px; height: 12px; background: inherit;
+  clip-path: polygon(0 0, 100% 6%, 63% 100%, 40% 76%); translate: -50% 0;
+}
+.cena__selos li:nth-child(1) { top: 18.5%; left: 23.5%; rotate: -6.2deg; }
+.cena__selos li:nth-child(2) { top: 81.5%; left: 61.5%; rotate: 4.4deg; background: var(--branco); color: var(--carvao); }
+
+.painel__ingredientes {
+  position: absolute; z-index: 8; top: calc(618 * var(--u)); left: 50%; width: calc(780 * var(--u)); translate: -50% 0;
+  font-weight: 600; font-size: max(13px, calc(17 * var(--u))); line-height: 1.3; text-align: center; text-wrap: balance;
+}
+.botao--painel {
+  --botao-y: 0px;
+  position: absolute; z-index: 10; top: calc(682 * var(--u)); left: 50%; translate: -50% var(--botao-y); rotate: .5deg;
+  min-height: max(46px, calc(50 * var(--u))); padding: 3px max(26px, calc(36 * var(--u))) 0; border-radius: var(--pao-b);
+  background: var(--ativo); color: var(--ativo-tinta); font-size: max(15px, calc(16 * var(--u)));
+  backface-visibility: hidden; will-change: translate;
+  transition: background-color 190ms, color 190ms, scale 190ms;
+}
+@media (hover: hover) {
+  .botao--painel:hover { translate: -50% calc(var(--botao-y) - 3px); }
+}
+/* (o botão do painel é centrado pelo translate: o clique não pode desfazer isso) */
+.botao--painel:active { translate: -50% var(--botao-y); }
+
+/* —— celular: o mesmo painel preso, em palco de 390 × 780 —— */
+@media (max-width: 767px) {
+  .cardapio__nav { display: none; }
+  .cardapio__folga { height: 32svh; }
+  .painel { --u: min(calc(100vw / 390), calc(100svh / 780)); min-height: 0; }
+  .painel__palco { width: calc(390 * var(--u)); height: calc(780 * var(--u)); }
+  .painel__titulo { top: calc(70 * var(--u)); font-size: calc(38 * var(--u)); }
+  .seletor { top: calc(126 * var(--u)); left: 0; grid-template-columns: max(44px, calc(44 * var(--u))) minmax(0, 1fr) max(44px, calc(44 * var(--u))); width: 100%; height: calc(88 * var(--u)); }
+  .seletor:not(.seletor--laco) .seletor__seta { visibility: visible; }
+  .seletor__seta { font-size: calc(44 * var(--u)); }
+  .seletor__trilho { --vao: calc(10 * var(--u)); }
+  .pilula { flex-basis: calc(220 * var(--u)); }
+  .pilula__foto { width: calc(82 * var(--u)); }
+  .pilula__texto strong { font-size: max(12px, calc(15 * var(--u))); }
+  .cena { top: calc(228 * var(--u)); left: 0; width: calc(390 * var(--u)); height: calc(362 * var(--u)); }
+  .cena__marca { font-size: calc(144 * var(--u)); }
+  .cena__produto { top: 9%; left: 16%; width: 68%; height: 78%; }
+  .cena__peca--1 { --x: -2%; --y: 3%; --w: 29%; }
+  .cena__peca--2 { --x: 61.5%; --y: -6%; --w: 25%; filter: blur(calc(3 * var(--u))); }
+  .cena__peca--3 { --x: 74.5%; --y: 13%; --w: 28%; }
+  .cena__peca--4 { --x: 78%; --y: 61.5%; --w: 20%; }
+  .cena__peca--5 { --x: 70%; --y: 75.5%; --w: 26%; }
+  .cena__peca--6 { --x: 1%; --y: 69.5%; --w: 24%; }
+  .cena__peca--7 { --x: 17.5%; --y: 81%; --w: 20%; filter: blur(calc(3 * var(--u))); }
+  .cena__selos li:nth-child(1) { top: 2%; left: 28%; }
+  .cena__selos li:nth-child(2) { top: 87.5%; left: 36%; }
+  .painel__ingredientes { top: calc(612 * var(--u)); width: calc(330 * var(--u)); font-size: max(13px, calc(14 * var(--u))); }
+  .botao--painel { top: calc(684 * var(--u)); min-height: 48px; }
+}

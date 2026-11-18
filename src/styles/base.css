@@ -1,0 +1,88 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--carvao);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: auto;
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  color: var(--carvao);
+  background: var(--pao);
+  font-family: var(--fonte);
+  font-size: 16px;
+  line-height: 1.5;
+  font-variation-settings: 'opsz' 14;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+h1, h2, h3, p, ul, figure { margin: 0; }
+ul { padding: 0; list-style: none; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+
+/* O contorno do foco fica FORA do elemento, sobre o fundo da seção: por isso a cor dele vem da superfície (--foco),
+   não da letra do elemento (um botão escuro sobre fundo escuro ficava com o contorno invisível). Cada seção diz a
+   sua: amarelo sobre o escuro, carvão sobre o claro e o amarelo, branco sobre o vermelho e o verde. */
+:root { --foco: var(--carvao); }
+:focus-visible { outline: 3px solid var(--foco); outline-offset: 3px; }
+
+.so-leitor {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.pular {
+  position: absolute; z-index: 200; top: 8px; left: 8px; padding: 10px 16px; border-radius: 999px;
+  background: var(--cheddar); color: var(--carvao); font-weight: 700; text-decoration: none;
+  transform: translateY(-220%);
+}
+.pular:focus { transform: none; }
+
+/* —— Botão: um pãozinho (a forma vem de --pao-a, -b e -c, em tokens.css). O texto fica um nada abaixo do meio,
+   porque a cúpula pesa em cima. No hover o botão sobe e a seta anda; no clique ele assenta —— */
+.botao {
+  display: inline-flex; align-items: center; justify-content: center; gap: 14px;
+  min-height: 52px; padding: 16px 32px 13px;
+  border: 0; border-radius: var(--pao-a);
+  background: var(--carvao); color: var(--pao);
+  font-weight: 700; font-size: 16px; line-height: 1.1; text-decoration: none; white-space: nowrap;
+  cursor: pointer;
+  transition: color 190ms, background-color 190ms, translate 190ms, scale 190ms;
+}
+.botao__seta { font-size: 1.3em; line-height: .72; margin-top: -2px; transition: translate 190ms var(--sai); }
+.botao--tomate { background: var(--tomate); color: var(--branco); border-radius: var(--pao-c); }
+@media (hover: hover) {
+  .botao:hover { translate: 0 -3px; }
+  .botao:hover .botao__seta, .hero__botao:hover .botao__seta, .recado__enviar:hover .botao__seta { translate: 3px 0; }
+  .botao--tomate:hover { background: var(--carvao); color: var(--cheddar); }
+}
+.botao:active { translate: 0 0; scale: .97; }
+
+/* —— Papel rasgado: a máscara --borda (vite.config.js) pinta só o que fica abaixo da linha do rasgo —— */
+.rasgo {
+  position: absolute; left: 0; width: 100%; height: var(--rasgo);
+  background: currentColor; pointer-events: none;
+  -webkit-mask: var(--borda) center / 100% 100% no-repeat;
+  mask: var(--borda) center / 100% 100% no-repeat;
+}
+/* no topo de uma seção: sobe por cima da seção de cima, na cor desta */
+.rasgo--topo { bottom: calc(100% - 1px); }
+/* no pé de uma seção: fica dentro dela, na cor da seção seguinte */
+.rasgo--pe { bottom: -1px; }
+
+/* —— Selo redondo com o Capiá no meio —— */
+.selo__texto {
+  font-family: var(--fonte); font-weight: 800; font-size: 20px; text-transform: uppercase;
+  fill: currentColor;
+}
+.selo__miolo { fill: none; stroke: currentColor; stroke-width: 5; }
+
+html.reduzido *, html.reduzido *::before, html.reduzido *::after {
+  animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+}
