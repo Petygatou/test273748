@@ -134,3 +134,24 @@ describe("quem entra nas páginas pagas", () => {
     expect(db.assinaturas.get("fulano@exemplo.com")!.validaAte).toBe(antes);
   });
 });
+
+describe("chave do webhook colada no Painel ADM", () => {
+  it("sem variável de ambiente, vale a chave salva no painel; o painel nunca devolve a chave", async () => {
+    const env = process.env.CAKTO_WEBHOOK_SECRET;
+    delete process.env.CAKTO_WEBHOOK_SECRET;
+    try {
+      expect(m.segredoDefinido()).toBe(false);
+      expect((await post(aviso("purchase_approved"))).status).toBe(503);
+      expect(() => m.salvarConfig({ ativo: false, checkout: "", produto: "", segredo: "curta" })).toThrow(/incompleta/);
+      m.salvarConfig({ ativo: false, checkout: "", produto: "", segredo: " a1b2c3d4-0000-4000-8000-000000000000 " });
+      expect(m.segredoDefinido()).toBe(true);
+      expect(JSON.stringify(m.painel())).not.toContain("a1b2c3d4");
+      // salvar de novo sem chave mantém a anterior
+      m.salvarConfig({ ativo: true, checkout: "https://pay.cakto.com.br/abc", produto: "" });
+      expect((await post({ ...aviso("purchase_approved"), secret: "a1b2c3d4-0000-4000-8000-000000000000" })).status).toBe(200);
+      expect((await post({ ...aviso("purchase_approved"), secret: "outra" })).status).toBe(401);
+    } finally {
+      process.env.CAKTO_WEBHOOK_SECRET = env;
+    }
+  });
+});
