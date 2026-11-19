@@ -25,6 +25,7 @@ import { Route as ModeloRouteImport } from './routes/modelo'
 import { Route as NoticiasRouteImport } from './routes/noticias'
 import { Route as ProvaveisRouteImport } from './routes/provaveis'
 import { Route as ApiAnaliseRouteImport } from './routes/api/analise'
+import { Route as ApiCaktoRouteImport } from './routes/api/cakto'
 import { Route as ApiComandanteRouteImport } from './routes/api/comandante'
 import { Route as ApiDiagnosticoRouteImport } from './routes/api/diagnostico'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
@@ -116,6 +117,11 @@ const ApiAnaliseRoute = ApiAnaliseRouteImport.update({
   path: '/api/analise',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCaktoRoute = ApiCaktoRouteImport.update({
+  id: '/api/cakto',
+  path: '/api/cakto',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiComandanteRoute = ApiComandanteRouteImport.update({
   id: '/api/comandante',
   path: '/api/comandante',
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
   '/api/analise': typeof ApiAnaliseRoute
+  '/api/cakto': typeof ApiCaktoRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
   '/api/analise': typeof ApiAnaliseRoute
+  '/api/cakto': typeof ApiCaktoRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/noticias': typeof NoticiasRoute
   '/provaveis': typeof ProvaveisRoute
   '/api/analise': typeof ApiAnaliseRoute
+  '/api/cakto': typeof ApiCaktoRoute
   '/api/comandante': typeof ApiComandanteRoute
   '/api/diagnostico': typeof ApiDiagnosticoRoute
   '/api/events': typeof ApiEventsRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/provaveis'
     | '/api/analise'
+    | '/api/cakto'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/provaveis'
     | '/api/analise'
+    | '/api/cakto'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/noticias'
     | '/provaveis'
     | '/api/analise'
+    | '/api/cakto'
     | '/api/comandante'
     | '/api/diagnostico'
     | '/api/events'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   NoticiasRoute: typeof NoticiasRoute
   ProvaveisRoute: typeof ProvaveisRoute
   ApiAnaliseRoute: typeof ApiAnaliseRoute
+  ApiCaktoRoute: typeof ApiCaktoRoute
   ApiComandanteRoute: typeof ApiComandanteRoute
   ApiDiagnosticoRoute: typeof ApiDiagnosticoRoute
   ApiEventsRoute: typeof ApiEventsRoute
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnaliseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cakto': {
+      id: '/api/cakto'
+      path: '/api/cakto'
+      fullPath: '/api/cakto'
+      preLoaderRoute: typeof ApiCaktoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/comandante': {
       id: '/api/comandante'
       path: '/api/comandante'
@@ -572,6 +592,7 @@ const rootRouteChildren: RootRouteChildren = {
   NoticiasRoute: NoticiasRoute,
   ProvaveisRoute: ProvaveisRoute,
   ApiAnaliseRoute: ApiAnaliseRoute,
+  ApiCaktoRoute: ApiCaktoRoute,
   ApiComandanteRoute: ApiComandanteRoute,
   ApiDiagnosticoRoute: ApiDiagnosticoRoute,
   ApiEventsRoute: ApiEventsRoute,

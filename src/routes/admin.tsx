@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AskButton } from "../components/AskButton";
 import { AdminLaterais } from "../components/AdminLaterais";
 import { AdminUsers } from "../components/AdminUsers";
+import { AdminAssinaturas } from "../components/AdminAssinaturas";
 import { PlayerSearch } from "../components/PlayerSearch";
 import { StoryComposer } from "../components/Stories";
 import { Alert, Card, ErrorBox, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, Seg, StatusPill } from "../components/ui";
@@ -19,7 +20,7 @@ import { saveLineupOverride } from "../server/fns";
 import { Composer } from "../components/Composer";
 
 export const Route = createFileRoute("/admin")({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => ({ tab: ["usuarios", "provaveis", "conteudo", "alertas", "dados", "laterais"].includes(String(s.tab)) ? (s.tab as Tab) : undefined }),
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => ({ tab: ["usuarios", "provaveis", "conteudo", "alertas", "dados", "laterais", "assinaturas"].includes(String(s.tab)) ? (s.tab as Tab) : undefined }),
   // o painel não existe para quem não é administrador
   beforeLoad: async ({ context }) => {
     const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados" | "laterais";
+type Tab = "usuarios" | "provaveis" | "conteudo" | "alertas" | "dados" | "laterais" | "assinaturas";
 
 function AdminPage() {
   const auth = useAuth();
@@ -69,6 +70,7 @@ function AdminPage() {
             { value: "alertas", label: "Alertas" },
             { value: "usuarios", label: avisos.naoVistos.length ? `Usuários (${avisos.naoVistos.length})` : "Usuários" },
             { value: "laterais", label: "Laterais" },
+            { value: "assinaturas", label: "Assinaturas" },
             { value: "dados", label: "Dados reais" },
           ]}
         />
@@ -77,6 +79,7 @@ function AdminPage() {
       {tabEff === "conteudo" && <Conteudo />}
       {tabEff === "dados" && <Dados meta={an.data?.meta} />}
       {tabEff === "usuarios" && <AdminUsers />}
+      {tabEff === "assinaturas" && <AdminAssinaturas />}
       {tabEff === "laterais" && (an.isLoading ? <PageSkeleton /> : an.error || !an.data ? <ErrorBox error={an.error} /> : <AdminLaterais a={an.data.analysis} />)}
       {tabEff === "alertas" && <Alertas a={an.data?.analysis} fechamento={an.data?.meta.fechamento} />}
     </div>

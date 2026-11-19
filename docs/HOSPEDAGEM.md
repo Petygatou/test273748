@@ -47,6 +47,7 @@ Confira também em **Settings → Git** da Vercel se a **Production Branch** é 
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | **só na Vercel** (Upstash Redis). Na Hostinger deixe sem: os dados ficam em `~/tropa-data` |
 | `API_FOOTBALL_KEY` | opcional: escalações oficiais e lados dos laterais |
 | `SIMULATIONS` | `1500` (ou `1000` em servidor fraco) |
+| `CAKTO_WEBHOOK_SECRET` | segredo do webhook da Cakto (texto aleatório longo; o mesmo colado no webhook da Cakto). Veja `docs/PAGAMENTO.md` |
 | `CARTOLA_API_HOSTS` / `CARTOLA_RELAY_KEY` | só se a Globo bloquear o servidor (relay da Cloudflare) |
 
 Não defina `PORT`, `DATA_DIR` nem `NODE_ENV`. A hospedagem cuida da porta, e o servidor já liga em modo produção sozinho (`scripts/serve.mjs`). Com `NODE_ENV=production` na instalação, o npm pula as ferramentas de build (vite) e o build falha.

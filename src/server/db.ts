@@ -33,7 +33,7 @@ export function dataDir(): string {
 export const events = new EventEmitter();
 events.setMaxListeners(1000);
 
-export type Topic = "community" | "alerts" | "overrides" | "users" | "dados" | "campinhos";
+export type Topic = "community" | "alerts" | "overrides" | "users" | "dados" | "campinhos" | "assinaturas";
 
 /** Avisa os navegadores abertos (SSE) que um tópico mudou. */
 export const emit = (topic: Topic) => events.emit("change", topic);
@@ -462,6 +462,45 @@ export interface LineupRow {
   criadoEm: string;
 }
 
+/** Acesso pago de um e-mail (id = e-mail em minúsculas). Vem da Cakto ou de uma cortesia do admin. */
+export interface AssinaturaRow {
+  id: string;
+  email: string;
+  /** ativa: em dia · cancelada: não renova, vale até validaAte · atrasada: renovação recusada · estornada: reembolso/chargeback */
+  status: "ativa" | "cancelada" | "atrasada" | "estornada";
+  /** acesso liberado até esta data (ISO) */
+  validaAte: string;
+  origem: "cakto" | "cortesia";
+  produto?: string;
+  pedido?: string;
+  ultimoEvento?: string;
+  atualizadoEm: string;
+}
+/** Aviso recebido da Cakto (só um resumo, sem dados pessoais além do e-mail). */
+export interface EventoPagamentoRow {
+  id: string;
+  evento: string;
+  email: string;
+  produto: string;
+  pedido: string;
+  /** o que o Tropa fez com o aviso */
+  resultado: string;
+  /** campos que vieram no aviso (para conferir o formato) */
+  campos: string[];
+  recebidoEm: string;
+}
+/** Configuração da venda, editável no Painel ADM (id fixo "pagamento"). */
+export interface ConfigPagamentoRow {
+  id: string;
+  /** bloqueia as páginas pagas para quem não tem acesso */
+  ativo: boolean;
+  /** link do checkout da Cakto */
+  checkout: string;
+  /** se preenchido, só avisos deste produto liberam acesso */
+  produto: string;
+  atualizadoEm: string;
+}
+
 export const db = {
   users: new Collection<UserRow>("users", "users"),
   sessions: new Collection<SessionRow>("sessions"),
@@ -484,6 +523,9 @@ export const db = {
   scoutTemporadas: new Collection<TemporadaScoutRow>("scout-temporadas"),
   syncLogs: new Collection<SyncLogRow>("sync-logs"),
   gols: new Collection<GolRow>("gols", "campinhos"),
+  assinaturas: new Collection<AssinaturaRow>("assinaturas", "assinaturas"),
+  eventosPagamento: new Collection<EventoPagamentoRow>("eventos-pagamento", "assinaturas"),
+  configPagamento: new Collection<ConfigPagamentoRow>("config-pagamento", "assinaturas"),
 };
 
 export function newId(): string {
