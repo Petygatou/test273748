@@ -13,6 +13,8 @@ import { useScrollLock } from "./ui";
 import { TourProvider, useTour } from "./Tour";
 import { useAvisosAparelho } from "../lib/avisos";
 import { RecebeTokenCartola } from "./CartolaConnect";
+import { acessoQuery, paginaLivre, useAcesso } from "../lib/acesso";
+import { Paywall } from "./Paywall";
 
 /** Todas as seções ficam à vista: nada importante escondido em menus. */
 const SECTIONS: PageEntry[] = [
@@ -238,6 +240,9 @@ function Shell({ children }: { children: ReactNode }) {
     for (const q of [analysisQuery, liveQuery, mudancasQuery]) void qc.invalidateQueries({ queryKey: q.queryKey });
     void qc.invalidateQueries({ queryKey: ["backtest"] });
   });
+  // pagamento confirmado pela Cakto (ou cortesia do admin): libera a página na hora
+  useRealtime(["assinaturas"], () => void qc.invalidateQueries({ queryKey: acessoQuery.queryKey }));
+  const acesso = useAcesso();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const navegando = useRouterState({ select: (s) => s.status === "pending" });
   const [searchOpen, setSearchOpen] = useState(false);
@@ -319,7 +324,7 @@ function Shell({ children }: { children: ReactNode }) {
       {navegando && <div className="loading-bar" role="progressbar" aria-label="Carregando" />}
       <RecebeTokenCartola />
       <main key={path} className="animate-page mx-auto w-full max-w-7xl flex-1 px-4 pt-3">
-        {children}
+        {montado && acesso.data?.exigido && !acesso.data.liberado && !paginaLivre(path) ? <Paywall /> : children}
       </main>
 
       <footer className="mt-10 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
