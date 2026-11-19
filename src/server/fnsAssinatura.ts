@@ -33,7 +33,7 @@ export const adminAssinaturaAcaoFn = createServerFn({ method: "POST" })
   .validator((d: unknown) => {
     const o = obj(d);
     const acao = s(o.acao, 20);
-    if (acao === "config") return { acao, ativo: o.ativo === true, checkout: s(o.checkout, 400), produto: s(o.produto, 120) } as const;
+    if (acao === "config") return { acao, ativo: o.ativo === true, checkout: s(o.checkout, 400), produto: s(o.produto, 120), segredo: s(o.segredo, 300) } as const;
     if (acao === "liberar") return { acao, email: s(o.email, 200), dias: Math.max(0, Math.min(3650, Math.round(Number(o.dias) || 0))) } as const;
     if (acao === "remover") return { acao, email: s(o.email, 200) } as const;
     throw new Error("Ação inválida.");

@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 /**
  * POST /api/cakto — avisos (webhooks) da Cakto: compra aprovada, renovação, cancelamento,
  * reembolso e chargeback. Só vale com o segredo certo: o "secret" que a Cakto manda no corpo
- * (ou ?secret= no endereço) precisa bater com CAKTO_WEBHOOK_SECRET.
+ * (ou ?secret= no endereço) precisa bater com a chave colada no Painel ADM (ou CAKTO_WEBHOOK_SECRET).
  */
 export const Route = createFileRoute("/api/cakto")({
   server: {
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/api/cakto")({
       },
       POST: async ({ request }) => {
         const { lerAviso, aplicarAviso, registrarRecusa, segredoConfere, segredoDefinido } = await import("../../server/assinaturas");
-        if (!segredoDefinido()) return Response.json({ ok: false, erro: "CAKTO_WEBHOOK_SECRET não configurada no servidor" }, { status: 503 });
+        if (!segredoDefinido()) return Response.json({ ok: false, erro: "chave do webhook não configurada (Painel ADM → Assinaturas)" }, { status: 503 });
         const bruto = await request.text();
         if (bruto.length > 200_000) return Response.json({ ok: false, erro: "aviso grande demais" }, { status: 413 });
         let corpo: unknown;

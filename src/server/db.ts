@@ -498,6 +498,8 @@ export interface ConfigPagamentoRow {
   checkout: string;
   /** se preenchido, só avisos deste produto liberam acesso */
   produto: string;
+  /** segredo do webhook colado no Painel ADM (nunca volta para o navegador) */
+  segredo?: string;
   atualizadoEm: string;
 }
 

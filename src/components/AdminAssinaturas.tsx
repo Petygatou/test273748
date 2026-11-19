@@ -41,6 +41,7 @@ type Painel = Awaited<ReturnType<typeof adminAssinaturasFn>>;
 function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknown> }) {
   const [checkout, setCheckout] = useState(d.config.checkout);
   const [produto, setProduto] = useState(d.config.produto);
+  const [segredo, setSegredo] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [copiado, setCopiado] = useState(false);
@@ -52,8 +53,9 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
     setOcupado(true);
     setMsg(null);
     try {
-      await adminAssinaturaAcaoFn({ data: { acao: "config", ativo, checkout, produto } });
+      await adminAssinaturaAcaoFn({ data: { acao: "config", ativo, checkout, produto, segredo } });
       await onSalvo();
+      setSegredo("");
       setMsg({ ok: true, t: ativo ? "Cobrança ligada: as páginas pagas pedem assinatura." : "Salvo." });
     } catch (e) {
       setMsg({ ok: false, t: erroTxt(e) });
@@ -72,22 +74,10 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
       />
 
       <ol className="space-y-3 text-sm">
-        <li>
-          <b>1. Segredo do webhook.</b>{" "}
-          {d.segredoDefinido ? (
-            <span className="text-[var(--color-good-ink)]">
-              <Check size={14} className="inline" aria-hidden /> definido no servidor
-            </span>
-          ) : (
-            <span className="text-[var(--color-serious)]">
-              falta: crie a variável <code>CAKTO_WEBHOOK_SECRET</code> na hospedagem com um texto aleatório longo e faça um novo deploy.
-            </span>
-          )}
-        </li>
         <li className="space-y-1.5">
           <div>
-            <b>2. Webhook na Cakto.</b> Em Integrações → Webhooks, crie um com este endereço, marque os eventos de compra aprovada, assinatura (renovada, cancelada, renovação recusada), reembolso e
-            chargeback, e cole o mesmo segredo do passo 1.
+            <b>1. Webhook na Cakto.</b> Em Integrações → Webhooks, crie um com este endereço e marque os eventos de compra aprovada, assinatura (renovada, cancelada, renovação recusada), reembolso e
+            chargeback.
           </div>
           <div className="flex gap-2">
             <input className="input font-mono text-xs" readOnly value={webhook} aria-label="Endereço do webhook" onFocus={(e) => e.currentTarget.select()} />
@@ -103,6 +93,29 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
               {copiado ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />} {copiado ? "Copiado" : "Copiar"}
             </button>
           </div>
+        </li>
+        <li className="space-y-1.5">
+          <div>
+            <b>2. Chave do webhook</b> que a Cakto mostra no webhook.{" "}
+            {d.segredoDefinido ? (
+              <span className="text-[var(--color-good-ink)]">
+                <Check size={14} className="inline" aria-hidden /> {d.segredoNaVariavel ? "definida na hospedagem" : "salva"}
+              </span>
+            ) : (
+              <span className="text-[var(--color-serious)]">falta</span>
+            )}
+          </div>
+          {!d.segredoNaVariavel && (
+            <input
+              className="input font-mono"
+              type="password"
+              autoComplete="off"
+              placeholder={d.segredoDefinido ? "salva — cole outra só para trocar" : "cole aqui a chave do webhook"}
+              value={segredo}
+              onChange={(e) => setSegredo(e.target.value)}
+              aria-label="Chave do webhook da Cakto"
+            />
+          )}
         </li>
         <li className="space-y-1.5">
           <b>3. Link do checkout</b> da assinatura (começa com https://pay.cakto.com.br/).
@@ -126,9 +139,9 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
           <button
             type="button"
             className="btn btn-primary"
-            disabled={ocupado || !d.segredoDefinido}
+            disabled={ocupado || (!d.segredoDefinido && !segredo.trim())}
             onClick={() => salvar(true)}
-            title={d.segredoDefinido ? undefined : "Defina o segredo do webhook primeiro"}
+            title={d.segredoDefinido || segredo.trim() ? undefined : "Cole a chave do webhook primeiro"}
           >
             Ligar cobrança
           </button>

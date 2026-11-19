@@ -4,14 +4,13 @@ A pessoa cria a conta no Tropa, paga no checkout da Cakto com o **mesmo e-mail**
 
 ## Configurar (uma vez)
 
-1. **Segredo.** Na hospedagem, crie a variável `CAKTO_WEBHOOK_SECRET` com um texto aleatório longo (40+ caracteres) e faça um novo deploy. Esse texto não vai no código nem no chat.
-2. **Produto.** Na Cakto, crie o produto de assinatura mensal e copie o link do checkout (`https://pay.cakto.com.br/...`).
-3. **Webhook.** Na Cakto, em Integrações → Webhooks, crie um webhook:
+1. **Produto.** Na Cakto, crie o produto de assinatura mensal e copie o link do checkout (`https://pay.cakto.com.br/...`).
+2. **Webhook.** Na Cakto, em Integrações → Webhooks, crie um webhook:
    - URL: `https://SEU-DOMINIO/api/cakto` (o Painel ADM → Assinaturas mostra o endereço certo, com botão de copiar);
    - eventos: compra aprovada, assinatura renovada, assinatura cancelada, renovação recusada, reembolso e chargeback;
-   - segredo: o mesmo texto do passo 1.
+   - a Cakto mostra a **chave do webhook**: cole no Painel ADM → Assinaturas → "Chave do webhook" e salve. Ela fica só no servidor (o painel nunca mostra de volta). Quem preferir pode usar a variável `CAKTO_WEBHOOK_SECRET` na hospedagem, que tem prioridade.
    Use "Enviar teste" na Cakto: o aviso aparece em Painel ADM → Assinaturas → Avisos da Cakto.
-4. **Painel ADM → Assinaturas.** Cole o link do checkout, libere como cortesia quem deve continuar sem pagar e clique em **Ligar cobrança**.
+3. **Painel ADM → Assinaturas.** Cole o link do checkout, libere como cortesia quem deve continuar sem pagar e clique em **Ligar cobrança**.
 
 ## Como o acesso funciona
 

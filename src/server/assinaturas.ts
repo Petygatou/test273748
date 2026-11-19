@@ -6,7 +6,8 @@
  * daquele e-mail. O admin também pode liberar um e-mail à mão (cortesia).
  *
  * O bloqueio só vale com "Cobrança ligada" no Painel ADM → Assinaturas. Admins sempre entram.
- * O segredo do webhook fica só na variável de ambiente CAKTO_WEBHOOK_SECRET.
+ * O segredo do webhook é colado no Painel ADM (fica só no servidor, nunca volta para o navegador)
+ * ou vem da variável de ambiente CAKTO_WEBHOOK_SECRET, que tem prioridade.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { db, emit, type AssinaturaRow, type ConfigPagamentoRow, type UserRow } from "./db";
@@ -23,16 +24,21 @@ export function config(): ConfigPagamentoRow {
   return db.configPagamento.get("pagamento") ?? { id: "pagamento", ativo: false, checkout: "", produto: "", atualizadoEm: "" };
 }
 
-export function salvarConfig(p: { ativo: boolean; checkout: string; produto: string }) {
+export function salvarConfig(p: { ativo: boolean; checkout: string; produto: string; segredo?: string }) {
   const checkout = p.checkout.trim();
+  const novo = p.segredo?.trim() ?? "";
+  if (novo && (novo.length < 16 || /\s/.test(novo))) throw new Error("A chave do webhook parece incompleta: copie de novo da Cakto, sem espaços.");
+  const segredo = novo || config().segredo || "";
+  if (p.ativo && !segredoDefinido() && !segredo) throw new Error("Cole a chave do webhook da Cakto antes de ligar a cobrança.");
   if (checkout && !/^https:\/\/[^\s]+$/.test(checkout)) throw new Error("O link do checkout precisa começar com https://");
   if (p.ativo && !checkout) throw new Error("Cole o link do checkout da Cakto antes de ligar a cobrança.");
-  const row = db.configPagamento.put({ id: "pagamento", ativo: p.ativo, checkout, produto: p.produto.trim(), atualizadoEm: new Date().toISOString() });
+  db.configPagamento.put({ id: "pagamento", ativo: p.ativo, checkout, produto: p.produto.trim(), segredo, atualizadoEm: new Date().toISOString() });
   emit("assinaturas");
-  return row;
 }
 
-export const segredoDefinido = () => Boolean(process.env.CAKTO_WEBHOOK_SECRET?.trim());
+/** Segredo em uso: o da variável de ambiente, se houver; senão, o colado no Painel ADM. */
+const segredoAtual = () => process.env.CAKTO_WEBHOOK_SECRET?.trim() || config().segredo || "";
+export const segredoDefinido = () => Boolean(segredoAtual());
 
 export function acessoValido(a: AssinaturaRow | undefined, agora = Date.now()) {
   return Boolean(a && a.status !== "estornada" && new Date(a.validaAte).getTime() > agora);
@@ -106,7 +112,7 @@ function pegar(raiz: Obj, caminhos: string[]): string {
 }
 
 /** Compara o segredo sem revelar, pelo tempo de resposta, quantos caracteres acertou. */
-export function segredoConfere(recebido: string, esperado = process.env.CAKTO_WEBHOOK_SECRET?.trim() ?? ""): boolean {
+export function segredoConfere(recebido: string, esperado = segredoAtual()): boolean {
   if (!esperado || !recebido) return false;
   const h = (s: string) => createHash("sha256").update(s).digest();
   return timingSafeEqual(h(recebido.trim()), h(esperado));
@@ -227,8 +233,9 @@ export function painel() {
     .map((a) => ({ ...a, valida: acessoValido(a, agora), semPrazo: a.validaAte === SEM_PRAZO, temConta: Boolean(db.users.find((u) => u.email === a.email)) }))
     .sort((x, y) => Number(y.valida) - Number(x.valida) || y.atualizadoEm.localeCompare(x.atualizadoEm));
   return {
-    config: config(),
+    config: { ...config(), segredo: undefined },
     segredoDefinido: segredoDefinido(),
+    segredoNaVariavel: Boolean(process.env.CAKTO_WEBHOOK_SECRET?.trim()),
     resumo: {
       ativas: lista.filter((a) => a.valida && a.origem === "cakto").length,
       cortesias: lista.filter((a) => a.valida && a.origem === "cortesia").length,
