@@ -364,6 +364,19 @@ export interface AparelhoRow {
 /** Cada vez que alguém entra na conta. */
 /** Gol lançado à mão no Campinhos (posição de quem fez, de quem assistiu e forma do gol). */
 export type GolRow = import("../engine/campinhos").GolLancado;
+/** Partida criada à mão no Campinhos (jogo que falta ou está errado no Cartola). id = String(matchId), matchId negativo. */
+export interface PartidaManualRow {
+  id: string;
+  matchId: number;
+  temporada: number;
+  rodada: number;
+  casaId: number;
+  foraId: number;
+  golsCasa: number;
+  golsFora: number;
+  criadoEm: string;
+  por: string;
+}
 
 export interface LoginRow {
   id: string;
@@ -525,6 +538,7 @@ export const db = {
   scoutTemporadas: new Collection<TemporadaScoutRow>("scout-temporadas"),
   syncLogs: new Collection<SyncLogRow>("sync-logs"),
   gols: new Collection<GolRow>("gols", "campinhos"),
+  partidasManuais: new Collection<PartidaManualRow>("partidas-manuais", "campinhos"),
   assinaturas: new Collection<AssinaturaRow>("assinaturas", "assinaturas"),
   eventosPagamento: new Collection<EventoPagamentoRow>("eventos-pagamento", "assinaturas"),
   configPagamento: new Collection<ConfigPagamentoRow>("config-pagamento", "assinaturas"),
