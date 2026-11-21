@@ -231,7 +231,7 @@ function Builder({ analysis }: { analysis: RoundAnalysis }) {
 
       <div className="grid gap-5 grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)]">
         {/* ----------------------------- controles ----------------------------- */}
-        <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:order-1">
+        <div id="ajustes" className="order-2 min-w-0 scroll-mt-32 space-y-4 lg:sticky lg:top-[84px] lg:order-1 lg:max-h-[calc(100dvh-96px)] lg:self-start lg:overflow-y-auto lg:pb-2 scrollbar-none">
           <div data-tour="escalar-estilo">
           <Card className="space-y-4 p-4">
             <div>

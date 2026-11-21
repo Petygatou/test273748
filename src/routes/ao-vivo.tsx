@@ -136,11 +136,11 @@ function LivePage() {
           </div>
           <Card className="p-3 sm:p-4">
             <SectionTitle title="Minha tropa" subtitle="Última tropa gerada no Montador" />
-            <ul className="divide-y divide-[var(--color-line)]">
+            <ul className="divide-y divide-[var(--color-line)] lg:grid lg:grid-cols-2 lg:gap-x-8 lg:divide-y-0">
               {rows.map((r) => {
                 const p = r.sub ?? r.p;
                 return (
-                  <li key={r.p.atletaId} className="flex items-center gap-3 py-2">
+                  <li key={r.p.atletaId} className="flex items-center gap-3 py-2 lg:border-b lg:border-[var(--color-line)]">
                     <PlayerPhoto p={p} size={34} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 text-sm font-semibold">
