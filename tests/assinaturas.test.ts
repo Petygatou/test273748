@@ -38,6 +38,12 @@ describe("avisos da Cakto", () => {
     expect(a.campos).toContain("data.customer");
   });
 
+  it("data como texto JSON ou lista também é lido", () => {
+    expect(m.lerAviso({ event: "purchase_approved", data: JSON.stringify({ customer: { email: "A@b.com" } }) }).email).toBe("a@b.com");
+    expect(m.lerAviso({ event: "purchase_approved", data: [{ customer: { email: "c@d.com" } }] }).email).toBe("c@d.com");
+    expect(m.lerAviso({ event: "pix_gerado", data: {} }).campos).toEqual(["event", "data", "data: object vazio"]);
+  });
+
   it("cada evento tem seu efeito", () => {
     expect(m.efeitoDoEvento("purchase_approved")).toBe("liberar");
     expect(m.efeitoDoEvento("subscription_renewed")).toBe("liberar");
