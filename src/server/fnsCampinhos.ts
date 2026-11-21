@@ -11,7 +11,7 @@ export const lancarGolFn = createServerFn({ method: "POST" })
   .validator((d: Record<string, unknown> | undefined) => {
     const matchId = Number(d?.matchId);
     const clubeId = Number(d?.clubeId);
-    if (!Number.isInteger(matchId) || matchId <= 0) throw new Error("Selecione a partida.");
+    if (!Number.isInteger(matchId) || matchId === 0) throw new Error("Selecione a partida.");
     if (!Number.isInteger(clubeId) || clubeId <= 0) throw new Error("Selecione o time que fez o gol.");
     const forma = String(d?.forma ?? "");
     if (!(FORMAS_GOL as readonly string[]).includes(forma)) throw new Error("Selecione a forma do gol.");
@@ -42,6 +42,29 @@ export const importarGolsFn = createServerFn({ method: "POST" })
     const { requireAdmin } = await import("./auth");
     const admin = requireAdmin();
     return (await import("./campinhos")).importar(data.texto, admin.id, data.simular);
+  });
+
+export const criarPartidaFn = createServerFn({ method: "POST" })
+  .validator((d: Record<string, unknown> | undefined) => ({
+    rodada: Number(d?.rodada),
+    casaId: Number(d?.casaId),
+    foraId: Number(d?.foraId),
+    golsCasa: Number(d?.golsCasa),
+    golsFora: Number(d?.golsFora),
+  }))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    const admin = requireAdmin();
+    return (await import("./campinhos")).criarPartida(data, admin.id);
+  });
+
+export const apagarPartidaFn = createServerFn({ method: "POST" })
+  .validator((d: { matchId?: unknown } | undefined) => ({ matchId: Number(d?.matchId) }))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    requireAdmin();
+    (await import("./campinhos")).apagarPartida(data.matchId);
+    return { ok: true };
   });
 
 export type CampinhosBase = Awaited<ReturnType<typeof fetchCampinhos>>;

@@ -51,6 +51,8 @@ export interface PartidaCampinho {
   foraId: number;
   golsCasa: number | null;
   golsFora: number | null;
+  /** criada à mão pela equipe (não veio do Cartola) */
+  manual?: boolean;
 }
 
 export interface FiltroCampinho {

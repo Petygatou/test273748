@@ -8,7 +8,7 @@ import { FORMAS_GOL, NOME_FORMA, NOME_POSICAO, montarCampinho, type FiltroCampin
 import type { Club } from "../engine/types";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
-import { apagarGolFn, fetchCampinhos, importarGolsFn, lancarGolFn, type CampinhosBase } from "../server/fnsCampinhos";
+import { apagarGolFn, apagarPartidaFn, criarPartidaFn, fetchCampinhos, importarGolsFn, lancarGolFn, type CampinhosBase } from "../server/fnsCampinhos";
 
 type Aba = "confrontos" | "times" | "lancar" | "importar";
 const ABAS: Aba[] = ["confrontos", "times", "lancar", "importar"];
@@ -124,7 +124,26 @@ function Filtros({
 }
 
 const rotPartida = (p: PartidaCampinho, clubes: Record<number, Club>) =>
-  `${clubes[p.casaId]?.nome ?? p.casaId} ${p.golsCasa != null && p.golsFora != null ? `${p.golsCasa}×${p.golsFora}` : "x"} ${clubes[p.foraId]?.nome ?? p.foraId}`;
+  `${clubes[p.casaId]?.nome ?? p.casaId} ${p.golsCasa != null && p.golsFora != null ? `${p.golsCasa}×${p.golsFora}` : "x"} ${clubes[p.foraId]?.nome ?? p.foraId}${p.manual ? " · manual" : ""}`;
+
+/** Select de time (todos os clubes, em ordem alfabética). */
+function SelTime({ rotulo, valor, onChange, clubes, vazio = "Selecione o time" }: { rotulo: string; valor: number | null; onChange: (v: number | null) => void; clubes: Club[]; vazio?: string }) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">{rotulo}</span>
+      <select className="input" value={valor ?? ""} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
+        <option value="">{vazio}</option>
+        {clubes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nome}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+const porNome = (d: CampinhosBase) => [...d.clubes].sort((a, b) => a.nome.localeCompare(b.nome)) as Club[];
 
 function Totais({ gols, assist, sofridos }: { gols: number; assist: number; sofridos?: boolean }) {
   return (
@@ -150,44 +169,79 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
   const [periodo, setPeriodo] = useState<Periodo>("todos");
   const [forma, setForma] = useState<"todas" | FormaGol>("todas");
   const [mando, setMando] = useState<"jogo" | "geral">("geral");
-  if (!partida) return <Card className="p-4 text-sm text-[var(--color-ink-3)]">Sem partidas cadastradas.</Card>;
-  const filtro = (casa: boolean): FiltroCampinho => ({ periodo: periodo === "todos" ? "todos" : Number(periodo), forma, mando: mando === "geral" ? "geral" : casa ? "casa" : "fora", antesDe: rodada });
-  const lados = [
-    { atq: partida.casaId, def: partida.foraId, atqCasa: true },
-    { atq: partida.foraId, def: partida.casaId, atqCasa: false },
-  ];
+  const [modo, setModo] = useState<"rodada" | "manual">("rodada");
+  const [timeA, setTimeA] = useState<number | null>(null);
+  const [timeB, setTimeB] = useState<number | null>(null);
+  const manual = modo === "manual";
+  if (!partida && !manual) return <Card className="p-4 text-sm text-[var(--color-ink-3)]">Sem partidas cadastradas.</Card>;
+  // no modo manual contam todos os jogos já disputados; no da rodada, só os de antes dela
+  const filtro = (casa: boolean): FiltroCampinho => ({
+    periodo: periodo === "todos" ? "todos" : Number(periodo),
+    forma,
+    mando: mando === "geral" ? "geral" : casa ? "casa" : "fora",
+    antesDe: manual ? undefined : rodada,
+  });
+  const casaId = manual ? timeA : partida!.casaId;
+  const foraId = manual ? timeB : partida!.foraId;
+  const lados =
+    casaId && foraId && casaId !== foraId
+      ? [
+          { atq: casaId, def: foraId, atqCasa: true },
+          { atq: foraId, def: casaId, atqCasa: false },
+        ]
+      : [];
   return (
     <div className="space-y-4">
       <Card className="p-3 sm:p-4">
+        <div className="mb-3">
+          <Seg
+            label="Escolha do confronto"
+            value={modo}
+            onChange={setModo}
+            options={[
+              { value: "rodada", label: "Jogo da rodada" },
+              { value: "manual", label: "Escolher times" },
+            ]}
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <label className="block min-w-0">
-            <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Rodada</span>
-            <select
-              className="input"
-              value={rodada}
-              onChange={(e) => {
-                setRodada(Number(e.target.value));
-                setMatchId(null);
-              }}
-            >
-              {rodadas.map((r) => (
-                <option key={r} value={r}>
-                  Rodada {r}
-                  {r === d.rodadaAtual ? " · próxima" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block min-w-0 lg:col-span-2">
-            <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Partida</span>
-            <select className="input" value={partida.matchId} onChange={(e) => setMatchId(Number(e.target.value))}>
-              {daRodada.map((p) => (
-                <option key={p.matchId} value={p.matchId}>
-                  {rotPartida(p, clubes)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {manual ? (
+            <>
+              <SelTime rotulo="Mandante" valor={timeA} onChange={setTimeA} clubes={porNome(d)} />
+              <SelTime rotulo="Visitante" valor={timeB} onChange={setTimeB} clubes={porNome(d)} />
+            </>
+          ) : (
+            <>
+              <label className="block min-w-0">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Rodada</span>
+                <select
+                  className="input"
+                  value={rodada}
+                  onChange={(e) => {
+                    setRodada(Number(e.target.value));
+                    setMatchId(null);
+                  }}
+                >
+                  {rodadas.map((r) => (
+                    <option key={r} value={r}>
+                      Rodada {r}
+                      {r === d.rodadaAtual ? " · próxima" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block min-w-0 lg:col-span-2">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Partida</span>
+                <select className="input" value={partida?.matchId} onChange={(e) => setMatchId(Number(e.target.value))}>
+                  {daRodada.map((p) => (
+                    <option key={p.matchId} value={p.matchId}>
+                      {rotPartida(p, clubes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
           <Filtros periodo={periodo} setPeriodo={setPeriodo} forma={forma} setForma={setForma} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -200,9 +254,12 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
               { value: "jogo", label: "Respeitar o mando" },
             ]}
           />
-          <span className="text-xs text-[var(--color-ink-3)]">Contam só os jogos antes da rodada {rodada}.</span>
+          <span className="text-xs text-[var(--color-ink-3)]">{manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
         </div>
       </Card>
+      {manual && !lados.length && (
+        <Card className="p-4 text-sm text-[var(--color-ink-3)]">{timeA && timeA === timeB ? "Escolha dois times diferentes." : "Escolha o mandante e o visitante para ver o confronto."}</Card>
+      )}
       {lados.map(({ atq, def, atqCasa }) => {
         const a = montarCampinho(d.gols, d.partidas, atq, "ataque", filtro(atqCasa));
         const b = montarCampinho(d.gols, d.partidas, def, "defesa", filtro(!atqCasa));
@@ -303,6 +360,15 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
   const [assist, setAssist] = useState<PosCampinho | null>(null);
   const [msg, setMsg] = useState<{ tom: "ok" | "erro"; texto: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [origem, setOrigem] = useState<"cartola" | "manual">("cartola");
+  const [nova, setNova] = useState<{ rodada: number; casaId: number | null; foraId: number | null; golsCasa: string; golsFora: string }>({
+    rodada: d.rodadaAtual > 1 ? d.rodadaAtual - 1 : 1,
+    casaId: null,
+    foraId: null,
+    golsCasa: "",
+    golsFora: "",
+  });
+  const [criando, setCriando] = useState(false);
   const daRodada = d.partidas.filter((p) => p.rodada === rodada);
   const partida = daRodada.find((p) => p.matchId === matchId) ?? null;
   const lancadosNoJogo = (c: number) => d.gols.filter((g) => g.matchId === partida?.matchId && g.clubeId === c).length;
@@ -327,6 +393,38 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
       setSalvando(false);
     }
   };
+  const criarPartida = async () => {
+    setMsg(null);
+    if (!nova.casaId || !nova.foraId) return setMsg({ tom: "erro", texto: "Escolha o mandante e o visitante." });
+    if (nova.casaId === nova.foraId) return setMsg({ tom: "erro", texto: "Mandante e visitante precisam ser times diferentes." });
+    if (nova.golsCasa === "" || nova.golsFora === "") return setMsg({ tom: "erro", texto: "Preencha o placar." });
+    setCriando(true);
+    try {
+      const p = await criarPartidaFn({ data: { rodada: nova.rodada, casaId: nova.casaId, foraId: nova.foraId, golsCasa: Number(nova.golsCasa), golsFora: Number(nova.golsFora) } });
+      await qc.invalidateQueries({ queryKey: CHAVE });
+      setRodada(p.rodada);
+      setMatchId(p.matchId);
+      setClubeId(null);
+      setOrigem("cartola");
+      setMsg({ tom: "ok", texto: `Partida ${rotPartida(p, clubes)} criada. Agora lance os gols.` });
+    } catch (e) {
+      setMsg({ tom: "erro", texto: e instanceof Error ? e.message : "Falha ao criar a partida" });
+    } finally {
+      setCriando(false);
+    }
+  };
+  const apagarPartida = async () => {
+    if (!partida?.manual) return;
+    if (!window.confirm(`Apagar a partida ${rotPartida(partida, clubes)} e os gols lançados nela?`)) return;
+    try {
+      await apagarPartidaFn({ data: { matchId: partida.matchId } });
+      setMatchId(null);
+      setClubeId(null);
+      await qc.invalidateQueries({ queryKey: CHAVE });
+    } catch (e) {
+      setMsg({ tom: "erro", texto: e instanceof Error ? e.message : "Falha ao apagar" });
+    }
+  };
   const apagar = async (id: string) => {
     try {
       await apagarGolFn({ data: { id } });
@@ -342,62 +440,124 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-3 sm:p-4">
           <h2 className="mb-3 font-semibold">1. Partida</h2>
-          <div className="space-y-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Rodada</span>
-              <select
-                className="input"
-                value={rodada}
-                onChange={(e) => {
-                  setRodada(Number(e.target.value));
-                  setMatchId(null);
-                  setClubeId(null);
-                }}
-              >
-                {rodadas.map((r) => (
-                  <option key={r} value={r}>
-                    Rodada {r}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Partida da rodada</span>
-              <select
-                className="input"
-                value={matchId ?? ""}
-                onChange={(e) => {
-                  setMatchId(e.target.value ? Number(e.target.value) : null);
-                  setClubeId(null);
-                }}
-              >
-                <option value="">Selecione a partida</option>
-                {daRodada.map((p) => (
-                  <option key={p.matchId} value={p.matchId}>
-                    {rotPartida(p, clubes)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="border-t border-[var(--color-line)] pt-3 text-xs text-[var(--color-ink-3)]">Os jogos das 38 rodadas vêm direto do Cartola. Você só classifica os gols dentro de cada jogo.</p>
-            {partida && (
-              <div className="grid grid-cols-2 gap-2">
-                {[partida.casaId, partida.foraId].map((c) => (
-                  <div key={c} className="rounded-xl bg-[var(--color-surface-1)] p-2 text-xs">
-                    <div className="flex items-center gap-1.5 font-semibold">
-                      <ClubBadge club={clubes[c]} size={16} /> {clubes[c]?.abreviacao}
-                    </div>
-                    <div
-                      className={`mt-0.5 ${placar(c) != null && lancadosNoJogo(c) > placar(c)! ? "font-semibold text-[var(--color-warning)]" : lancadosNoJogo(c) === placar(c) ? "text-[var(--color-good-ink)]" : "text-[var(--color-ink-3)]"}`}
-                    >
-                      {lancadosNoJogo(c)} de {placar(c) ?? "?"} gols lançados
-                      {placar(c) != null && lancadosNoJogo(c) > placar(c)! ? " · mais que o placar" : lancadosNoJogo(c) === placar(c) ? " ✓" : ""}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="mb-3">
+            <Seg
+              label="De onde vem a partida"
+              value={origem}
+              onChange={setOrigem}
+              options={[
+                { value: "cartola", label: "Jogos do Cartola" },
+                { value: "manual", label: "Criar manual" },
+              ]}
+            />
           </div>
+          {origem === "manual" ? (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Rodada</span>
+                <select className="input" value={nova.rodada} onChange={(e) => setNova({ ...nova, rodada: Number(e.target.value) })}>
+                  {Array.from({ length: 38 }, (_, i) => i + 1).map((r) => (
+                    <option key={r} value={r}>
+                      Rodada {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+                <SelTime rotulo="Mandante" valor={nova.casaId} onChange={(v) => setNova({ ...nova, casaId: v })} clubes={porNome(d)} />
+                <input
+                  className="input w-16 text-center"
+                  inputMode="numeric"
+                  placeholder="0"
+                  aria-label="Gols do mandante"
+                  value={nova.golsCasa}
+                  onChange={(e) => setNova({ ...nova, golsCasa: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                />
+              </div>
+              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+                <SelTime rotulo="Visitante" valor={nova.foraId} onChange={(v) => setNova({ ...nova, foraId: v })} clubes={porNome(d)} />
+                <input
+                  className="input w-16 text-center"
+                  inputMode="numeric"
+                  placeholder="0"
+                  aria-label="Gols do visitante"
+                  value={nova.golsFora}
+                  onChange={(e) => setNova({ ...nova, golsFora: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+                />
+              </div>
+              <button type="button" className="btn btn-primary w-full justify-center" onClick={criarPartida} disabled={criando}>
+                {criando ? "Criando…" : "Criar partida"}
+              </button>
+              <p className="border-t border-[var(--color-line)] pt-3 text-xs text-[var(--color-ink-3)]">
+                Use para jogos que faltam ou estão errados no Cartola. A partida criada entra nos campinhos como as outras e fica marcada como "manual".
+              </p>
+              {msg && <Alert tone={msg.tom === "ok" ? "info" : "critical"}>{msg.texto}</Alert>}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Rodada</span>
+                <select
+                  className="input"
+                  value={rodada}
+                  onChange={(e) => {
+                    setRodada(Number(e.target.value));
+                    setMatchId(null);
+                    setClubeId(null);
+                  }}
+                >
+                  {rodadas.map((r) => (
+                    <option key={r} value={r}>
+                      Rodada {r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)]">Partida da rodada</span>
+                <select
+                  className="input"
+                  value={matchId ?? ""}
+                  onChange={(e) => {
+                    setMatchId(e.target.value ? Number(e.target.value) : null);
+                    setClubeId(null);
+                  }}
+                >
+                  <option value="">Selecione a partida</option>
+                  {daRodada.map((p) => (
+                    <option key={p.matchId} value={p.matchId}>
+                      {rotPartida(p, clubes)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="border-t border-[var(--color-line)] pt-3 text-xs text-[var(--color-ink-3)]">
+                Os jogos das 38 rodadas vêm direto do Cartola. Falta um jogo ou está errado? Use “Criar manual”.
+              </p>
+              {partida?.manual && (
+                <button type="button" className="btn w-full justify-center text-[var(--color-critical-ink)]" onClick={apagarPartida}>
+                  <Trash2 size={15} aria-hidden /> Apagar esta partida manual
+                </button>
+              )}
+              {partida && (
+                <div className="grid grid-cols-2 gap-2">
+                  {[partida.casaId, partida.foraId].map((c) => (
+                    <div key={c} className="rounded-xl bg-[var(--color-surface-1)] p-2 text-xs">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <ClubBadge club={clubes[c]} size={16} /> {clubes[c]?.abreviacao}
+                      </div>
+                      <div
+                        className={`mt-0.5 ${placar(c) != null && lancadosNoJogo(c) > placar(c)! ? "font-semibold text-[var(--color-warning)]" : lancadosNoJogo(c) === placar(c) ? "text-[var(--color-good-ink)]" : "text-[var(--color-ink-3)]"}`}
+                      >
+                        {lancadosNoJogo(c)} de {placar(c) ?? "?"} gols lançados
+                        {placar(c) != null && lancadosNoJogo(c) > placar(c)! ? " · mais que o placar" : lancadosNoJogo(c) === placar(c) ? " ✓" : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </Card>
         <Card className="p-3 sm:p-4">
           <h2 className="mb-3 font-semibold">2. Gol</h2>
@@ -442,7 +602,7 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
             <p className="text-sm text-[var(--color-ink-2)]">
               Gol: <b>{forma === "contra" ? "gol contra" : gol ? NOME_POSICAO[gol] : "escolha no campinho"}</b> · Assistência: <b>{assist ? NOME_POSICAO[assist] : "sem assistência"}</b>
             </p>
-            {msg && <Alert tone={msg.tom === "ok" ? "info" : "critical"}>{msg.texto}</Alert>}
+            {msg && origem !== "manual" && <Alert tone={msg.tom === "ok" ? "info" : "critical"}>{msg.texto}</Alert>}
             <button type="button" className="btn btn-primary w-full justify-center" onClick={lancar} disabled={salvando}>
               {salvando ? "Lançando…" : "Lançar gol"}
             </button>
