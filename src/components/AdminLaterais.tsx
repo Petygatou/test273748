@@ -17,8 +17,7 @@ const sigla = (l: LadoLateral) => (l === "E" ? "LE" : "LD");
 function evidencia(auto: LadoAuto | null): string {
   if (!auto) return "Ainda sem jogo lido como lateral";
   const partes: string[] = [];
-  const conta = (c: Record<LadoLateral, number>) =>
-    [c.E ? `LE ${c.E}×` : "", c.D ? `LD ${c.D}×` : ""].filter(Boolean).join(" · ");
+  const conta = (c: Record<LadoLateral, number>) => [c.E ? `LE ${c.E}×` : "", c.D ? `LD ${c.D}×` : ""].filter(Boolean).join(" · ");
   if (auto.jogosAtual) partes.push(`nesta temporada: ${conta(auto.atual)}`);
   if (auto.jogosAnteriores) partes.push(`${auto.temporadasAnteriores.sort().join("/")}: ${conta(auto.anterior)}`);
   return partes.join(" — ");
@@ -154,7 +153,8 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
         <div className="mb-3">
           <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
             <span>
-              <b className="text-[var(--color-ink)]">{contagem.comLado}</b> de {laterais.length} laterais com lado · {contagem.daLista} da lista · {contagem.automaticos} automáticos · {contagem.manuais} corrigidos à mão
+              <b className="text-[var(--color-ink)]">{contagem.comLado}</b> de {laterais.length} laterais com lado · {contagem.daLista} da lista · {contagem.automaticos} automáticos ·{" "}
+              {contagem.manuais} corrigidos à mão
             </span>
             <span className="tabular">{laterais.length ? Math.round((contagem.comLado / laterais.length) * 100) : 0}%</span>
           </div>
@@ -210,13 +210,19 @@ export function AdminLaterais({ a }: { a: RoundAnalysis }) {
                             {x.manual ? (
                               <span className="rounded bg-[var(--color-gold)]/15 px-1 text-[10px] font-bold text-[var(--color-gold)]">corrigido</span>
                             ) : x.lista ? (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-[var(--color-series-b)]/20 px-1 text-[10px] font-bold text-[#9cc6f5]" title={`Na lista da equipe como “${resumo?.porAtleta[p.atletaId]?.nomeLista ?? p.apelido}”`}>
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded bg-[var(--color-series-b)]/20 px-1 text-[10px] font-bold text-[#9cc6f5]"
+                                title={`Na lista da equipe como “${resumo?.porAtleta[p.atletaId]?.nomeLista ?? p.apelido}”`}
+                              >
                                 <ListChecks size={10} aria-hidden /> lista
                               </span>
                             ) : x.auto?.ambos ? (
                               <span className="rounded bg-[var(--color-warning)]/15 px-1 text-[10px] font-bold text-[var(--color-warning)]">dois lados</span>
                             ) : x.auto?.lado ? (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-[var(--color-good)]/15 px-1 text-[10px] font-bold text-[var(--color-good-ink)]" title="Descoberto pelas escalações">
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded bg-[var(--color-good)]/15 px-1 text-[10px] font-bold text-[var(--color-good-ink)]"
+                                title="Descoberto pelas escalações"
+                              >
                                 <Wand2 size={10} aria-hidden /> auto
                               </span>
                             ) : null}
@@ -298,7 +304,7 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
     <Card className="p-3 sm:p-4">
       <SectionTitle
         title="Lista da equipe"
-        subtitle="Laterais classificados como esquerdo ou direito e meias como meia ou volante. Vale para a temporada inteira."
+        subtitle="Laterais classificados como esquerdo ou direito, meias como meia ou volante e atacantes como ponta ou centroavante. Vale para a temporada inteira."
         icon={<ListChecks size={18} className="text-[var(--color-series-b)]" />}
       />
       {!l ? (
@@ -314,9 +320,7 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
           <Progresso valor={l.casados} total={l.total} />
           {l.conflitos.length > 0 && (
             <div className="mt-2">
-              <Alert tone="warning">
-                Nomes da lista que caíram no mesmo atleta com lados diferentes (vale o primeiro): {l.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.
-              </Alert>
+              <Alert tone="warning">Nomes da lista que caíram no mesmo atleta com lados diferentes (vale o primeiro): {l.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.</Alert>
             </div>
           )}
           {l.semPar.length > 0 && (
@@ -341,12 +345,41 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
                 <span className="tabular">{resumo.meias.total ? Math.round((resumo.meias.casados / resumo.meias.total) * 100) : 0}%</span>
               </div>
               <Progresso valor={resumo.meias.casados} total={resumo.meias.total} />
-              {resumo.meias.conflitos.length > 0 && <p className="mt-1 text-xs text-[var(--color-warning)]">Mesmo atleta com funções diferentes na lista: {resumo.meias.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.</p>}
+              {resumo.meias.conflitos.length > 0 && (
+                <p className="mt-1 text-xs text-[var(--color-warning)]">Mesmo atleta com funções diferentes na lista: {resumo.meias.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.</p>
+              )}
               {resumo.meias.semPar.length > 0 && (
                 <details className="mt-2 text-xs text-[var(--color-ink-3)]">
                   <summary className="cursor-pointer">{resumo.meias.semPar.length} meias da lista sem par no Cartola</summary>
                   <ul className="mt-1.5 space-y-0.5">
                     {resumo.meias.semPar.map((x, i) => (
+                      <li key={i}>
+                        <b className="text-[var(--color-ink-2)]">{x.nome}</b> ({x.clube?.toUpperCase()}, {x.lado}): {x.motivo}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+          {resumo.atacantes && (
+            <div className="mt-3 border-t border-[var(--color-line)] pt-3">
+              <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
+                <span>
+                  Ataque: <b className="text-[var(--color-ink)]">{resumo.atacantes.casados}</b> de {resumo.atacantes.total} nomes achados · {resumo.atacantes.pontas} pontas e{" "}
+                  {resumo.atacantes.centroavantes} centroavantes (colunas PON e CA nas tabelas)
+                </span>
+                <span className="tabular">{resumo.atacantes.total ? Math.round((resumo.atacantes.casados / resumo.atacantes.total) * 100) : 0}%</span>
+              </div>
+              <Progresso valor={resumo.atacantes.casados} total={resumo.atacantes.total} />
+              {resumo.atacantes.conflitos.length > 0 && (
+                <p className="mt-1 text-xs text-[var(--color-warning)]">Mesmo atleta com funções diferentes na lista: {resumo.atacantes.conflitos.map((c) => c.nomes.join(" / ")).join("; ")}.</p>
+              )}
+              {resumo.atacantes.semPar.length > 0 && (
+                <details className="mt-2 text-xs text-[var(--color-ink-3)]">
+                  <summary className="cursor-pointer">{resumo.atacantes.semPar.length} atacantes da lista sem par no Cartola</summary>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {resumo.atacantes.semPar.map((x, i) => (
                       <li key={i}>
                         <b className="text-[var(--color-ink-2)]">{x.nome}</b> ({x.clube?.toUpperCase()}, {x.lado}): {x.motivo}
                       </li>
@@ -380,9 +413,7 @@ function Fontes({ resumo, carregando, atualizando, onAtualizar }: { resumo?: Res
         }
       />
       {carregando && <p className="text-sm text-[var(--color-ink-3)]">Carregando…</p>}
-      {resumo && !resumo.ligado && (
-        <Alert tone="info">A descoberta automática usa os jogadores de verdade do Cartola. Com o site em modo demonstração, só a marcação manual vale.</Alert>
-      )}
+      {resumo && !resumo.ligado && <Alert tone="info">A descoberta automática usa os jogadores de verdade do Cartola. Com o site em modo demonstração, só a marcação manual vale.</Alert>}
       {resumo?.ligado && espn && api && (
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-[var(--color-line)] p-3">
@@ -393,13 +424,17 @@ function Fontes({ resumo, carregando, atualizando, onAtualizar }: { resumo?: Res
             <div className="mt-1 text-xs text-[var(--color-ink-3)]">Posição escrita em cada jogo (“Left Back”, “Right Back”). Não precisa de chave.</div>
             <div className="mt-2 flex items-baseline gap-1.5">
               <span className="font-display text-2xl font-bold">{espn.jogosLidos}</span>
-              <span className="text-xs text-[var(--color-ink-3)]">de {espn.jogosNaLista} jogos de {resumo.temporada} lidos</span>
+              <span className="text-xs text-[var(--color-ink-3)]">
+                de {espn.jogosNaLista} jogos de {resumo.temporada} lidos
+              </span>
             </div>
             <Progresso valor={espn.jogosLidos} total={espn.jogosNaLista} />
             <div className="mt-1.5 space-y-0.5 text-[11px] text-[var(--color-ink-3)]">
               {espn.pendentes > 0 && <div>{espn.pendentes} jogos na fila (o vigia lê alguns por minuto; “Atualizar agora” lê todos)</div>}
               {espn.semEscalacao > 0 && <div>{espn.semEscalacao} jogos sem escalação publicada (tenta de novo depois)</div>}
-              <div>{espn.lateraisEncontrados} laterais encontrados nas escalações · {resumo.jogosComLado} lados por jogo usados na cedência</div>
+              <div>
+                {espn.lateraisEncontrados} laterais encontrados nas escalações · {resumo.jogosComLado} lados por jogo usados na cedência
+              </div>
               {espn.listaEm && <div>Lista de jogos atualizada {timeAgo(espn.listaEm)}</div>}
             </div>
             {espn.erro && (

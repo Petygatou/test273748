@@ -155,3 +155,40 @@ describe("lista de meias (MEI × VOL)", () => {
     expect(colunasDaLinha({ pos: 2, lado: "D" })).toEqual(["LAT", "LD"]);
   });
 });
+
+describe("lista de atacantes (pontas × centroavantes)", () => {
+  it("a lista virou 190 linhas: 111 centroavantes, 41 pontas esquerdas e 38 direitas, siglas do Cartola", async () => {
+    const { LISTA_ATACANTES } = await import("../src/data/atacantesLista");
+    expect(LISTA_ATACANTES).toHaveLength(190);
+    expect(LISTA_ATACANTES.filter((l) => l[2] === "CA")).toHaveLength(111);
+    expect(LISTA_ATACANTES.filter((l) => l[2] === "PE")).toHaveLength(41);
+    expect(LISTA_ATACANTES.filter((l) => l[2] === "PD")).toHaveLength(38);
+    for (const [, sigla] of LISTA_ATACANTES) expect(SIGLAS).toContain(sigla);
+  });
+
+  it("atacante classificado continua em ATA e também entra em PON ou CA; sem lista, só ATA", async () => {
+    const { colunasDaLinha } = await import("../src/engine/cruzamento");
+    expect(colunasDaLinha({ pos: 5, ataque: "CA" })).toEqual(["ATA", "CA"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "PE" })).toEqual(["ATA", "PON"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "PD" })).toEqual(["ATA", "PON"]);
+    expect(colunasDaLinha({ pos: 5 })).toEqual(["ATA"]);
+  });
+
+  it("casa entre os atacantes do clube", async () => {
+    const { casarPorPosicao } = await import("../src/server/ladosLista");
+    const pedro = atleta("Pedro", "fla", 5);
+    const pedroRocha = atleta("Pedro Rocha", "cfc", 5);
+    const r = casarPorPosicao(
+      [pedro, pedroRocha],
+      clubs,
+      [
+        ["Pedro", "fla", "CA"],
+        ["Pedro Rocha", "cfc", "CA"],
+        ["Canobbio", "flu", "PD"],
+      ],
+      5,
+    );
+    expect(r.lados).toEqual({ [pedro.id]: "CA", [pedroRocha.id]: "CA" });
+    expect(r.semPar.map((x) => x.nome)).toEqual(["Canobbio"]);
+  });
+});
