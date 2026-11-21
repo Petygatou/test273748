@@ -160,17 +160,17 @@ describe("lista de atacantes (pontas × centroavantes)", () => {
   it("a lista virou 190 linhas: 111 centroavantes, 41 pontas esquerdas e 38 direitas, siglas do Cartola", async () => {
     const { LISTA_ATACANTES } = await import("../src/data/atacantesLista");
     expect(LISTA_ATACANTES).toHaveLength(190);
-    expect(LISTA_ATACANTES.filter((l) => l[2] === "CA")).toHaveLength(111);
+    expect(LISTA_ATACANTES.filter((l) => l[2] === "ATC")).toHaveLength(111);
     expect(LISTA_ATACANTES.filter((l) => l[2] === "PE")).toHaveLength(41);
     expect(LISTA_ATACANTES.filter((l) => l[2] === "PD")).toHaveLength(38);
     for (const [, sigla] of LISTA_ATACANTES) expect(SIGLAS).toContain(sigla);
   });
 
-  it("atacante classificado continua em ATA e também entra em PON ou CA; sem lista, só ATA", async () => {
+  it("atacante classificado continua em ATA e também entra em PE, PD ou ATC (como no FIFA); sem lista, só ATA", async () => {
     const { colunasDaLinha } = await import("../src/engine/cruzamento");
-    expect(colunasDaLinha({ pos: 5, ataque: "CA" })).toEqual(["ATA", "CA"]);
-    expect(colunasDaLinha({ pos: 5, ataque: "PE" })).toEqual(["ATA", "PON"]);
-    expect(colunasDaLinha({ pos: 5, ataque: "PD" })).toEqual(["ATA", "PON"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "ATC" })).toEqual(["ATA", "ATC"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "PE" })).toEqual(["ATA", "PE"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "PD" })).toEqual(["ATA", "PD"]);
     expect(colunasDaLinha({ pos: 5 })).toEqual(["ATA"]);
   });
 
@@ -182,13 +182,13 @@ describe("lista de atacantes (pontas × centroavantes)", () => {
       [pedro, pedroRocha],
       clubs,
       [
-        ["Pedro", "fla", "CA"],
-        ["Pedro Rocha", "cfc", "CA"],
+        ["Pedro", "fla", "ATC"],
+        ["Pedro Rocha", "cfc", "ATC"],
         ["Canobbio", "flu", "PD"],
       ],
       5,
     );
-    expect(r.lados).toEqual({ [pedro.id]: "CA", [pedroRocha.id]: "CA" });
+    expect(r.lados).toEqual({ [pedro.id]: "ATC", [pedroRocha.id]: "ATC" });
     expect(r.semPar.map((x) => x.nome)).toEqual(["Canobbio"]);
   });
 });
