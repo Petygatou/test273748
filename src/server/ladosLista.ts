@@ -8,6 +8,7 @@
  */
 import { LISTA_LATERAIS, type LinhaLista } from "../data/ladosLista";
 import { LISTA_MEIAS } from "../data/meiasLista";
+import { LISTA_ATACANTES, type FuncaoAtaque } from "../data/atacantesLista";
 import { POSITIONS, type PositionId } from "../engine/rules";
 import type { Athlete, Club, LadoLateral } from "../engine/types";
 import { matchPlayer, norm } from "./escalacoes";
@@ -136,4 +137,15 @@ export function funcoesDaLista(athletes: Athlete[], clubs: Record<number, Club>)
   const chave = `${LISTA_MEIAS.length}:${(h >>> 0).toString(36)}`;
   if (memoMeio?.chave !== chave) memoMeio = { chave, valor: casarPorPosicao(athletes, clubs, LISTA_MEIAS, 4) };
   return { ...memoMeio.valor, chave };
+}
+
+let memoAtaque: { chave: string; valor: ResultadoLista<FuncaoAtaque> } | null = null;
+
+/** A lista de atacantes (centroavante × pontas) casada com os atacantes atuais do Cartola. */
+export function funcoesAtaqueDaLista(athletes: Athlete[], clubs: Record<number, Club>): ResultadoLista<FuncaoAtaque> & { chave: string } {
+  let h = 0;
+  for (const a of athletes) if (a.posicaoId === 5) for (const ch of `${a.id}:${a.clubeId}:${a.apelido};`) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0;
+  const chave = `${LISTA_ATACANTES.length}:${(h >>> 0).toString(36)}`;
+  if (memoAtaque?.chave !== chave) memoAtaque = { chave, valor: casarPorPosicao(athletes, clubs, LISTA_ATACANTES, 5) };
+  return { ...memoAtaque.valor, chave };
 }

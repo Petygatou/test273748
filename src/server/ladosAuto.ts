@@ -314,7 +314,11 @@ interface ApiFixtureComEscalacao extends ApiFixtureLista {
   lineups?: Array<{ team: { name: string }; startXI?: Array<{ player: ApiPlayer }> }>;
 }
 
-const LIGAS_API = () => (process.env.API_FOOTBALL_LADOS_LIGAS ?? "71,72").split(",").map((s) => Number(s.trim())).filter(Boolean);
+const LIGAS_API = () =>
+  (process.env.API_FOOTBALL_LADOS_LIGAS ?? "71,72")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter(Boolean);
 
 /** Lê as escalações de um jogo da API-Football: posição no desenho e camisas 2/6 nas pontas da defesa. */
 export function lerJogoApi(item: ApiFixtureComEscalacao, temporadaApi: number, ctx: Contexto, agora = Date.now()): LadoJogoRow {
@@ -353,13 +357,30 @@ export function lerJogoApi(item: ApiFixtureComEscalacao, temporadaApi: number, c
       // lateral joga na defesa (D) ou como ala no meio (M)
       if ((p.pos !== "D" && p.pos !== "M") || !Number.isFinite(r) || !Number.isFinite(c)) continue;
       const n = linhas.get(r) ?? 0;
-      let a = casar([p.name], grupo.filter((x) => !usados.has(x.id)));
+      let a = casar(
+        [p.name],
+        grupo.filter((x) => !usados.has(x.id)),
+      );
       // temporada antiga: o atleta pode estar em outro clube hoje
-      if (!a && !atual) a = casarGlobal([p.name], todosLaterais.filter((x) => !usados.has(x.id)));
+      if (!a && !atual)
+        a = casarGlobal(
+          [p.name],
+          todosLaterais.filter((x) => !usados.has(x.id)),
+        );
       if (a) {
         usados.add(a.id);
         laterais.push({ atletaId: a.id, clubeId: clube?.id ?? a.clubeId, posicao: `grid ${r}:${c} de ${n}`, titular: true, grid: [r, c, n] });
-      } else if (atual && clube && r === 2 && n >= 4 && (c === 1 || c === n) && !casar([p.name], ctx.athletes.filter((x) => x.clubeId === clube.id))) {
+      } else if (
+        atual &&
+        clube &&
+        r === 2 &&
+        n >= 4 &&
+        (c === 1 || c === n) &&
+        !casar(
+          [p.name],
+          ctx.athletes.filter((x) => x.clubeId === clube.id),
+        )
+      ) {
         semPar.push(`${p.name} (${clube.abreviacao})`);
       }
     }
@@ -587,7 +608,10 @@ export function combinarLados(rows: LadoJogoRow[], temporada: number): LadosComb
     }
     s.ambos = true;
     // dividido na temporada: se os últimos jogos (até 5) foram quase todos de um lado, é o lado de agora
-    const ult = [...(recentes.get(Number(id)) ?? new Map<number, LadoLateral>())].sort((a, b) => b[0] - a[0]).slice(0, 5).map(([, l]) => l);
+    const ult = [...(recentes.get(Number(id)) ?? new Map<number, LadoLateral>())]
+      .sort((a, b) => b[0] - a[0])
+      .slice(0, 5)
+      .map(([, l]) => l);
     const e = ult.filter((l) => l === "E").length;
     const d = ult.length - e;
     if (ult.length >= 3 && Math.max(e, d) / ult.length >= 0.8) {
@@ -660,7 +684,14 @@ export async function passoLados(ctx: Contexto, of: OfficialState | null, opts: 
 }
 
 /** Resumo para o Painel ADM: fontes, progresso e evidências por atleta. */
-export function resumoLados(temporada: number, athletes: Athlete[], ligado: boolean, lista: ResultadoLista | null = null, meias: ResultadoLista<"MEI" | "VOL"> | null = null) {
+export function resumoLados(
+  temporada: number,
+  athletes: Athlete[],
+  ligado: boolean,
+  lista: ResultadoLista | null = null,
+  meias: ResultadoLista<"MEI" | "VOL"> | null = null,
+  atacantes: ResultadoLista<"CA" | "PE" | "PD"> | null = null,
+) {
   const comb = ladosAutomaticos(temporada);
   const rows = db.ladosJogos.all();
   const manuais = new Map(db.lados.all().map((l) => [l.atletaId, l] as const));
@@ -708,6 +739,14 @@ export function resumoLados(temporada: number, athletes: Athlete[], ligado: bool
       volantes: Object.values(meias.lados).filter((f) => f === "VOL").length,
       semPar: meias.semPar,
       conflitos: meias.conflitos,
+    },
+    atacantes: atacantes && {
+      total: atacantes.total,
+      casados: Object.keys(atacantes.lados).length,
+      pontas: Object.values(atacantes.lados).filter((f) => f !== "CA").length,
+      centroavantes: Object.values(atacantes.lados).filter((f) => f === "CA").length,
+      semPar: atacantes.semPar,
+      conflitos: atacantes.conflitos,
     },
   };
 }

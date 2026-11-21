@@ -91,6 +91,8 @@ export interface SeasonData {
   ladosJogo?: Record<string, LadoLateral>;
   /** Volantes pela lista da equipe (o Cartola chama todos de meia): atleta → VOL/MEI. */
   funcoesMeio?: Record<number, "MEI" | "VOL">;
+  /** Pontas e centroavantes pela lista da equipe (o Cartola chama todos de atacante): atleta → CA/PE/PD. */
+  funcoesAtaque?: Record<number, "CA" | "PE" | "PD">;
   source: "cartola" | "demo";
   updatedAt: string;
 }

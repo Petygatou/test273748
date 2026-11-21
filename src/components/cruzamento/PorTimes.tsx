@@ -37,9 +37,11 @@ const OUTROS: Array<{ codigo: CruzScout; rotulo: string }> = [
 ];
 const rotuloScout = (c: CruzScout) => [...PRINCIPAIS, ...OUTROS].find((x) => x.codigo === c)?.rotulo ?? DEF_POR_CODIGO.get(c)?.nome ?? c;
 
-type SetorUi = "time" | "1" | "2" | "3" | "4" | "5" | "LE" | "LD" | "VOL" | "MEI";
+type SetorUi = "time" | "1" | "2" | "3" | "4" | "5" | "LE" | "LD" | "VOL" | "MEI" | "PON" | "CA";
 const SETORES: Array<{ value: SetorUi; rotulo: string; plural: string }> = [
-  { value: "5", rotulo: "Atacantes", plural: "atacantes" },
+  { value: "5", rotulo: "Atacantes (todos)", plural: "atacantes" },
+  { value: "PON", rotulo: "Pontas", plural: "pontas" },
+  { value: "CA", rotulo: "Centroavantes", plural: "centroavantes" },
   { value: "MEI", rotulo: "Meias", plural: "meias" },
   { value: "VOL", rotulo: "Volantes", plural: "volantes" },
   { value: "4", rotulo: "Meio-campo (meias + volantes)", plural: "meias e volantes" },
@@ -65,7 +67,7 @@ const PADRAO: Filtros = { scout: "G", setor: "5", recorte: "5", lado: "mandantes
 function setorValido(scout: CruzScout, setor: SetorUi): SetorUi {
   if (scout === "SG" || setor === "time") return setor;
   const pos = DEF_POR_CODIGO.get(scout)?.posicoes ?? [];
-  const num = setor === "LE" || setor === "LD" ? 2 : setor === "VOL" || setor === "MEI" ? 4 : Number(setor);
+  const num = setor === "LE" || setor === "LD" ? 2 : setor === "VOL" || setor === "MEI" ? 4 : setor === "PON" || setor === "CA" ? 5 : Number(setor);
   if (pos.includes(num as 1)) return setor;
   return pos.includes(5) ? "5" : pos.includes(1) ? "1" : "time";
 }
@@ -200,7 +202,8 @@ export function PorTimes({
                       disabled={
                         setorValido(f.scout, s.value) !== s.value ||
                         ((s.value === "LE" || s.value === "LD") && r != null && r.ladosCobertura === 0) ||
-                        ((s.value === "VOL" || s.value === "MEI") && r != null && !r.temVolantes)
+                        ((s.value === "VOL" || s.value === "MEI") && r != null && !r.temVolantes) ||
+                        ((s.value === "PON" || s.value === "CA") && r != null && !r.temAtacantes)
                       }
                     >
                       {s.rotulo}
