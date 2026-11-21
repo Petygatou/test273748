@@ -14,7 +14,7 @@ const VANTAGENS = [
 ];
 
 /** No lugar de uma página paga, para quem ainda não tem acesso. */
-export function Paywall() {
+export function Paywall({ titulo = "Esta parte é para assinantes" }: { titulo?: string } = {}) {
   const { data } = useAcesso();
   const qc = useQueryClient();
   const [conferindo, setConferindo] = useState(false);
@@ -37,7 +37,7 @@ export function Paywall() {
             <Crown size={20} aria-hidden />
             <span className="text-xs font-bold tracking-wide uppercase">Tropa completo</span>
           </div>
-          <h1 className="font-display mt-1 text-2xl font-extrabold">Esta parte é para assinantes</h1>
+          <h1 className="font-display mt-1 text-2xl font-extrabold">{titulo}</h1>
           <p className="mt-1 text-sm text-[var(--color-ink-2)]">Assine para liberar todas as análises do Tropa. O pagamento é feito pela Cakto e o acesso libera sozinho.</p>
         </div>
         <div className="space-y-4 px-5 py-5">

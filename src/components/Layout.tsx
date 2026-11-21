@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, FlaskConical, Goal, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
+import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, Crown, FlaskConical, Goal, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
@@ -307,6 +307,11 @@ function Shell({ children }: { children: ReactNode }) {
             <span className="hidden sm:inline lg:hidden 2xl:inline">Buscar</span>
             <kbd className="hidden rounded border border-[var(--color-line)] px-1.5 text-[10px] sm:inline">/</kbd>
           </button>
+          {montado && acesso.data?.exigido && !acesso.data.liberado && (
+            <Link to="/assinar" className="btn btn-primary h-10 shrink-0 px-3 text-sm">
+              <Crown size={16} aria-hidden /> Assinar
+            </Link>
+          )}
           <HelpButton />
           {montado && auth.isAdmin && <AdminButton ativo={isActive(path, "/admin")} />}
           <Link to="/conta" aria-label="Minha conta" title={montado ? (auth.user ? auth.user.nome : "Entrar") : undefined} className="flex shrink-0 items-center gap-2">
