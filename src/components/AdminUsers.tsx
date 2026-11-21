@@ -8,6 +8,7 @@ import { cs, fmt1, timeAgo } from "../lib/format";
 import { useRealtime } from "../lib/realtime";
 import { norm } from "../lib/search";
 import { adminUserActionFn, adminUserDetailFn, adminUsersFn } from "../server/fnsConta";
+import { AdminAdmins } from "./AdminAdmins";
 import { Avatar } from "./avatars";
 import { Alert, Card, Seg, StatTile, useScrollLock } from "./ui";
 
@@ -48,6 +49,8 @@ export function AdminUsers() {
         <StatTile label="Ativos em 24 h" value={r?.ativos24h ?? "…"} accent="brand" />
         <StatTile label="Novos em 7 dias" value={r?.novos7d ?? "…"} accent="gold" />
       </div>
+
+      <AdminAdmins />
 
       <AvisosAparelho av={av} onAbrir={setAberto} />
 

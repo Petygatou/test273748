@@ -78,7 +78,9 @@ export const saveLineupFn = createServerFn({ method: "POST" })
       profile: s(o.profile, 20),
       titulares: ids(o.titulares),
       captainId: Number(o.captainId) || 0,
-      reservas: (Array.isArray(o.reservas) ? o.reservas : []).slice(0, 6).map((r) => ({ atletaId: Number(obj(r).atletaId) || 0, posicaoId: Number(obj(r).posicaoId) || 0, luxo: Boolean(obj(r).luxo) })),
+      reservas: (Array.isArray(o.reservas) ? o.reservas : [])
+        .slice(0, 6)
+        .map((r) => ({ atletaId: Number(obj(r).atletaId) || 0, posicaoId: Number(obj(r).posicaoId) || 0, luxo: Boolean(obj(r).luxo) })),
       custo: Number(o.custo) || 0,
       xP: Number(o.xP) || 0,
     };
@@ -212,4 +214,23 @@ export const adminUserActionFn = createServerFn({ method: "POST" })
     const admin = requireAdmin();
     const { userAction } = await import("./usuarios");
     return userAction(admin, data.id, data.acao);
+  });
+
+/* ------------------------------ administradores ------------------------------ */
+
+export const adminListaAdminsFn = createServerFn({ method: "GET" }).handler(async () => {
+  const { requireAdmin, listarAdmins } = await import("./auth");
+  return listarAdmins(requireAdmin());
+});
+
+export const adminMudarAdminFn = createServerFn({ method: "POST" })
+  .validator((d: unknown) => {
+    const acao = s(obj(d).acao, 20);
+    if (acao !== "adicionar" && acao !== "remover") throw new Error("Ação inválida.");
+    return { email: s(obj(d).email, 200), acao: acao as "adicionar" | "remover" };
+  })
+  .handler(async ({ data }) => {
+    const { requireAdmin, mudarAdmin } = await import("./auth");
+    mudarAdmin(requireAdmin(), data.email, data.acao);
+    return { ok: true };
   });

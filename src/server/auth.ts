@@ -36,9 +36,34 @@ function adminEmails(): string[] {
     .filter(Boolean);
 }
 
+/** Dono (ADMIN_EMAILS) ou administrador adicionado pelo dono no Painel ADM. */
 export function isAdmin(u: UserRow): boolean {
+  if (db.adminsExtras.get(u.email)) return true;
   const list = adminEmails();
   return list.length ? list.includes(u.email) : u.admin;
+}
+
+/** Administradores: os donos (ADMIN_EMAILS, fixos) e os adicionados no painel. Só o dono adiciona e remove. */
+export function listarAdmins(eu: UserRow) {
+  return {
+    donos: adminEmails(),
+    extras: db.adminsExtras
+      .all()
+      .sort((a, b) => a.criadoEm.localeCompare(b.criadoEm))
+      .map((a) => ({ email: a.email, criadoEm: a.criadoEm, temConta: Boolean(db.users.find((u) => u.email === a.email)) })),
+    podeEditar: isEnvAdmin(eu),
+  };
+}
+
+export function mudarAdmin(dono: UserRow, emailBruto: string, acao: "adicionar" | "remover") {
+  if (!isEnvAdmin(dono)) throw new Error("Só o dono do site (ADMIN_EMAILS) adiciona ou remove administradores.");
+  const email = emailBruto.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120) throw new Error("E-mail inválido.");
+  if (adminEmails().includes(email)) throw new Error("Esse e-mail já é dono do site.");
+  if (acao === "adicionar") {
+    if (db.adminsExtras.get(email)) throw new Error("Esse e-mail já é administrador.");
+    db.adminsExtras.put({ id: email, email, por: dono.id, criadoEm: new Date().toISOString() });
+  } else if (!db.adminsExtras.remove(email)) throw new Error("Esse e-mail não é administrador.");
 }
 
 function hashPassword(password: string, salt: string) {
@@ -200,7 +225,19 @@ export function isEnvAdmin(u: Pick<UserRow, "email">) {
 export function deviceFromUA(ua: string | undefined | null): string {
   if (!ua) return "desconhecido";
   const os = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS X|Macintosh/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "outro";
-  const br = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "navegador";
+  const br = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/.test(ua)
+      ? "Opera"
+      : /SamsungBrowser/.test(ua)
+        ? "Samsung Internet"
+        : /Firefox\//.test(ua)
+          ? "Firefox"
+          : /Chrome\//.test(ua)
+            ? "Chrome"
+            : /Safari\//.test(ua)
+              ? "Safari"
+              : "navegador";
   return `${os} · ${br}`;
 }
 
@@ -276,13 +313,7 @@ export function startSession(user: UserRow, origem: LoginRow["origem"] = "login"
   const ip = (header("x-forwarded-for") ?? header("x-real-ip"))?.split(",")[0]?.trim();
   registrarLogin(user, { aparelhoId, ua, info, local: localDaRequisicao(), ip, origem });
   db.users.update(user.id, { logins: (user.logins ?? 0) + 1, ultimoLogin: agora, ultimoAcesso: agora, dispositivo: detalharUA(ua, info).rotulo }, true);
-  setCookie(COOKIE, makeSessionToken(db.users.get(user.id) ?? user), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    expires: expira,
-  });
+  setCookie(COOKIE, makeSessionToken(db.users.get(user.id) ?? user), { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expira });
 }
 
 export function endSession() {

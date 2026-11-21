@@ -720,3 +720,28 @@ describe("aparelhos da conta (Painel ADM)", () => {
     expect(auth.readSessionToken(auth.makeSessionToken(depois))!.v).toBe(1);
   });
 });
+
+describe("administradores adicionados pelo dono", () => {
+  it("só o dono (ADMIN_EMAILS) dá e tira ADM; o novo ADM vale mesmo antes de criar a conta", () => {
+    const antes = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "dono@tropa.dev";
+    try {
+      for (const c of Object.values(db)) c._reset();
+      const dono = db.users.put({ id: "d1", email: "dono@tropa.dev", nome: "Dono", bio: "", avatar: "lobo", salt: "", hash: "", admin: true, criadoEm: "" });
+      const fulano = db.users.put({ id: "f1", email: "fulano@tropa.dev", nome: "Fulano", bio: "", avatar: "lobo", salt: "", hash: "", admin: false, criadoEm: "" });
+      expect(auth.isAdmin(fulano)).toBe(false);
+      auth.mudarAdmin(dono, " Fulano@Tropa.dev ", "adicionar");
+      expect(auth.isAdmin(fulano)).toBe(true);
+      // ADM adicionado não pode dar ADM a outros
+      expect(() => auth.mudarAdmin(fulano, "outro@tropa.dev", "adicionar")).toThrow(/dono/);
+      expect(auth.listarAdmins(fulano)).toMatchObject({ donos: ["dono@tropa.dev"], extras: [{ email: "fulano@tropa.dev", temConta: true }], podeEditar: false });
+      auth.mudarAdmin(dono, "novo@tropa.dev", "adicionar");
+      expect(auth.listarAdmins(dono).extras.find((a) => a.email === "novo@tropa.dev")?.temConta).toBe(false);
+      expect(() => auth.mudarAdmin(dono, "dono@tropa.dev", "adicionar")).toThrow(/dono/);
+      auth.mudarAdmin(dono, "fulano@tropa.dev", "remover");
+      expect(auth.isAdmin(fulano)).toBe(false);
+    } finally {
+      process.env.ADMIN_EMAILS = antes;
+    }
+  });
+});

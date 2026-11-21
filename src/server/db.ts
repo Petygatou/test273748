@@ -475,6 +475,14 @@ export interface LineupRow {
   criadoEm: string;
 }
 
+/** Administrador adicionado pelo dono no Painel ADM (id = e-mail em minúsculas). */
+export interface AdminExtraRow {
+  id: string;
+  email: string;
+  /** id do dono que adicionou */
+  por: string;
+  criadoEm: string;
+}
 /** Acesso pago de um e-mail (id = e-mail em minúsculas). Vem da Cakto ou de uma cortesia do admin. */
 export interface AssinaturaRow {
   id: string;
@@ -540,6 +548,7 @@ export const db = {
   gols: new Collection<GolRow>("gols", "campinhos"),
   partidasManuais: new Collection<PartidaManualRow>("partidas-manuais", "campinhos"),
   assinaturas: new Collection<AssinaturaRow>("assinaturas", "assinaturas"),
+  adminsExtras: new Collection<AdminExtraRow>("admins-extras", "users"),
   eventosPagamento: new Collection<EventoPagamentoRow>("eventos-pagamento", "assinaturas"),
   configPagamento: new Collection<ConfigPagamentoRow>("config-pagamento", "assinaturas"),
 };
