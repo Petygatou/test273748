@@ -143,7 +143,16 @@ export interface AvisoCakto {
 
 /** Lê o aviso em qualquer um dos formatos conhecidos (campos em inglês, camelCase ou snake_case). */
 export function lerAviso(corpo: unknown): AvisoCakto {
-  const r = obj(corpo);
+  const r = { ...obj(corpo) };
+  // "data" pode vir como texto JSON ou como lista de um item
+  if (typeof r.data === "string" && r.data.trim().startsWith("{")) {
+    try {
+      r.data = JSON.parse(r.data);
+    } catch {
+      /* fica como está */
+    }
+  }
+  if (Array.isArray(r.data)) r.data = r.data[0];
   const data = obj(r.data);
   return {
     evento: pegar(r, ["event", "evento", "type", "data.event"]),
@@ -159,7 +168,11 @@ export function lerAviso(corpo: unknown): AvisoCakto {
       "data.nextPaymentDate",
     ]),
     segredo: pegar(r, ["secret", "data.secret"]),
-    campos: [...Object.keys(r).filter((k) => k !== "secret"), ...Object.keys(data).map((k) => `data.${k}`)].slice(0, 40),
+    campos: [
+      ...Object.keys(r).filter((k) => k !== "secret"),
+      ...Object.keys(data).map((k) => `data.${k}`),
+      ...(r.data != null && !Object.keys(data).length ? [`data: ${Array.isArray(r.data) ? "lista" : typeof r.data}${typeof r.data === "object" ? " vazio" : ""}`] : []),
+    ].slice(0, 40),
   };
 }
 
