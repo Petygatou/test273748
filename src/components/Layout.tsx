@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, CircleHelp, ClipboardList, Crown, FlaskConical, Goal, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Activity, BarChart3, Bot, ChevronDown, CircleHelp, ClipboardList, Crown, FlaskConical, Goal, House, LayoutGrid, Newspaper, Radio, Search, Shield, Shirt, Swords, Trophy, Users } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth";
 import { AI_ENABLED } from "../lib/features";
 import { countdown, timeAgo } from "../lib/format";
@@ -39,6 +39,9 @@ const EXTRA: PageEntry[] = [
   { to: "/guia", label: "Guia do site", Icon: CircleHelp, keywords: "guia ajuda tour tutorial como usar" },
 ];
 
+/** Notebook pequeno (lg, abaixo de xl): estas saem da barra do topo e vão para o menu "Mais". */
+const SO_XL = new Set(["/noticias", "/comunidade"]);
+
 /** Celular: só a barra de baixo — 4 atalhos principais + Menu com todo o resto. */
 const MOBILE = ["/", "/escalacao", "/provaveis", "/ao-vivo"];
 
@@ -58,6 +61,73 @@ const HINTS: Record<string, string> = {
   "/guia": "Aprenda a usar o site",
   "/conta": "Entrar, perfil e tropas salvas",
   "/admin": "Usuários e publicações",
+};
+
+/** Computador: as páginas que não cabem na barra (Campinhos, Duelo X1, Cruzamento…) num menu "Mais". */
+function MaisMenu({ path }: { path: string }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => setAberto(false), [path]);
+  useEffect(() => {
+    if (!aberto) return;
+    const fora = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setAberto(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setAberto(false);
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [aberto]);
+  const itens = [...SECTIONS.filter((s) => SO_XL.has(s.to)).map((s) => ({ ...s, soLg: true })), ...EXTRA.map((e) => ({ ...e, soLg: false }))];
+  const ativo = EXTRA.some((e) => !e.search && isActive(path, e.to) && !SECTIONS.some((s) => s.to === e.to));
+  const ativoLg = [...SO_XL].some((to) => isActive(path, to));
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        aria-expanded={aberto}
+        aria-haspopup="menu"
+        className={`relative flex items-center gap-1 rounded-lg px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors ${
+          ativo || aberto ? "text-[var(--color-ink)]" : "text-[var(--color-ink-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
+        }`}
+      >
+        Mais <ChevronDown size={14} aria-hidden className={`transition-transform ${aberto ? "rotate-180" : ""}`} />
+        {(ativo || ativoLg) && <span className={`absolute inset-x-2.5 -bottom-[11px] h-0.5 rounded-full bg-[var(--color-brand)] ${ativo ? "" : "xl:hidden"}`} aria-hidden />}
+      </button>
+      {aberto && (
+        <div role="menu" className="absolute top-full right-0 z-50 mt-2 w-72 rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-1.5 shadow-2xl">
+          {itens.map((e) => (
+            <Link
+              key={e.label}
+              to={e.to}
+              search={e.search as never}
+              role="menuitem"
+              onClick={() => setAberto(false)}
+              className={`${e.soLg ? "flex xl:hidden" : "flex"} items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-[var(--color-surface-2)]`}
+            >
+              <e.Icon size={17} aria-hidden className="mt-0.5 shrink-0 text-[var(--color-brand)]" />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--color-ink)]">{e.label}</span>
+                {DICA_MAIS[e.label] && <span className="block text-xs text-[var(--color-ink-3)]">{DICA_MAIS[e.label]}</span>}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DICA_MAIS: Record<string, string> = {
+  "Duelo X1": "Compare dois atletas lado a lado",
+  "Cruzamento de Scout": "O que cada time faz × o que o adversário cede",
+  Campinhos: "Gols e assistências por posição",
+  "Precisão do modelo": "Quanto o Tropa acerta",
+  "Guia do site": "Aprenda a usar cada página",
+  Notícias: "Lesões, desfalques e voltas",
+  Comunidade: "Feed e stories",
 };
 
 function Logo() {
@@ -274,7 +344,7 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
       <header className="sticky top-0 z-30 border-b border-[var(--color-line)] bg-[var(--color-page)]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-1">
+        <div className="mx-auto flex max-w-7xl 2xl:max-w-screen-2xl items-center gap-3 px-4 py-1">
           <Logo />
           <nav data-tour="nav" className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex" aria-label="Principal">
             {SECTIONS.map(({ to, label, Icon }) => {
@@ -284,7 +354,7 @@ function Shell({ children }: { children: ReactNode }) {
                   key={to}
                   to={to}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors ${
+                  className={`relative ${SO_XL.has(to) ? "hidden xl:flex" : "flex"} items-center gap-1.5 rounded-lg px-2.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors ${
                     active ? "text-[var(--color-ink)]" : "text-[var(--color-ink-3)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-ink)]"
                   }`}
                 >
@@ -294,6 +364,7 @@ function Shell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            <MaisMenu path={path} />
           </nav>
           <div className="flex-1 lg:hidden" />
           <button
@@ -321,19 +392,19 @@ function Shell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-7xl px-4 pt-3">
+      <div className="mx-auto w-full max-w-7xl 2xl:max-w-screen-2xl px-4 pt-3">
         {/* na Início o topo já mostra rodada, mercado e contagem regressiva */}
         {path !== "/" && <SyncBar />}
         <DemoNotice />
       </div>
       {navegando && <div className="loading-bar" role="progressbar" aria-label="Carregando" />}
       <RecebeTokenCartola />
-      <main key={path} className="animate-page mx-auto w-full max-w-7xl flex-1 px-4 pt-3">
+      <main key={path} className="animate-page mx-auto w-full max-w-7xl 2xl:max-w-screen-2xl flex-1 px-4 pt-3">
         {montado && acesso.data?.exigido && !acesso.data.liberado && !paginaLivre(path) ? <Paywall /> : children}
       </main>
 
       <footer className="mt-10 border-t border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:grid-cols-[auto_1fr]">
+        <div className="mx-auto grid max-w-7xl 2xl:max-w-screen-2xl gap-6 px-4 py-8 sm:grid-cols-[auto_1fr]">
           <img src="/logo-sm.png" alt="Tropa" width={70} height={86} className="h-20 w-auto" />
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
             {[...SECTIONS, ...EXTRA, { to: "/conta", label: "Minha conta", Icon: Users, keywords: "" }].map((s) => (
