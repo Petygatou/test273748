@@ -272,6 +272,8 @@ export interface UserRow {
   bloqueadoEm?: string;
   /** sobe quando o admin desconecta todos os aparelhos: sessões antigas deixam de valer */
   sessaoVersao?: number;
+  /** marca (hash) do ADMIN_PASSWORD já aplicado a esta conta: a variável só volta a valer se mudar */
+  envMarca?: string;
 }
 
 export type TipoAparelho = "celular" | "tablet" | "computador";
