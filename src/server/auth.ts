@@ -80,6 +80,8 @@ export function validateCredentials(email: string, password: string) {
 }
 
 let adminApplied = "";
+/** Só para testes: simula o servidor reiniciando (esquece o que já aplicou na memória). */
+export const _esquecerAdminAplicado = () => (adminApplied = "");
 export interface AdminStatus {
   emailDefinido: boolean;
   senhaDefinida: boolean;
@@ -103,7 +105,8 @@ export function adminStatus(): AdminStatus {
  * Conta de administrador definida por variáveis de ambiente: o primeiro e-mail
  * de ADMIN_EMAILS com a senha de ADMIN_PASSWORD. O identificador da conta é
  * derivado do e-mail (igual em todas as instâncias), então o login continua
- * valendo mesmo se o disco for apagado. Nunca lança erro: se a configuração
+ * valendo mesmo se o disco for apagado. A senha da variável é aplicada uma vez
+ * (e de novo só se a variável mudar): trocar a senha pelo site também vale. Nunca lança erro: se a configuração
  * estiver errada, o diagnóstico em /api/saude diz o quê.
  */
 export function ensureAdminAccount() {
@@ -113,9 +116,14 @@ export function ensureAdminAccount() {
   const mark = sha(`${email}:${pw}`);
   const existing = db.users.find((u) => u.email === email);
   if (adminApplied === mark && existing) return;
+  // a senha da variável já foi aplicada a esta conta: uma senha trocada depois no site continua valendo
+  if (existing?.envMarca === mark) {
+    adminApplied = mark;
+    return;
+  }
   try {
     const salt = randomBytes(16).toString("hex");
-    if (existing) db.users.put({ ...existing, salt, hash: hashPassword(pw, salt), admin: true });
+    if (existing) db.users.put({ ...existing, salt, hash: hashPassword(pw, salt), admin: true, envMarca: mark });
     else
       db.users.put({
         id: sha(`admin:${email}`).slice(0, 32),
@@ -127,6 +135,7 @@ export function ensureAdminAccount() {
         hash: hashPassword(pw, salt),
         admin: true,
         criadoEm: new Date().toISOString(),
+        envMarca: mark,
       });
     adminApplied = mark;
   } catch {

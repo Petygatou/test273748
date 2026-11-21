@@ -224,6 +224,25 @@ describe("admin por variável de ambiente", () => {
     delete process.env.ADMIN_EMAILS;
     delete process.env.ADMIN_PASSWORD;
   });
+
+  it("senha trocada pelo site continua valendo depois de reiniciar; a variável só volta a valer se mudar", () => {
+    process.env.ADMIN_EMAILS = "chefe2@tropa.com";
+    process.env.ADMIN_PASSWORD = "senhavariavel1";
+    try {
+      const u = auth.verifyUser("chefe2@tropa.com", "senhavariavel1");
+      auth.changePassword(u, "senhavariavel1", "senhadosite22");
+      auth._esquecerAdminAplicado(); // servidor reiniciou / novo deploy
+      expect(auth.verifyUser("chefe2@tropa.com", "senhadosite22").id).toBe(u.id);
+      expect(() => auth.verifyUser("chefe2@tropa.com", "senhavariavel1")).toThrow();
+      // mudou a variável na hospedagem: ela vale de novo
+      process.env.ADMIN_PASSWORD = "outravariavel3";
+      auth._esquecerAdminAplicado();
+      expect(auth.verifyUser("chefe2@tropa.com", "outravariavel3").id).toBe(u.id);
+    } finally {
+      delete process.env.ADMIN_EMAILS;
+      delete process.env.ADMIN_PASSWORD;
+    }
+  });
 });
 
 describe("vigia dos dados", () => {
