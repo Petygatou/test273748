@@ -100,10 +100,23 @@ describe("webhook /api/cakto", () => {
     expect(db.assinaturas.get("b@b.com")?.status).toBe("ativa");
   });
 
+  it("formulário também vale; corpo ilegível: 400 e fica no histórico", async () => {
+    const { lerCorpo } = await import("../src/routes/api/cakto");
+    const form = new URLSearchParams({ secret: "segredo-de-teste-123", event: "purchase_approved", data: JSON.stringify({ customer: { email: "f@f.com" } }) }).toString();
+    expect(lerCorpo(form)).toMatchObject({ event: "purchase_approved", data: { customer: { email: "f@f.com" } } });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await (Route.options as any).server.handlers.POST({
+      request: new Request("https://tropa.test/api/cakto", { method: "POST", body: form, headers: { "content-type": "application/x-www-form-urlencoded" } }),
+    });
+    expect(r.status).toBe(200);
+    expect(db.assinaturas.get("f@f.com")?.status).toBe("ativa");
+  });
+
   it("corpo que não é JSON: 400", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = await (Route.options as any).server.handlers.POST({ request: new Request("https://tropa.test/api/cakto", { method: "POST", body: "oi" }) });
     expect(r.status).toBe(400);
+    expect(db.eventosPagamento.all()[0]?.resultado).toMatch(/formato não reconhecido/);
   });
 });
 
