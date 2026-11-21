@@ -36,8 +36,9 @@ const COL_INFO: Record<ColunaPos, { pos: number; plural: string }> = {
   VOL: { pos: 4, plural: "Volantes" },
   MEI: { pos: 4, plural: "Meias" },
   ATA: { pos: 5, plural: "Atacantes" },
-  PON: { pos: 5, plural: "Pontas" },
-  CA: { pos: 5, plural: "Centroavantes" },
+  PE: { pos: 5, plural: "Pontas esquerdas" },
+  PD: { pos: 5, plural: "Pontas direitas" },
+  ATC: { pos: 5, plural: "Centroavantes" },
   TEC: { pos: 6, plural: "Técnicos" },
 };
 
@@ -46,7 +47,7 @@ function colunasPara(temLados: boolean, temVolantes: boolean, temAtacantes: bool
   const todas: ColunaPos[] = [
     ...(temLados ? (["GOL", "LD", "LE", "ZAG"] as const) : (["GOL", "LAT", "ZAG"] as const)),
     ...(temVolantes ? (["VOL", "MEI"] as const) : (["MEI"] as const)),
-    ...(temAtacantes ? (["ATA", "PON", "CA"] as const) : (["ATA"] as const)),
+    ...(temAtacantes ? (["ATA", "PE", "PD", "ATC"] as const) : (["ATA"] as const)),
     "TEC",
   ];
   if (m === "pontos") return todas;
@@ -513,7 +514,9 @@ function TabelaLarga({ r, tabela, colunas, metrica, recorte, fator, clubes, titu
 
 /** Cor de cada grupo de posição (fio sob o título da coluna). */
 function corPos(c: ColunaPos) {
-  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", VOL: "#3fae6f", MEI: "#5cc98a", ATA: "#f08a4b", PON: "#f5a36b", CA: "#e06c2f", TEC: "#9a9a92" }[c];
+  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", VOL: "#3fae6f", MEI: "#5cc98a", ATA: "#f08a4b", PE: "#f5a36b", PD: "#f5a36b", ATC: "#e06c2f", TEC: "#9a9a92" }[
+    c
+  ];
 }
 
 /* ------------------------- celular: um bloco por jogo ------------------------- */

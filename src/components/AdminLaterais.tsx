@@ -366,8 +366,8 @@ function Lista({ resumo }: { resumo?: ResumoLados }) {
             <div className="mt-3 border-t border-[var(--color-line)] pt-3">
               <div className="flex justify-between text-xs text-[var(--color-ink-3)]">
                 <span>
-                  Ataque: <b className="text-[var(--color-ink)]">{resumo.atacantes.casados}</b> de {resumo.atacantes.total} nomes achados · {resumo.atacantes.pontas} pontas e{" "}
-                  {resumo.atacantes.centroavantes} centroavantes (colunas PON e CA nas tabelas)
+                  Ataque: <b className="text-[var(--color-ink)]">{resumo.atacantes.casados}</b> de {resumo.atacantes.total} nomes achados · {resumo.atacantes.pontasE} PE, {resumo.atacantes.pontasD} PD
+                  e {resumo.atacantes.centroavantes} ATC (colunas nas tabelas)
                 </span>
                 <span className="tabular">{resumo.atacantes.total ? Math.round((resumo.atacantes.casados / resumo.atacantes.total) * 100) : 0}%</span>
               </div>
