@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AoVivoRouteImport } from './routes/ao-vivo'
+import { Route as AssinarRouteImport } from './routes/assinar'
 import { Route as AssistenteRouteImport } from './routes/assistente'
 import { Route as CampinhosRouteImport } from './routes/campinhos'
 import { Route as ComunidadeRouteImport } from './routes/comunidade'
@@ -50,6 +51,11 @@ const AdminRoute = AdminRouteImport.update({
 const AoVivoRoute = AoVivoRouteImport.update({
   id: '/ao-vivo',
   path: '/ao-vivo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinarRoute = AssinarRouteImport.update({
+  id: '/assinar',
+  path: '/assinar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssistenteRoute = AssistenteRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
+  '/assinar': typeof AssinarRoute
   '/assistente': typeof AssistenteRoute
   '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
+  '/assinar': typeof AssinarRoute
   '/assistente': typeof AssistenteRoute
   '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/ao-vivo': typeof AoVivoRoute
+  '/assinar': typeof AssinarRoute
   '/assistente': typeof AssistenteRoute
   '/campinhos': typeof CampinhosRoute
   '/comunidade': typeof ComunidadeRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/ao-vivo'
+    | '/assinar'
     | '/assistente'
     | '/campinhos'
     | '/comunidade'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/ao-vivo'
+    | '/assinar'
     | '/assistente'
     | '/campinhos'
     | '/comunidade'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/ao-vivo'
+    | '/assinar'
     | '/assistente'
     | '/campinhos'
     | '/comunidade'
@@ -355,6 +367,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AoVivoRoute: typeof AoVivoRoute
+  AssinarRoute: typeof AssinarRoute
   AssistenteRoute: typeof AssistenteRoute
   CampinhosRoute: typeof CampinhosRoute
   ComunidadeRoute: typeof ComunidadeRoute
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/ao-vivo'
       fullPath: '/ao-vivo'
       preLoaderRoute: typeof AoVivoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assinar': {
+      id: '/assinar'
+      path: '/assinar'
+      fullPath: '/assinar'
+      preLoaderRoute: typeof AssinarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assistente': {
@@ -579,6 +599,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AoVivoRoute: AoVivoRoute,
+  AssinarRoute: AssinarRoute,
   AssistenteRoute: AssistenteRoute,
   CampinhosRoute: CampinhosRoute,
   ComunidadeRoute: ComunidadeRoute,
