@@ -57,21 +57,16 @@ function colunasPara(temLados: boolean, temVolantes: boolean, temAtacantes: bool
 }
 
 /**
- * Cor pela comparação com a média: do amarelo claro (abaixo) ao verde escuro (acima).
- * A diferença está também no claro × escuro, não só no matiz: quem é daltônico (amarelo e
- * verde parecidos) ainda distingue abaixo, na média e acima.
+ * Cor pela comparação com a média: do amarelo claro (abaixo) ao verde (acima). O amarelo é
+ * claro para não se confundir com o verde (inclusive para quem é daltônico).
  */
 function corMedia(f: number, spread = 0.35) {
   const t = Math.max(-1, Math.min(1, (f - 1) / spread));
   const x = (t + 1) / 2;
   const amarelo = [254, 240, 138];
-  const meio = [132, 204, 22];
-  const verde = [21, 101, 52];
-  const [de, ate, k] = x < 0.5 ? [amarelo, meio, x * 2] : [meio, verde, (x - 0.5) * 2];
-  const mix = de.map((v, i) => Math.round(v + (ate[i] - v) * k));
-  // texto escuro no fundo claro, branco no escuro
-  const luz = (0.2126 * mix[0] + 0.7152 * mix[1] + 0.0722 * mix[2]) / 255;
-  return { bg: `rgb(${mix.join(" ")})`, fg: luz > 0.45 ? "#0b1206" : "#ffffff" };
+  const verde = [22, 163, 74];
+  const mix = amarelo.map((v, i) => Math.round(v + (verde[i] - v) * x));
+  return { bg: `rgb(${mix.join(" ")})`, fg: "#0b1206" };
 }
 
 const media = (s: SomaPos | undefined, m: MetricaPos) => (s && s.n ? s[m] / s.n : null);
