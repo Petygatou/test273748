@@ -399,7 +399,7 @@ function Numero({
   const v = media(s, metrica);
   if (v == null)
     return (
-      <span className="flex h-full items-center justify-center rounded-md bg-[var(--color-surface-1)] py-1.5 text-xs text-[var(--color-ink-3)]" title="Sem atuações dessa posição no recorte">
+      <span className={`flex h-full items-center justify-center rounded-md bg-[var(--color-surface-2)]/60 text-[var(--color-ink-3)] ${grande ? "py-2 text-[13px]" : "py-1.5 text-[11px]"}`} title="Sem atuações dessa posição no recorte">
         —
       </span>
     );
@@ -410,7 +410,7 @@ function Numero({
       type="button"
       onClick={onClick}
       title={titulo}
-      className={`tabular block w-full rounded-md text-center font-semibold hover:ring-2 hover:ring-white/40 focus-visible:ring-2 ${grande ? "px-1 py-2 text-sm" : "px-0.5 py-1.5 text-xs"}`}
+      className={`tabular block w-full rounded-md text-center font-semibold whitespace-nowrap hover:ring-2 hover:ring-white/40 focus-visible:ring-2 ${grande ? "px-0.5 py-2 text-[13px]" : "px-0 py-1.5 text-[11px] tracking-tight"}`}
       style={{ background: cor.bg, color: cor.fg }}
     >
       {formatar(v, metrica)}
@@ -452,7 +452,7 @@ function TabelaLarga({ r, tabela, colunas, metrica, recorte, fator, clubes, titu
   const espelho = [...colunas].reverse();
   const placar = new Map(r.partidas.map((p) => [p.matchId, p] as const));
   return (
-    <div className="hidden overflow-x-auto px-4 pt-3 pb-4 lg:block">
+    <div className="hidden overflow-x-auto px-4 pt-3 pb-4 xl:block">
       <table className="w-full border-separate border-spacing-[3px] text-sm">
         <thead>
           <tr className="text-[11px] font-bold tracking-wide uppercase">
@@ -468,7 +468,7 @@ function TabelaLarga({ r, tabela, colunas, metrica, recorte, fator, clubes, titu
           </tr>
           <tr className="text-[11px] text-[var(--color-ink-3)]">
             {[...colunas, ...espelho].map((c, i) => (
-              <th key={i} className="min-w-[46px] border-b-2 pb-1 font-semibold" style={{ borderColor: corPos(c) }} title={COL_INFO[c].plural}>
+              <th key={i} className="min-w-[40px] border-b-2 pb-1 font-semibold" style={{ borderColor: corPos(c) }} title={COL_INFO[c].plural}>
                 {c}
               </th>
             ))}
@@ -523,21 +523,20 @@ function corPos(c: ColunaPos) {
 
 function ListaCelular({ r, tabela, colunas, metrica, recorte, fator, clubes, onAbrir }: PropsTabela) {
   const sigla = (id: number) => clubes[id]?.abreviacao ?? `#${id}`;
-  const grade = { gridTemplateColumns: `52px repeat(${colunas.length}, minmax(0, 1fr))` };
+  const grade = { gridTemplateColumns: `repeat(${colunas.length}, minmax(0, 1fr))` };
   const placar = new Map(r.partidas.map((p) => [p.matchId, p] as const));
   return (
-    <ul className="space-y-2 px-3 pt-3 pb-3 sm:px-4 lg:hidden">
+    <ul className="space-y-2 px-2 pt-3 pb-3 sm:px-4 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 xl:hidden">
       {r.linhas.map((l) => {
         const { conquista, cede } = lados(l, tabela);
         const p = placar.get(l.matchId);
+        // nome do time numa linha própria: as colunas de números ficam com a largura toda
         const linha = (b: BlocoPos, rotulo: string) => (
-          <div className="grid items-center gap-[3px]" style={grade}>
-            <span className="min-w-0 leading-tight">
-              <span className="flex items-center gap-1 text-xs font-bold">
-                <ClubBadge club={clubes[b.clubeId]} size={14} />
-                {sigla(b.clubeId)}
-              </span>
-              <span className="block text-[10px] font-semibold whitespace-nowrap text-[var(--color-ink-2)]">
+          <div>
+            <div className="mb-0.5 flex items-center gap-1.5 text-xs leading-none">
+              <ClubBadge club={clubes[b.clubeId]} size={14} />
+              <span className="font-bold">{sigla(b.clubeId)}</span>
+              <span className="text-[10px] font-semibold text-[var(--color-ink-3)]">
                 {rotulo}
                 {recorte != null && b.jogos.length < recorte && (
                   <>
@@ -546,27 +545,31 @@ function ListaCelular({ r, tabela, colunas, metrica, recorte, fator, clubes, onA
                   </>
                 )}
               </span>
-            </span>
-            {colunas.map((c) => (
-              <Numero key={c} s={b.cols[c]} c={c} metrica={metrica} fator={fator} onClick={() => onAbrir(l.matchId, c)} titulo={descrever(b, c, metrica, sigla)} />
-            ))}
+            </div>
+            <div className="grid items-center gap-[2px]" style={grade}>
+              {colunas.map((c) => (
+                <Numero key={c} s={b.cols[c]} c={c} metrica={metrica} fator={fator} onClick={() => onAbrir(l.matchId, c)} titulo={descrever(b, c, metrica, sigla)} />
+              ))}
+            </div>
           </div>
         );
         return (
-          <li key={l.matchId} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-2">
-            <div className="mb-1 grid items-end gap-[3px]" style={grade}>
-              <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--color-ink-3)]">
-                <ClubBadge club={clubes[l.casaId]} size={13} />
-                {p?.golsCasa != null && p.golsFora != null ? `${p.golsCasa}×${p.golsFora}` : "×"}
-                <ClubBadge club={clubes[l.foraId]} size={13} />
-              </span>
+          <li key={l.matchId} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-1)] p-1.5 sm:p-2">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--color-ink-2)]">
+              <ClubBadge club={clubes[l.casaId]} size={14} />
+              {sigla(l.casaId)}
+              <span className="text-[var(--color-ink-3)]">{p?.golsCasa != null && p.golsFora != null ? `${p.golsCasa}×${p.golsFora}` : "×"}</span>
+              {sigla(l.foraId)}
+              <ClubBadge club={clubes[l.foraId]} size={14} />
+            </div>
+            <div className="mb-1 grid items-end gap-[2px]" style={grade}>
               {colunas.map((c) => (
-                <span key={c} className="border-b-2 pb-0.5 text-center text-[10px] font-semibold text-[var(--color-ink-3)]" style={{ borderColor: corPos(c) }}>
+                <span key={c} className="border-b-2 pb-0.5 text-center text-[10px] font-semibold tracking-tight text-[var(--color-ink-3)]" style={{ borderColor: corPos(c) }}>
                   {c}
                 </span>
               ))}
             </div>
-            <div className="space-y-[3px]">
+            <div className="space-y-1.5">
               {linha(conquista, `con ${conquista.casa ? "casa" : "fora"}`)}
               {linha(cede, `cede ${cede.casa ? "casa" : "fora"}`)}
             </div>
