@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BarChart3, Goal, Swords, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Campinho } from "../components/Campinho";
+import { Campinho, ROTULO } from "../components/Campinho";
 import { Alert, Card, ClubBadge, ErrorBox, PageSkeleton, SectionTitle, Seg } from "../components/ui";
 import { FORMAS_GOL, NOME_FORMA, NOME_POSICAO, montarCampinho, type FiltroCampinho, type FormaGol, type PartidaCampinho, type PosCampinho } from "../engine/campinhos";
 import type { Club } from "../engine/types";
@@ -170,26 +170,20 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
   const partida = daRodada.find((p) => p.matchId === matchId) ?? daRodada[0];
   const [periodo, setPeriodo] = useState<Periodo>("todos");
   const [forma, setForma] = useState<"todas" | FormaGol>("todas");
-  const [mando, setMando] = useState<"jogo" | "geral">("geral");
   const [modo, setModo] = useState<"rodada" | "manual">("rodada");
   const [timeA, setTimeA] = useState<number | null>(null);
   const [timeB, setTimeB] = useState<number | null>(null);
   const manual = modo === "manual";
   if (!partida && !manual) return <Card className="p-4 text-sm text-[var(--color-ink-3)]">Sem partidas cadastradas.</Card>;
   // no modo manual contam todos os jogos já disputados; no da rodada, só os de antes dela
-  const filtro = (casa: boolean): FiltroCampinho => ({
-    periodo: periodo === "todos" ? "todos" : Number(periodo),
-    forma,
-    mando: mando === "geral" ? "geral" : casa ? "casa" : "fora",
-    antesDe: manual ? undefined : rodada,
-  });
+  const filtro = (): FiltroCampinho => ({ periodo: periodo === "todos" ? "todos" : Number(periodo), forma, mando: "geral", antesDe: manual ? undefined : rodada });
   const casaId = manual ? timeA : partida!.casaId;
   const foraId = manual ? timeB : partida!.foraId;
   const lados =
     casaId && foraId && casaId !== foraId
       ? [
-          { atq: casaId, def: foraId, atqCasa: true },
-          { atq: foraId, def: casaId, atqCasa: false },
+          { atq: casaId, def: foraId },
+          { atq: foraId, def: casaId },
         ]
       : [];
   return (
@@ -247,24 +241,15 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
           <Filtros periodo={periodo} setPeriodo={setPeriodo} forma={forma} setForma={setForma} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Seg
-            label="Mando"
-            value={mando}
-            onChange={setMando}
-            options={[
-              { value: "geral", label: "Casa e fora" },
-              { value: "jogo", label: "Respeitar o mando" },
-            ]}
-          />
-          <span className="text-xs text-[var(--color-ink-3)]">{manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
+          <span className="text-xs text-[var(--color-ink-3)]">Casa e fora · {manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
         </div>
       </Card>
       {manual && !lados.length && (
         <Card className="p-4 text-sm text-[var(--color-ink-3)]">{timeA && timeA === timeB ? "Escolha dois times diferentes." : "Escolha o mandante e o visitante para ver o confronto."}</Card>
       )}
-      {lados.map(({ atq, def, atqCasa }) => {
-        const a = montarCampinho(d.gols, d.partidas, atq, "ataque", filtro(atqCasa));
-        const b = montarCampinho(d.gols, d.partidas, def, "defesa", filtro(!atqCasa));
+      {lados.map(({ atq, def }) => {
+        const a = montarCampinho(d.gols, d.partidas, atq, "ataque", filtro());
+        const b = montarCampinho(d.gols, d.partidas, def, "defesa", filtro());
         return (
           <Card key={atq} className="p-3 sm:p-4">
             <SectionTitle
@@ -674,8 +659,8 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
                       <span className="rounded-full border border-[var(--color-good)]/40 px-2 py-0.5 text-xs whitespace-nowrap text-[var(--color-good-ink)]">{NOME_FORMA[g.forma]}</span>
                       {g.auto && <span className="ml-1 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] whitespace-nowrap text-[var(--color-ink-3)]">auto</span>}
                     </td>
-                    <td>{g.gol ?? "—"}</td>
-                    <td>{g.assist ?? "—"}</td>
+                    <td>{g.gol ? ROTULO[g.gol] : "—"}</td>
+                    <td>{g.assist ? ROTULO[g.assist] : "—"}</td>
                     <td className="text-right">
                       <button
                         type="button"

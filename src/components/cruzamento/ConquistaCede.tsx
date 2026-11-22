@@ -38,7 +38,7 @@ const COL_INFO: Record<ColunaPos, { pos: number; plural: string }> = {
   ATA: { pos: 5, plural: "Atacantes" },
   PE: { pos: 5, plural: "Pontas esquerdas" },
   PD: { pos: 5, plural: "Pontas direitas" },
-  ATC: { pos: 5, plural: "Centroavantes" },
+  CTV: { pos: 5, plural: "Centroavantes" },
   TEC: { pos: 6, plural: "Técnicos" },
 };
 
@@ -47,7 +47,7 @@ function colunasPara(temLados: boolean, temVolantes: boolean, temAtacantes: bool
   const todas: ColunaPos[] = [
     ...(temLados ? (["GOL", "LD", "LE", "ZAG"] as const) : (["GOL", "LAT", "ZAG"] as const)),
     ...(temVolantes ? (["VOL", "MEI"] as const) : (["MEI"] as const)),
-    ...(temAtacantes ? (["ATA", "PE", "PD", "ATC"] as const) : (["ATA"] as const)),
+    ...(temAtacantes ? (["ATA", "PE", "PD", "CTV"] as const) : (["ATA"] as const)),
     "TEC",
   ];
   if (m === "pontos") return todas;
@@ -56,14 +56,22 @@ function colunasPara(temLados: boolean, temVolantes: boolean, temAtacantes: bool
   return todas.filter((c) => posicoes.includes(COL_INFO[c].pos as 1) && !(m === "DS" && c === "GOL"));
 }
 
-/** Cor pela comparação com a média: do amarelo (abaixo) ao verde (acima), passando pelo verde-limão na média. */
+/**
+ * Cor pela comparação com a média: do amarelo claro (abaixo) ao verde escuro (acima).
+ * A diferença está também no claro × escuro, não só no matiz: quem é daltônico (amarelo e
+ * verde parecidos) ainda distingue abaixo, na média e acima.
+ */
 function corMedia(f: number, spread = 0.35) {
   const t = Math.max(-1, Math.min(1, (f - 1) / spread));
   const x = (t + 1) / 2;
-  const amarelo = [250, 204, 21];
-  const verde = [22, 163, 74];
-  const mix = amarelo.map((v, i) => Math.round(v + (verde[i] - v) * x));
-  return { bg: `rgb(${mix.join(" ")})`, fg: "#0b1206" };
+  const amarelo = [254, 240, 138];
+  const meio = [132, 204, 22];
+  const verde = [21, 101, 52];
+  const [de, ate, k] = x < 0.5 ? [amarelo, meio, x * 2] : [meio, verde, (x - 0.5) * 2];
+  const mix = de.map((v, i) => Math.round(v + (ate[i] - v) * k));
+  // texto escuro no fundo claro, branco no escuro
+  const luz = (0.2126 * mix[0] + 0.7152 * mix[1] + 0.0722 * mix[2]) / 255;
+  return { bg: `rgb(${mix.join(" ")})`, fg: luz > 0.45 ? "#0b1206" : "#ffffff" };
 }
 
 const media = (s: SomaPos | undefined, m: MetricaPos) => (s && s.n ? s[m] / s.n : null);
@@ -399,7 +407,10 @@ function Numero({
   const v = media(s, metrica);
   if (v == null)
     return (
-      <span className={`flex h-full items-center justify-center rounded-md bg-[var(--color-surface-2)]/60 text-[var(--color-ink-3)] ${grande ? "py-2 text-[13px]" : "py-1.5 text-[11px]"}`} title="Sem atuações dessa posição no recorte">
+      <span
+        className={`flex h-full items-center justify-center rounded-md bg-[var(--color-surface-2)]/60 text-[var(--color-ink-3)] ${grande ? "py-2 text-[13px]" : "py-1.5 text-[11px]"}`}
+        title="Sem atuações dessa posição no recorte"
+      >
         —
       </span>
     );
@@ -514,7 +525,7 @@ function TabelaLarga({ r, tabela, colunas, metrica, recorte, fator, clubes, titu
 
 /** Cor de cada grupo de posição (fio sob o título da coluna). */
 function corPos(c: ColunaPos) {
-  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", VOL: "#3fae6f", MEI: "#5cc98a", ATA: "#f08a4b", PE: "#f5a36b", PD: "#f5a36b", ATC: "#e06c2f", TEC: "#9a9a92" }[
+  return { GOL: "#d6c08a", LAT: "#5aa9e6", LD: "#5aa9e6", LE: "#5aa9e6", ZAG: "#a98bd8", VOL: "#3fae6f", MEI: "#5cc98a", ATA: "#f08a4b", PE: "#f5a36b", PD: "#f5a36b", CTV: "#e06c2f", TEC: "#9a9a92" }[
     c
   ];
 }

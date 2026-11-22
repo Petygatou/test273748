@@ -690,7 +690,7 @@ export function resumoLados(
   ligado: boolean,
   lista: ResultadoLista | null = null,
   meias: ResultadoLista<"MEI" | "VOL"> | null = null,
-  atacantes: ResultadoLista<"ATC" | "PE" | "PD"> | null = null,
+  atacantes: ResultadoLista<"CTV" | "PE" | "PD"> | null = null,
 ) {
   const comb = ladosAutomaticos(temporada);
   const rows = db.ladosJogos.all();
@@ -745,7 +745,7 @@ export function resumoLados(
       casados: Object.keys(atacantes.lados).length,
       pontasE: Object.values(atacantes.lados).filter((f) => f === "PE").length,
       pontasD: Object.values(atacantes.lados).filter((f) => f === "PD").length,
-      centroavantes: Object.values(atacantes.lados).filter((f) => f === "ATC").length,
+      centroavantes: Object.values(atacantes.lados).filter((f) => f === "CTV").length,
       semPar: atacantes.semPar,
       conflitos: atacantes.conflitos,
     },
