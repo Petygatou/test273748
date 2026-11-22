@@ -74,15 +74,15 @@ function setorValido(scout: CruzScout, setor: SetorUi): SetorUi {
   return pos.includes(5) ? "5" : pos.includes(1) ? "1" : "time";
 }
 
-/** Degradê do amarelo (menor) ao verde (maior incidência): a cor muda e fica mais forte. */
+/** Degradê do amarelo âmbar (menor; o mesmo da Cedência) ao verde (maior incidência): a cor muda e fica mais forte. */
 function corEscala(t: number) {
   const x = Math.max(0, Math.min(1, t));
-  const de = [250, 204, 21];
-  const ate = [34, 197, 94];
+  const de = [251, 191, 36];
+  const ate = [22, 163, 74];
   return de.map((v, i) => Math.round(v + (ate[i] - v) * x)).join(" ");
 }
-/** Fundo translúcido (amarelo puxando para oliva nos menores) que vai ficando verde e mais forte. */
-const fundo = (t: number) => ({ background: `rgb(${corEscala(t)} / ${(0.3 + 0.3 * t).toFixed(3)})`, borderColor: `rgb(${corEscala(t)} / ${(0.55 + 0.4 * t).toFixed(3)})` });
+/** Fundo cheio, como na Cedência: âmbar nos menores, verde nos maiores, com texto escuro. */
+const fundo = (t: number) => ({ background: `rgb(${corEscala(t)})`, borderColor: `rgb(${corEscala(t)})`, color: "#0b1206" });
 
 const ROTULO = "mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--color-ink-3)] uppercase";
 
@@ -504,7 +504,7 @@ export function PorTimes({
             </p>
             <span className="flex items-center gap-1.5 text-[11px] text-[var(--color-ink-3)]" aria-hidden>
               menor
-              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)} / 0.3), rgb(${corEscala(0.5)} / 0.45), rgb(${corEscala(1)} / 0.6))` }} />
+              <span className="h-2 w-16 rounded-full" style={{ background: `linear-gradient(90deg, rgb(${corEscala(0)}), rgb(${corEscala(0.5)}), rgb(${corEscala(1)}))` }} />
               maior incidência
             </span>
           </div>
@@ -563,13 +563,13 @@ function Celula({ x, valor, maximo, recorte }: { x: LadoTimes; valor: "total" | 
     <div className="relative flex w-full flex-col items-center overflow-hidden rounded-xl border py-1.5" style={fundo(t)}>
       <span className="font-display text-lg leading-tight font-bold tabular sm:text-xl">{x.jogos ? (valor === "total" ? v : fmt1(v)) : "—"}</span>
       <span
-        className={`text-[10px] leading-tight ${curta ? "font-semibold text-[var(--color-warning)]" : "text-[var(--color-ink-3)]"}`}
+        className={`text-[10px] leading-tight ${curta ? "font-bold text-[#7c2d12] underline" : "text-black/60"}`}
         title={curta ? "Menos jogos que o recorte: o time não tem tantos jogos nesse mando" : undefined}
       >
         {x.jogos} {x.jogos === 1 ? "jogo" : "jogos"}
         {valor === "total" && x.jogos ? <span className="hidden sm:inline"> · {fmt1(x.media)}/j</span> : null}
       </span>
-      <span className="absolute bottom-0 left-0 h-[3px] rounded-r-full" style={{ width: `${Math.max(0, t) * 100}%`, background: `rgb(${corEscala(t)})` }} aria-hidden />
+      <span className="absolute bottom-0 left-0 h-[3px] rounded-r-full bg-black/25" style={{ width: `${Math.max(0, t) * 100}%` }} aria-hidden />
     </div>
   );
 }
