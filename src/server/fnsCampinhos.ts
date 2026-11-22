@@ -27,8 +27,8 @@ export const apagarGolFn = createServerFn({ method: "POST" })
   .validator((d: { id?: unknown } | undefined) => ({ id: String(d?.id ?? "") }))
   .handler(async ({ data }) => {
     const { requireAdmin } = await import("./auth");
-    requireAdmin();
-    (await import("./campinhos")).apagar(data.id);
+    const admin = requireAdmin();
+    await (await import("./campinhos")).apagar(data.id, admin.id);
     return { ok: true };
   });
 
@@ -64,6 +64,15 @@ export const apagarPartidaFn = createServerFn({ method: "POST" })
     const { requireAdmin } = await import("./auth");
     requireAdmin();
     (await import("./campinhos")).apagarPartida(data.matchId);
+    return { ok: true };
+  });
+
+export const voltarAutomaticoFn = createServerFn({ method: "POST" })
+  .validator((d: { matchId?: unknown; clubeId?: unknown } | undefined) => ({ matchId: Number(d?.matchId), clubeId: Number(d?.clubeId) }))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./auth");
+    requireAdmin();
+    await (await import("./campinhos")).voltarAoAutomatico(data.matchId, data.clubeId);
     return { ok: true };
   });
 
