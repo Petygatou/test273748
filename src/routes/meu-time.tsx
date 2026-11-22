@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Crown, Lock, Swords, Trophy, Wallet } from "lucide-react";
+import { ChevronDown, Crown, KeyRound, Lock, RefreshCw, Swords, Trophy, Wallet } from "lucide-react";
 import { useMemo } from "react";
 import { AskButton } from "../components/AskButton";
 import { CartolaConnect, useCartolaToken } from "../components/CartolaConnect";
+import { EscolherMeuTime } from "../components/EscolherMeuTime";
+import type { TeamSummary } from "../server/cartolaConta";
 import { FollowedTeams } from "../components/FollowedTeams";
 import { Alert, Card, ClubBadge, PageSkeleton, PlayerPhoto, PosBadge, SectionTitle, StatTile } from "../components/ui";
 import { optimizeLineup } from "../engine/optimizer";
@@ -11,17 +13,23 @@ import { CAPTAIN_MULTIPLIER } from "../engine/rules";
 import { compactPlayer } from "../lib/derive";
 import { cs, fmt1, signed } from "../lib/format";
 import { analysisQuery } from "../lib/queries";
-import { KEYS, readLocal, writeLocal } from "../lib/storage";
-import { myLeaguesFn, myTeamFn } from "../server/fnsCartola";
+import { KEYS, readLocal, useLocal, writeLocal } from "../lib/storage";
+import { fetchTeamFn, myLeaguesFn, myTeamFn } from "../server/fnsCartola";
 
-export const Route = createFileRoute("/meu-time")({
-  component: MyTeamPage,
-});
+export const Route = createFileRoute("/meu-time")({ component: MyTeamPage });
 
 function MyTeamPage() {
   const [token, setToken] = useCartolaToken();
+  // sem login: o time escolhido pelo nome (leitura pública do Cartola)
+  const [meuTime, setMeuTime] = useLocal<TeamSummary | null>(KEYS.meuTime, null);
   const an = useQuery(analysisQuery);
-  const team = useQuery({ queryKey: ["meu-time", token.slice(-12)], queryFn: () => myTeamFn({ data: { token } }), enabled: Boolean(token), retry: false, staleTime: 60_000 });
+  const team = useQuery({
+    queryKey: ["meu-time", token ? token.slice(-12) : `publico:${meuTime?.timeId ?? ""}`],
+    queryFn: () => (token ? myTeamFn({ data: { token } }) : fetchTeamFn({ data: { id: meuTime!.timeId } })),
+    enabled: Boolean(token || meuTime),
+    retry: false,
+    staleTime: 60_000,
+  });
   const leagues = useQuery({ queryKey: ["minhas-ligas", token.slice(-12)], queryFn: () => myLeaguesFn({ data: { token } }), enabled: Boolean(token), retry: false, staleTime: 5 * 60_000 });
   const navigate = useNavigate();
 
@@ -44,16 +52,31 @@ function MyTeamPage() {
         <h1 className="font-display text-2xl font-extrabold">Meu Time</h1>
         <p className="text-sm text-[var(--color-ink-3)]">Seu time do Cartola lido da API oficial, comparado com a tropa ótima do motor para o seu patrimônio.</p>
       </div>
-      <div data-tour="meutime-conectar">
-        <CartolaConnect />
+      <div data-tour="meutime-conectar" className="space-y-3">
+        {token ? <CartolaConnect /> : !meuTime ? <EscolherMeuTime onEscolher={setMeuTime} /> : null}
+        {!token && (
+          <details className="group rounded-2xl border border-[var(--color-line)] bg-[var(--color-surface-1)]/40">
+            <summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-sm font-semibold sm:p-4">
+              <KeyRound size={16} className="shrink-0 text-[var(--color-gold)]" aria-hidden />
+              <span className="flex-1">
+                Opcional: conectar a conta Globo
+                <span className="block text-xs font-normal text-[var(--color-ink-3)]">Só para ver suas ligas privadas e escalar direto pelo Tropa. Para ver o seu time, não precisa.</span>
+              </span>
+              <ChevronDown size={16} className="shrink-0 transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+              <CartolaConnect />
+            </div>
+          </details>
+        )}
       </div>
 
-      {token && team.isLoading && <PageSkeleton />}
-      {token && team.error && (
+      {(token || meuTime) && team.isLoading && <PageSkeleton />}
+      {(token || meuTime) && team.error && (
         <Alert tone="critical">
           {team.error instanceof Error ? team.error.message : "Falha ao ler seu time."}{" "}
-          <button className="underline" onClick={() => setToken("")}>
-            Trocar token
+          <button className="underline" onClick={() => (token ? setToken("") : setMeuTime(null))}>
+            {token ? "Desconectar" : "Escolher outro time"}
           </button>
         </Alert>
       )}
@@ -65,6 +88,11 @@ function MyTeamPage() {
             <div className="min-w-0 flex-1">
               <div className="font-display truncate text-xl font-bold">{t.time.nome}</div>
               <div className="text-sm text-[var(--color-ink-3)]">{t.time.cartoleiro}</div>
+              {!token && (
+                <button type="button" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-ink-2)] underline" onClick={() => setMeuTime(null)}>
+                  <RefreshCw size={12} aria-hidden /> Não é o seu? Trocar de time
+                </button>
+              )}
             </div>
             {t.patrimonio != null && (
               <button
@@ -81,7 +109,10 @@ function MyTeamPage() {
             <button
               className="btn btn-ghost"
               onClick={() => {
-                writeLocal(KEYS.fixed, t.atletas.map((x) => x.atletaId));
+                writeLocal(
+                  KEYS.fixed,
+                  t.atletas.map((x) => x.atletaId),
+                );
                 navigate({ to: "/escalacao" });
               }}
             >
@@ -151,7 +182,10 @@ function MyTeamPage() {
             </Card>
             <Card className="p-4">
               <SectionTitle title="Minhas ligas" icon={<Trophy size={18} className="text-[var(--color-gold)]" />} />
-              {leagues.isLoading && <p className="text-sm text-[var(--color-ink-3)]">Carregando…</p>}
+              {!token && (
+                <p className="text-sm text-[var(--color-ink-3)]">O Cartola só mostra as suas ligas para quem conecta a conta Globo (opcional, no topo da página). As ligas públicas estão em Ligas.</p>
+              )}
+              {token && leagues.isLoading && <p className="text-sm text-[var(--color-ink-3)]">Carregando…</p>}
               {leagues.error && <Alert tone="warning">{leagues.error instanceof Error ? leagues.error.message : "Falha ao ler ligas"}</Alert>}
               <ul className="space-y-1.5">
                 {(leagues.data ?? []).map((l) => (

@@ -93,6 +93,8 @@ export const KEYS = {
   lastLineup: "cfc:last-lineup",
   chat: "cfc:chat",
   cartolaToken: "cfc:cartola-token",
+  /** o time do Cartola escolhido pelo nome (sem login): só leitura pública */
+  meuTime: "cfc:meu-time-cartola",
   followed: "cfc:followed-teams",
   mercadoCols: "cfc:mercado-colunas-v2",
   ligasRecentes: "cfc:ligas-recentes",
