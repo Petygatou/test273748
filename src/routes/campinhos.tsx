@@ -171,19 +171,26 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
   const [periodo, setPeriodo] = useState<Periodo>("todos");
   const [forma, setForma] = useState<"todas" | FormaGol>("todas");
   const [modo, setModo] = useState<"rodada" | "manual">("rodada");
+  const [mando, setMando] = useState<"geral" | "mando">("geral");
   const [timeA, setTimeA] = useState<number | null>(null);
   const [timeB, setTimeB] = useState<number | null>(null);
   const manual = modo === "manual";
   if (!partida && !manual) return <Card className="p-4 text-sm text-[var(--color-ink-3)]">Sem partidas cadastradas.</Card>;
   // no modo manual contam todos os jogos já disputados; no da rodada, só os de antes dela
-  const filtro = (): FiltroCampinho => ({ periodo: periodo === "todos" ? "todos" : Number(periodo), forma, mando: "geral", antesDe: manual ? undefined : rodada });
+  // "mando": o mandante conta só os jogos em casa e o visitante só os jogos fora
+  const filtro = (casa: boolean): FiltroCampinho => ({
+    periodo: periodo === "todos" ? "todos" : Number(periodo),
+    forma,
+    mando: mando === "geral" ? "geral" : casa ? "casa" : "fora",
+    antesDe: manual ? undefined : rodada,
+  });
   const casaId = manual ? timeA : partida!.casaId;
   const foraId = manual ? timeB : partida!.foraId;
   const lados =
     casaId && foraId && casaId !== foraId
       ? [
-          { atq: casaId, def: foraId },
-          { atq: foraId, def: casaId },
+          { atq: casaId, def: foraId, atqCasa: true },
+          { atq: foraId, def: casaId, atqCasa: false },
         ]
       : [];
   return (
@@ -241,15 +248,27 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
           <Filtros periodo={periodo} setPeriodo={setPeriodo} forma={forma} setForma={setForma} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-[var(--color-ink-3)]">Casa e fora · {manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
+          <Seg
+            label="Mando"
+            value={mando}
+            onChange={setMando}
+            options={[
+              { value: "geral", label: "Casa e fora" },
+              { value: "mando", label: "Obedecendo o mando" },
+            ]}
+          />
+          <span className="text-xs text-[var(--color-ink-3)]">
+            {mando === "mando" ? "Mandante só com jogos em casa, visitante só com jogos fora. " : "Todos os jogos, em casa e fora. "}
+            {manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}
+          </span>
         </div>
       </Card>
       {manual && !lados.length && (
         <Card className="p-4 text-sm text-[var(--color-ink-3)]">{timeA && timeA === timeB ? "Escolha dois times diferentes." : "Escolha o mandante e o visitante para ver o confronto."}</Card>
       )}
-      {lados.map(({ atq, def }) => {
-        const a = montarCampinho(d.gols, d.partidas, atq, "ataque", filtro());
-        const b = montarCampinho(d.gols, d.partidas, def, "defesa", filtro());
+      {lados.map(({ atq, def, atqCasa }) => {
+        const a = montarCampinho(d.gols, d.partidas, atq, "ataque", filtro(atqCasa));
+        const b = montarCampinho(d.gols, d.partidas, def, "defesa", filtro(!atqCasa));
         return (
           <Card key={atq} className="p-3 sm:p-4">
             <SectionTitle
