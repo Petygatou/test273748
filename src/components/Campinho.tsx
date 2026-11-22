@@ -15,7 +15,8 @@ const LUGAR: Record<PosCampinho, { x: number; y: number }> = {
   ZAG: { x: 50, y: 80 },
 };
 
-const ROTULO: Record<PosCampinho, string> = { CENTRO: "CENTRO", PONTE: "PONTE", PONTD: "PONTD", MEI: "MEI", VOL: "VOL", LATE: "LATE", LATD: "LATD", ZAG: "ZAG" };
+/** Siglas como no FIFA (iguais às das Estatísticas): centroavante CTV, pontas PE/PD, laterais LE/LD. */
+export const ROTULO: Record<PosCampinho, string> = { CENTRO: "CTV", PONTE: "PE", PONTD: "PD", MEI: "MEI", VOL: "VOL", LATE: "LE", LATD: "LD", ZAG: "ZAG" };
 
 type Props = {
   titulo?: ReactNode;

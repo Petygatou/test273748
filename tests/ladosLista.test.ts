@@ -160,15 +160,15 @@ describe("lista de atacantes (pontas × centroavantes)", () => {
   it("a lista virou 190 linhas: 111 centroavantes, 41 pontas esquerdas e 38 direitas, siglas do Cartola", async () => {
     const { LISTA_ATACANTES } = await import("../src/data/atacantesLista");
     expect(LISTA_ATACANTES).toHaveLength(190);
-    expect(LISTA_ATACANTES.filter((l) => l[2] === "ATC")).toHaveLength(111);
+    expect(LISTA_ATACANTES.filter((l) => l[2] === "CTV")).toHaveLength(111);
     expect(LISTA_ATACANTES.filter((l) => l[2] === "PE")).toHaveLength(41);
     expect(LISTA_ATACANTES.filter((l) => l[2] === "PD")).toHaveLength(38);
     for (const [, sigla] of LISTA_ATACANTES) expect(SIGLAS).toContain(sigla);
   });
 
-  it("atacante classificado continua em ATA e também entra em PE, PD ou ATC (como no FIFA); sem lista, só ATA", async () => {
+  it("atacante classificado continua em ATA e também entra em PE, PD ou CTV (como no FIFA); sem lista, só ATA", async () => {
     const { colunasDaLinha } = await import("../src/engine/cruzamento");
-    expect(colunasDaLinha({ pos: 5, ataque: "ATC" })).toEqual(["ATA", "ATC"]);
+    expect(colunasDaLinha({ pos: 5, ataque: "CTV" })).toEqual(["ATA", "CTV"]);
     expect(colunasDaLinha({ pos: 5, ataque: "PE" })).toEqual(["ATA", "PE"]);
     expect(colunasDaLinha({ pos: 5, ataque: "PD" })).toEqual(["ATA", "PD"]);
     expect(colunasDaLinha({ pos: 5 })).toEqual(["ATA"]);
@@ -182,13 +182,13 @@ describe("lista de atacantes (pontas × centroavantes)", () => {
       [pedro, pedroRocha],
       clubs,
       [
-        ["Pedro", "fla", "ATC"],
-        ["Pedro Rocha", "cfc", "ATC"],
+        ["Pedro", "fla", "CTV"],
+        ["Pedro Rocha", "cfc", "CTV"],
         ["Canobbio", "flu", "PD"],
       ],
       5,
     );
-    expect(r.lados).toEqual({ [pedro.id]: "ATC", [pedroRocha.id]: "ATC" });
+    expect(r.lados).toEqual({ [pedro.id]: "CTV", [pedroRocha.id]: "CTV" });
     expect(r.semPar.map((x) => x.nome)).toEqual(["Canobbio"]);
   });
 });

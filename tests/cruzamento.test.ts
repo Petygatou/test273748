@@ -323,7 +323,7 @@ describe("conquistado × cedido por posição (tabelas de mandantes e visitantes
         ] as const) {
           const row = ced.rows.find((r) => r.clubeId === b.clubeId)!;
           for (const c of COLUNAS_POS) {
-            if (c === "VOL" || c === "PE" || c === "PD" || c === "ATC") continue; // a matriz não separa volantes, pontas e centroavantes
+            if (c === "VOL" || c === "PE" || c === "PD" || c === "CTV") continue; // a matriz não separa volantes, pontas e centroavantes
             const cell = row.janelas![n][rec][pos[c]];
             expect(b.cols[c].n).toBe(cell.jogos);
             if (b.cols[c].n) expect(b.cols[c].pontos / b.cols[c].n).toBeCloseTo(cell.pontos, 1);

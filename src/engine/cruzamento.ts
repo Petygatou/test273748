@@ -28,7 +28,7 @@ export interface Linha {
   /** meia classificado como volante pela lista da equipe */
   volante?: boolean;
   /** atacante classificado pela lista da equipe: centroavante ou ponta (esquerda/direita) */
-  ataque?: "ATC" | "PE" | "PD";
+  ataque?: "CTV" | "PE" | "PD";
 }
 
 export interface JogoClube {
@@ -116,7 +116,7 @@ const r3 = (x: number) => Math.round(x * 1000) / 1000;
 /* ------------------------- cruzamento por times ------------------------- */
 
 /** Setor analisado: uma posição, laterais por lado, ou o time inteiro (sem técnico). */
-export type SetorTimes = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD" | "VOL" | "MEI" | "PON" | "PE" | "PD" | "ATC";
+export type SetorTimes = "time" | 1 | 2 | 3 | 4 | 5 | "LE" | "LD" | "VOL" | "MEI" | "PON" | "PE" | "PD" | "CTV";
 
 export interface JogoTimes {
   rodada: number;
@@ -158,7 +158,7 @@ export interface OpcoesTimes {
   lado: "mandantes" | "visitantes";
 }
 
-/** "VOL": volantes da lista da equipe; "MEI": os demais meias (4 = meio-campo inteiro). "PE"/"PD"/"ATC": ponta esquerda, ponta direita e centroavante; "PON": as duas pontas (5 = todos os atacantes). */
+/** "VOL": volantes da lista da equipe; "MEI": os demais meias (4 = meio-campo inteiro). "PE"/"PD"/"CTV": ponta esquerda, ponta direita e centroavante; "PON": as duas pontas (5 = todos os atacantes). */
 const doSetor = (setor: SetorTimes) => (l: Linha) =>
   setor === "time"
     ? l.pos !== 6
@@ -172,7 +172,7 @@ const doSetor = (setor: SetorTimes) => (l: Linha) =>
             ? l.pos === 4 && !l.volante
             : setor === "PON"
               ? l.pos === 5 && (l.ataque === "PE" || l.ataque === "PD")
-              : setor === "PE" || setor === "PD" || setor === "ATC"
+              : setor === "PE" || setor === "PD" || setor === "CTV"
                 ? l.pos === 5 && l.ataque === setor
                 : l.pos === setor;
 
@@ -248,8 +248,8 @@ export function cruzarTimes(base: BaseCruzamento, opts: OpcoesTimes, historicoRo
 /* ------------------- conquistado × cedido por posição ------------------- */
 
 /** Colunas da tabela por posição: as do Cartola, com os laterais também por lado. */
-export type ColunaPos = "GOL" | "LAT" | "LD" | "LE" | "ZAG" | "VOL" | "MEI" | "ATA" | "PE" | "PD" | "ATC" | "TEC";
-export const COLUNAS_POS: ColunaPos[] = ["GOL", "LAT", "LD", "LE", "ZAG", "VOL", "MEI", "ATA", "PE", "PD", "ATC", "TEC"];
+export type ColunaPos = "GOL" | "LAT" | "LD" | "LE" | "ZAG" | "VOL" | "MEI" | "ATA" | "PE" | "PD" | "CTV" | "TEC";
+export const COLUNAS_POS: ColunaPos[] = ["GOL", "LAT", "LD", "LE", "ZAG", "VOL", "MEI", "ATA", "PE", "PD", "CTV", "TEC"];
 const COLUNA_DA_POS: Record<PositionId, ColunaPos> = { 1: "GOL", 2: "LAT", 3: "ZAG", 4: "MEI", 5: "ATA", 6: "TEC" };
 
 /** Métricas da tabela: a média é sempre por atuação (cada atleta em cada jogo). */
@@ -260,7 +260,7 @@ export type SomaPos = Record<MetricaPos, number> & { /** atuações */ n: number
 /** Colunas em que a atuação entra: a posição e, para lateral com lado conhecido, o lado. */
 /**
  * Lateral com lado também entra em LE/LD; volante (pela lista) vai para VOL e os demais meias ficam em MEI;
- * atacante classificado continua em ATA (todos os atacantes) e também entra em PE (ponta esquerda), PD (ponta direita) ou ATC (centroavante), como no FIFA.
+ * atacante classificado continua em ATA (todos os atacantes) e também entra em PE (ponta esquerda), PD (ponta direita) ou CTV (centroavante), como no FIFA.
  */
 export const colunasDaLinha = (l: Pick<Linha, "pos" | "lado" | "volante" | "ataque">): ColunaPos[] =>
   l.pos === 2 && l.lado ? ["LAT", l.lado === "E" ? "LE" : "LD"] : l.pos === 4 && l.volante ? ["VOL"] : l.pos === 5 && l.ataque ? ["ATA", l.ataque] : [COLUNA_DA_POS[l.pos]];
