@@ -241,8 +241,7 @@ function Confrontos({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Cl
           <Filtros periodo={periodo} setPeriodo={setPeriodo} forma={forma} setForma={setForma} />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Seg label="Mando" value="geral" onChange={() => {}} options={[{ value: "geral", label: "Casa e fora" }]} />
-          <span className="text-xs text-[var(--color-ink-3)]">{manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
+          <span className="text-xs text-[var(--color-ink-3)]">Casa e fora · {manual ? "Contam todos os jogos já disputados." : `Contam só os jogos antes da rodada ${rodada}.`}</span>
         </div>
       </Card>
       {manual && !lados.length && (
