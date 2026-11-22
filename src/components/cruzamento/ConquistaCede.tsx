@@ -57,13 +57,13 @@ function colunasPara(temLados: boolean, temVolantes: boolean, temAtacantes: bool
 }
 
 /**
- * Cor pela comparação com a média: do amarelo claro (abaixo) ao verde (acima). O amarelo é
- * claro para não se confundir com o verde (inclusive para quem é daltônico).
+ * Cor pela comparação com a média: do amarelo forte e quente (âmbar, abaixo) ao verde (acima).
+ * O âmbar puxa para o dourado, longe do verde, para não se confundirem.
  */
 function corMedia(f: number, spread = 0.35) {
   const t = Math.max(-1, Math.min(1, (f - 1) / spread));
   const x = (t + 1) / 2;
-  const amarelo = [254, 240, 138];
+  const amarelo = [251, 191, 36];
   const verde = [22, 163, 74];
   const mix = amarelo.map((v, i) => Math.round(v + (verde[i] - v) * x));
   return { bg: `rgb(${mix.join(" ")})`, fg: "#0b1206" };
