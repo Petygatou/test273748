@@ -8,7 +8,7 @@ import { FORMAS_GOL, NOME_FORMA, NOME_POSICAO, montarCampinho, type FiltroCampin
 import type { Club } from "../engine/types";
 import { useAuth } from "../lib/auth";
 import { useRealtime } from "../lib/realtime";
-import { apagarGolFn, apagarPartidaFn, criarPartidaFn, fetchCampinhos, importarGolsFn, lancarGolFn, type CampinhosBase } from "../server/fnsCampinhos";
+import { apagarGolFn, apagarPartidaFn, criarPartidaFn, fetchCampinhos, importarGolsFn, lancarGolFn, voltarAutomaticoFn, type CampinhosBase } from "../server/fnsCampinhos";
 
 type Aba = "confrontos" | "times" | "lancar" | "importar";
 const ABAS: Aba[] = ["confrontos", "times", "lancar", "importar"];
@@ -37,7 +37,9 @@ function CampinhosPage() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display text-2xl font-extrabold sm:text-3xl">Campinhos</h1>
-        <p className="text-sm text-[var(--color-ink-3)]">Gols e assistências por posição: ataque de um time contra a defesa do outro, com todos os gols lançados.</p>
+        <p className="text-sm text-[var(--color-ink-3)]">
+          Gols e assistências por posição: ataque de um time contra a defesa do outro. Os gols vêm sozinhos do Cartola e a equipe corrige à mão quando precisa.
+        </p>
       </div>
       <div className="-mx-1 overflow-x-auto px-1 scrollbar-none">
         <Seg
@@ -372,6 +374,18 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
   const daRodada = d.partidas.filter((p) => p.rodada === rodada);
   const partida = daRodada.find((p) => p.matchId === matchId) ?? null;
   const lancadosNoJogo = (c: number) => d.gols.filter((g) => g.matchId === partida?.matchId && g.clubeId === c).length;
+  const corrigido = (c: number) => Boolean(partida && d.corrigidos.includes(`${partida.matchId}:${c}`));
+  const voltarAuto = async (c: number) => {
+    if (!partida) return;
+    if (!window.confirm(`Voltar o ${clubes[c]?.nome} ao automático nesse jogo? Os gols lançados à mão dele aqui serão apagados.`)) return;
+    try {
+      await voltarAutomaticoFn({ data: { matchId: partida.matchId, clubeId: c } });
+      await qc.invalidateQueries({ queryKey: CHAVE });
+      setMsg({ tom: "ok", texto: `${clubes[c]?.nome} voltou aos gols automáticos do Cartola nesse jogo.` });
+    } catch (e) {
+      setMsg({ tom: "erro", texto: e instanceof Error ? e.message : "Falha ao voltar ao automático" });
+    }
+  };
   const placar = (c: number) => (partida ? (c === partida.casaId ? partida.golsCasa : partida.golsFora) : null);
 
   const lancar = async () => {
@@ -426,6 +440,7 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
     }
   };
   const apagar = async (id: string) => {
+    if (id.startsWith("auto:") && !window.confirm("Apagar esse gol automático? Esse time nesse jogo passa a ser corrigido à mão (os outros gols dele ficam e podem ser editados).")) return;
     try {
       await apagarGolFn({ data: { id } });
       await qc.invalidateQueries({ queryKey: CHAVE });
@@ -433,10 +448,17 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
       setMsg({ tom: "erro", texto: e instanceof Error ? e.message : "Falha ao apagar" });
     }
   };
-  const ultimos = (partida ? d.gols.filter((g) => g.matchId === partida.matchId) : d.gols).slice(0, 40);
+  // sem partida escolhida: só as correções à mão (os automáticos são milhares)
+  const ultimos = (partida ? d.gols.filter((g) => g.matchId === partida.matchId) : d.gols.filter((g) => !g.auto)).slice(0, 40);
+  const nAuto = d.gols.filter((g) => g.auto).length;
 
   return (
     <div className="space-y-4">
+      <Alert tone="info">
+        Os gols de cada jogo encerrado entram <b>sozinhos</b>, pelos scouts do Cartola: posição de quem fez e de quem deu a assistência (pelas listas de laterais, meias e atacantes). A forma do gol
+        fica “não informada”. Para <b>corrigir à mão</b>, escolha a partida: lançar ou apagar um gol num time faz esse time, nesse jogo, valer como manual — os gols automáticos dele são copiados para
+        você editar, e dá para voltar ao automático quando quiser.
+      </Alert>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-3 sm:p-4">
           <h2 className="mb-3 font-semibold">1. Partida</h2>
@@ -549,8 +571,20 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
                       <div
                         className={`mt-0.5 ${placar(c) != null && lancadosNoJogo(c) > placar(c)! ? "font-semibold text-[var(--color-warning)]" : lancadosNoJogo(c) === placar(c) ? "text-[var(--color-good-ink)]" : "text-[var(--color-ink-3)]"}`}
                       >
-                        {lancadosNoJogo(c)} de {placar(c) ?? "?"} gols lançados
+                        {lancadosNoJogo(c)} de {placar(c) ?? "?"} gols
                         {placar(c) != null && lancadosNoJogo(c) > placar(c)! ? " · mais que o placar" : lancadosNoJogo(c) === placar(c) ? " ✓" : ""}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {corrigido(c) ? (
+                          <>
+                            <span className="rounded-full border border-[var(--color-brand)]/50 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-brand)]">corrigido à mão</span>
+                            <button type="button" className="text-[10px] font-semibold text-[var(--color-ink-2)] underline" onClick={() => voltarAuto(c)}>
+                              voltar ao automático
+                            </button>
+                          </>
+                        ) : (
+                          <span className="rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-ink-3)]">automático (Cartola)</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -610,9 +644,12 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
         </Card>
       </div>
       <Card className="p-3 sm:p-4">
-        <SectionTitle title={partida ? "Gols lançados nesta partida" : "Últimos gols lançados"} subtitle={`${d.gols.length} gols lançados na temporada ${d.temporada}`} />
+        <SectionTitle
+          title={partida ? "Gols desta partida" : "Últimas correções à mão"}
+          subtitle={`${d.gols.length} gols na temporada ${d.temporada}: ${nAuto} automáticos do Cartola e ${d.gols.length - nAuto} lançados à mão`}
+        />
         {!ultimos.length ? (
-          <p className="text-sm text-[var(--color-ink-3)]">Nenhum gol lançado ainda.</p>
+          <p className="text-sm text-[var(--color-ink-3)]">{partida ? "Nenhum gol nesta partida." : "Nenhuma correção à mão ainda: todos os gols vêm do Cartola."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="data w-full text-sm">
@@ -635,6 +672,7 @@ function Lancar({ d, clubes }: { d: CampinhosBase; clubes: Record<number, Club> 
                     <td className="whitespace-nowrap">{clubes[g.adversarioId]?.nome}</td>
                     <td>
                       <span className="rounded-full border border-[var(--color-good)]/40 px-2 py-0.5 text-xs whitespace-nowrap text-[var(--color-good-ink)]">{NOME_FORMA[g.forma]}</span>
+                      {g.auto && <span className="ml-1 rounded-full border border-[var(--color-line)] px-1.5 py-0.5 text-[10px] whitespace-nowrap text-[var(--color-ink-3)]">auto</span>}
                     </td>
                     <td>{g.gol ?? "—"}</td>
                     <td>{g.assist ?? "—"}</td>

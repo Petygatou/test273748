@@ -1,8 +1,13 @@
 /**
- * Campinhos (somente servidor): partidas da temporada vindas do Cartola e gols lançados
- * à mão pela equipe. As funções de servidor (fnsCampinhos.ts) validam e chamam este módulo.
+ * Campinhos (somente servidor): partidas da temporada vindas do Cartola e os gols.
+ *  - Automático: os gols de cada jogo encerrado saem dos scouts do Cartola (G, A, GC), com a
+ *    posição de quem fez pelas listas da equipe (laterais, meias, atacantes).
+ *  - Correção à mão: lançar, apagar ou importar um gol num time/jogo marca aquele time naquele
+ *    jogo como manual; os gols automáticos dele são copiados para o banco e deixam de valer.
+ * As funções de servidor (fnsCampinhos.ts) validam e chamam este módulo.
  */
-import { FORMAS_GOL, POSICOES_CAMPINHO, type FormaGol, type GolLancado, type PartidaCampinho, type PosCampinho } from "../engine/campinhos";
+import { chaveTimeJogo, FORMAS_GOL, golsDoCartola, POSICOES_CAMPINHO, type AtuacaoGol, type FormaGol, type GolLancado, type PartidaCampinho, type PosCampinho } from "../engine/campinhos";
+import type { PlayerRound } from "../engine/types";
 import type { Club } from "../engine/types";
 import { db, emit } from "./db";
 import { matchClub, norm } from "./escalacoes";
@@ -20,11 +25,76 @@ export function partidasDaTemporada(data: Pick<Temporada, "matches" | "temporada
   return [...doCartola, ...manuais].sort((a, b) => a.rodada - b.rodada || Number(Boolean(a.manual)) - Number(Boolean(b.manual)) || a.matchId - b.matchId);
 }
 
+/** Posição no campinho de quem atuou: pelas listas da equipe (lado do lateral, volante, ponta/centroavante). */
+export function posicaoNoCampinho(data: Pick<Temporada, "lados" | "ladosJogo" | "funcoesMeio" | "funcoesAtaque">, h: Pick<PlayerRound, "atletaId" | "rodada" | "posicaoId">): PosCampinho | null {
+  switch (h.posicaoId) {
+    case 5: {
+      const f = data.funcoesAtaque?.[h.atletaId];
+      return f === "PE" ? "PONTE" : f === "PD" ? "PONTD" : "CENTRO";
+    }
+    case 4:
+      return data.funcoesMeio?.[h.atletaId] === "VOL" ? "VOL" : "MEI";
+    case 2: {
+      const lado = data.ladosJogo?.[`${h.rodada}:${h.atletaId}`] ?? data.lados?.[h.atletaId];
+      return lado === "D" ? "LATD" : "LATE";
+    }
+    case 3:
+    case 1: // gol de goleiro é raríssimo: fica com a defesa
+      return "ZAG";
+    default:
+      return null;
+  }
+}
+
+/** Gols automáticos da temporada (todos os times e jogos encerrados, sem olhar as correções). */
+export function golsAutomaticos(data: Temporada): GolLancado[] {
+  const atuacoes: AtuacaoGol[] = (data.history ?? []).map((h) => ({
+    atletaId: h.atletaId,
+    rodada: h.rodada,
+    clubeId: h.clubeId,
+    G: h.scout.G ?? 0,
+    A: h.scout.A ?? 0,
+    GC: h.scout.GC ?? 0,
+    pos: posicaoNoCampinho(data, h),
+  }));
+  return golsDoCartola(data.temporada, partidasDaTemporada(data), atuacoes);
+}
+
+/** Gols que valem: os lançados à mão + os automáticos dos times/jogos que ninguém corrigiu. */
+function golsQueValem(data: Temporada) {
+  const corrigidos = new Set(db.campinhosManuais.filter((c) => c.temporada === data.temporada).map((c) => c.id));
+  const manuais = db.gols.filter((g) => g.temporada === data.temporada).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  const auto = golsAutomaticos(data).filter((g) => !corrigidos.has(chaveTimeJogo(g.matchId, g.clubeId)));
+  return { gols: [...manuais, ...auto], corrigidos: [...corrigidos] };
+}
+
+/**
+ * Passa um time num jogo para "corrigido à mão": copia os gols automáticos dele para o banco
+ * (para editar um a um) e marca. Já corrigido: nada muda.
+ */
+export function corrigirAMao(data: Temporada, matchId: number, clubeId: number, por: string, copiar = true) {
+  const id = chaveTimeJogo(matchId, clubeId);
+  if (db.campinhosManuais.get(id)) return;
+  if (copiar)
+    for (const g of golsAutomaticos(data).filter((x) => x.matchId === matchId && x.clubeId === clubeId))
+      db.gols.put({ ...g, id: `m:${g.id}`, auto: undefined, por, criadoEm: new Date().toISOString() });
+  db.campinhosManuais.put({ id, temporada: data.temporada, matchId, clubeId, por, criadoEm: new Date().toISOString() });
+}
+
+/** Desfaz a correção: apaga os gols lançados à mão desse time nesse jogo e volta aos automáticos. */
+export async function voltarAoAutomatico(matchId: number, clubeId: number) {
+  const id = chaveTimeJogo(matchId, clubeId);
+  if (!db.campinhosManuais.get(id)) throw new Error("Esse time já está no automático nesse jogo.");
+  for (const g of db.gols.filter((x) => x.matchId === matchId && x.clubeId === clubeId)) db.gols.remove(g.id);
+  db.campinhosManuais.remove(id);
+  emit("campinhos");
+}
+
 export async function base() {
   const { loadSeason } = await import("./season");
   const { data } = await loadSeason();
   const partidas = partidasDaTemporada(data);
-  const gols = db.gols.filter((g) => g.temporada === data.temporada).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  const { gols, corrigidos } = golsQueValem(data);
   return {
     temporada: data.temporada,
     rodadaAtual: data.rodadaAtual,
@@ -32,6 +102,7 @@ export async function base() {
     clubes: Object.values(data.clubs).map((c) => ({ id: c.id, nome: c.nome, abreviacao: c.abreviacao, escudo: c.escudo })),
     partidas,
     gols,
+    corrigidos,
   };
 }
 
@@ -48,7 +119,7 @@ async function partida(matchId: number) {
   const { data } = await loadSeason();
   const m = partidasDaTemporada(data).find((x) => x.matchId === matchId);
   if (!m) throw new Error("Partida não encontrada.");
-  return { temporada: data.temporada, m: { ...m, id: m.matchId } };
+  return { temporada: data.temporada, m: { ...m, id: m.matchId }, data };
 }
 
 export interface NovaPartida {
@@ -82,13 +153,16 @@ export function apagarPartida(matchId: number) {
   const p = db.partidasManuais.get(String(matchId));
   if (!p) throw new Error("Só dá para apagar partidas criadas à mão.");
   for (const g of db.gols.filter((x) => x.matchId === matchId)) db.gols.remove(g.id);
+  db.campinhosManuais.removeWhere((c) => c.matchId === matchId);
   db.partidasManuais.remove(p.id);
   emit("campinhos");
 }
 
 export async function lancar(g: NovoGol, por: string): Promise<GolLancado> {
-  const { temporada, m } = await partida(g.matchId);
+  const { temporada, m, data } = await partida(g.matchId);
   if (g.clubeId !== m.casaId && g.clubeId !== m.foraId) throw new Error("Esse time não joga essa partida.");
+  // o primeiro lançamento à mão nesse time/jogo traz junto os gols automáticos dele, para editar
+  corrigirAMao(data, m.matchId, g.clubeId, por);
   if (g.forma !== "contra" && !g.gol) throw new Error("Escolha no campinho a posição de quem fez o gol.");
   const row: GolLancado = {
     id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
@@ -109,7 +183,15 @@ export async function lancar(g: NovoGol, por: string): Promise<GolLancado> {
   return row;
 }
 
-export function apagar(id: string) {
+export async function apagar(id: string, por = "adm") {
+  const auto = /^auto:(-?\d+):(\d+):\d+$/.exec(id);
+  if (auto) {
+    // apagar um gol automático: o time/jogo passa a ser corrigido à mão, sem esse gol
+    const { loadSeason } = await import("./season");
+    const { data } = await loadSeason();
+    corrigirAMao(data, Number(auto[1]), Number(auto[2]), por);
+    id = `m:${id}`;
+  }
   if (!db.gols.get(id)) throw new Error("Gol não encontrado.");
   db.gols.remove(id);
   emit("campinhos");
@@ -207,6 +289,8 @@ export async function importar(texto: string, por: string, simular: boolean) {
     });
   });
   if (!simular && ok.length) {
+    // o histórico importado manda nesses times/jogos: os automáticos deles deixam de valer
+    for (const g of ok) corrigirAMao(data, g.matchId, g.clubeId, por, false);
     for (const g of ok) db.gols.put(g);
     emit("campinhos");
   }

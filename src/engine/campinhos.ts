@@ -21,10 +21,18 @@ export const NOME_POSICAO: Record<PosCampinho, string> = {
   ZAG: "Zagueiro",
 };
 
-export const FORMAS_GOL = ["dentro", "fora", "penalti", "cabeca", "falta", "contra"] as const;
+export const FORMAS_GOL = ["dentro", "fora", "penalti", "cabeca", "falta", "contra", "indefinida"] as const;
 export type FormaGol = (typeof FORMAS_GOL)[number];
 
-export const NOME_FORMA: Record<FormaGol, string> = { dentro: "Dentro da área", fora: "Fora da área", penalti: "Pênalti", cabeca: "Cabeça", falta: "Falta", contra: "Gol contra" };
+export const NOME_FORMA: Record<FormaGol, string> = {
+  dentro: "Dentro da área",
+  fora: "Fora da área",
+  penalti: "Pênalti",
+  cabeca: "Cabeça",
+  falta: "Falta",
+  contra: "Gol contra",
+  indefinida: "Não informada",
+};
 
 export interface GolLancado {
   id: string;
@@ -42,6 +50,8 @@ export interface GolLancado {
   assist: PosCampinho | null;
   criadoEm: string;
   por: string;
+  /** lançado sozinho a partir dos scouts do Cartola (não está no banco) */
+  auto?: boolean;
 }
 
 export interface PartidaCampinho {
@@ -100,6 +110,80 @@ export function montarCampinho(gols: GolLancado[], partidas: PartidaCampinho[], 
     if (g.assist) {
       out.assist[g.assist]++;
       out.totalAssist++;
+    }
+  }
+  return out;
+}
+
+/* ------------------------- gols automáticos (Cartola) ------------------------- */
+
+/** Uma atuação do histórico do Cartola: quem jogou, por qual clube, na posição e com os scouts. */
+export interface AtuacaoGol {
+  atletaId: number;
+  rodada: number;
+  clubeId: number;
+  /** gols, assistências e gols contra nessa atuação */
+  G: number;
+  A: number;
+  GC: number;
+  /** posição no campinho (centroavante, ponta, meia…); null quando não dá para dizer (técnico) */
+  pos: PosCampinho | null;
+}
+
+/** Chave de um time numa partida: as correções à mão valem por time e por jogo. */
+export const chaveTimeJogo = (matchId: number, clubeId: number) => `${matchId}:${clubeId}`;
+
+/**
+ * Gols de cada time em cada partida encerrada, pelos scouts do Cartola: um gol por G de cada
+ * atleta (na posição dele), gol contra (GC do adversário) sem posição, e as assistências do
+ * time distribuídas entre os gols (nunca para o próprio autor). O Cartola não diz a forma
+ * do gol nem qual assistência foi de qual gol: a forma fica "não informada".
+ */
+export function golsDoCartola(temporada: number, partidas: PartidaCampinho[], atuacoes: AtuacaoGol[]): GolLancado[] {
+  const porRodadaClube = new Map<string, AtuacaoGol[]>();
+  for (const a of atuacoes) {
+    if (!a.G && !a.A && !a.GC) continue;
+    const k = `${a.rodada}:${a.clubeId}`;
+    const l = porRodadaClube.get(k) ?? [];
+    l.push(a);
+    porRodadaClube.set(k, l);
+  }
+  const out: GolLancado[] = [];
+  for (const m of partidas) {
+    if (m.manual || m.golsCasa == null || m.golsFora == null) continue;
+    for (const [clube, adv, casa] of [
+      [m.casaId, m.foraId, true],
+      [m.foraId, m.casaId, false],
+    ] as const) {
+      const meus = [...(porRodadaClube.get(`${m.rodada}:${clube}`) ?? [])].sort((x, y) => x.atletaId - y.atletaId);
+      const deles = porRodadaClube.get(`${m.rodada}:${adv}`) ?? [];
+      const gols: Array<{ autor: number | null; pos: PosCampinho | null; contra: boolean }> = [];
+      for (const a of meus) for (let i = 0; i < a.G; i++) gols.push({ autor: a.atletaId, pos: a.pos, contra: false });
+      for (const a of deles) for (let i = 0; i < a.GC; i++) gols.push({ autor: null, pos: null, contra: true });
+      const assists: Array<{ atletaId: number; pos: PosCampinho | null }> = [];
+      for (const a of meus) for (let i = 0; i < a.A; i++) assists.push({ atletaId: a.atletaId, pos: a.pos });
+      gols.forEach((g, i) => {
+        let assist: PosCampinho | null = null;
+        if (!g.contra) {
+          const j = assists.findIndex((x) => x.atletaId !== g.autor);
+          if (j >= 0) assist = assists.splice(j, 1)[0].pos;
+        }
+        out.push({
+          id: `auto:${m.matchId}:${clube}:${i}`,
+          temporada,
+          rodada: m.rodada,
+          matchId: m.matchId,
+          clubeId: clube,
+          adversarioId: adv,
+          casa,
+          forma: g.contra ? "contra" : "indefinida",
+          gol: g.contra ? null : (g.pos ?? "CENTRO"),
+          assist,
+          criadoEm: "",
+          por: "auto",
+          auto: true,
+        });
+      });
     }
   }
   return out;
