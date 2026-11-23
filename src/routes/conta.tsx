@@ -1,4 +1,5 @@
 import { infoDoAparelho } from "../lib/aparelho";
+import { CampoSenha } from "../components/CampoSenha";
 import { AI_ENABLED } from "../lib/features";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
@@ -12,9 +13,7 @@ import { analysisQuery } from "../lib/queries";
 import { AVATAR_KEYS, DEFAULT_PROFILE, KEYS, useLocal, writeLocal, type SavedLineup, type UserProfile } from "../lib/storage";
 import { changePasswordFn, deleteLineupFn, listLineups, login, logout, register, saveProfile } from "../server/fnsConta";
 
-export const Route = createFileRoute("/conta")({
-  component: AccountPage,
-});
+export const Route = createFileRoute("/conta")({ component: AccountPage });
 
 function AccountPage() {
   const auth = useAuth();
@@ -54,7 +53,11 @@ function AccountPage() {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="space-y-4 p-4">
-          <SectionTitle title="Perfil" subtitle={auth.user ? "Salvo na sua conta" : "Salvo neste navegador (entre para levar a outros aparelhos)"} icon={<UserRound size={18} className="text-[var(--color-brand)]" />} />
+          <SectionTitle
+            title="Perfil"
+            subtitle={auth.user ? "Salvo na sua conta" : "Salvo neste navegador (entre para levar a outros aparelhos)"}
+            icon={<UserRound size={18} className="text-[var(--color-brand)]" />}
+          />
           <div>
             <label htmlFor="nome" className="mb-1 block text-xs font-semibold text-[var(--color-ink-3)] uppercase">
               Nome
@@ -71,7 +74,14 @@ function AccountPage() {
             <div className="mb-2 text-xs font-semibold text-[var(--color-ink-3)] uppercase">Avatar</div>
             <div className="grid grid-cols-4 gap-3 sm:grid-cols-8 lg:grid-cols-4">
               {AVATAR_KEYS.map((k) => (
-                <button key={k} type="button" onClick={() => setDraft({ ...draft, avatar: k })} className="flex flex-col items-center gap-1" aria-pressed={draft.avatar === k} aria-label={`Avatar ${AVATAR_LABELS[k]}`}>
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, avatar: k })}
+                  className="flex flex-col items-center gap-1"
+                  aria-pressed={draft.avatar === k}
+                  aria-label={`Avatar ${AVATAR_LABELS[k]}`}
+                >
                   <Avatar k={k} size={52} ring={draft.avatar === k} />
                   <span className={`text-[11px] ${draft.avatar === k ? "font-semibold text-[var(--color-ink)]" : "text-[var(--color-ink-3)]"}`}>{AVATAR_LABELS[k]}</span>
                 </button>
@@ -79,8 +89,26 @@ function AccountPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            {AI_ENABLED && (<Seg label="Tom do Comandante" value={draft.tom} onChange={(v) => setDraft({ ...draft, tom: v })} options={[{ value: "conservador", label: "Conservador" }, { value: "agressivo", label: "Agressivo" }]} />)}
-            <Seg label="Foco" value={draft.foco} onChange={(v) => setDraft({ ...draft, foco: v })} options={[{ value: "pontos", label: "Pontos" }, { value: "cartoletas", label: "Cartoletas" }]} />
+            {AI_ENABLED && (
+              <Seg
+                label="Tom do Comandante"
+                value={draft.tom}
+                onChange={(v) => setDraft({ ...draft, tom: v })}
+                options={[
+                  { value: "conservador", label: "Conservador" },
+                  { value: "agressivo", label: "Agressivo" },
+                ]}
+              />
+            )}
+            <Seg
+              label="Foco"
+              value={draft.foco}
+              onChange={(v) => setDraft({ ...draft, foco: v })}
+              options={[
+                { value: "pontos", label: "Pontos" },
+                { value: "cartoletas", label: "Cartoletas" },
+              ]}
+            />
           </div>
           {erro && <Alert tone="critical">{erro}</Alert>}
           <button className="btn btn-primary" onClick={save}>
@@ -90,7 +118,11 @@ function AccountPage() {
         <div className="space-y-5">
           <SavedLineups />
           <Card className="p-4">
-            <SectionTitle title="Conta do Cartola" subtitle="Conecte seu time para ver patrimônio, ligas e enviar a tropa direto ao Cartola" icon={<Link2 size={18} className="text-[var(--color-gold)]" />} />
+            <SectionTitle
+              title="Conta do Cartola"
+              subtitle="Conecte seu time para ver patrimônio, ligas e enviar a tropa direto ao Cartola"
+              icon={<Link2 size={18} className="text-[var(--color-gold)]" />}
+            />
             <Link to="/meu-time" className="btn btn-ghost">
               Abrir Meu Time
             </Link>
@@ -152,8 +184,8 @@ function AuthBox() {
               }
             }}
           >
-            <input className="input" type="password" placeholder="senha atual" value={pw.atual} onChange={(e) => setPw({ ...pw, atual: e.target.value })} aria-label="Senha atual" autoComplete="current-password" />
-            <input className="input" type="password" placeholder="nova senha (8+)" value={pw.nova} onChange={(e) => setPw({ ...pw, nova: e.target.value })} aria-label="Nova senha" autoComplete="new-password" />
+            <CampoSenha placeholder="senha atual" value={pw.atual} onChange={(e) => setPw({ ...pw, atual: e.target.value })} aria-label="Senha atual" autoComplete="current-password" />
+            <CampoSenha placeholder="nova senha (8+)" value={pw.nova} onChange={(e) => setPw({ ...pw, nova: e.target.value })} aria-label="Nova senha" autoComplete="new-password" />
             <button className="btn btn-ghost" type="submit">
               Alterar
             </button>
@@ -170,7 +202,17 @@ function AuthBox() {
         title={mode === "entrar" ? "Entrar" : "Criar conta"}
         subtitle="Sincronize perfil e tropas e participe da comunidade"
         icon={<LogIn size={18} className="text-[var(--color-brand)]" />}
-        right={<Seg label="Modo" value={mode} onChange={setMode} options={[{ value: "entrar", label: "Entrar" }, { value: "criar", label: "Criar conta" }]} />}
+        right={
+          <Seg
+            label="Modo"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "entrar", label: "Entrar" },
+              { value: "criar", label: "Criar conta" },
+            ]}
+          />
+        }
       />
       <form
         className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
@@ -193,7 +235,14 @@ function AuthBox() {
       >
         {mode === "criar" && <input className="input sm:col-span-3" placeholder="nome no app" value={nome} maxLength={40} onChange={(e) => setNome(e.target.value)} aria-label="Nome" />}
         <input className="input" type="email" placeholder="e-mail" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="E-mail" autoComplete="email" required />
-        <input className="input" type="password" placeholder="senha (8+ caracteres)" value={senha} onChange={(e) => setSenha(e.target.value)} aria-label="Senha" autoComplete={mode === "entrar" ? "current-password" : "new-password"} required />
+        <CampoSenha
+          placeholder="senha (8+ caracteres)"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          aria-label="Senha"
+          autoComplete={mode === "entrar" ? "current-password" : "new-password"}
+          required
+        />
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {mode === "entrar" ? "Entrar" : "Criar"}
         </button>
@@ -242,7 +291,11 @@ function SavedLineups() {
               </div>
               <div className="flex shrink-0 gap-1">
                 {l.rodada === rodada && (
-                  <Link to="/ao-vivo" className="btn btn-ghost px-2 py-1 text-[11px]" onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas, fixa: true })}>
+                  <Link
+                    to="/ao-vivo"
+                    className="btn btn-ghost px-2 py-1 text-[11px]"
+                    onClick={() => writeLocal(KEYS.lastLineup, { rodada: l.rodada, titulares: l.titulares, captainId: l.captainId, reservas: l.reservas, fixa: true })}
+                  >
                     <Radio size={13} /> Ao vivo
                   </Link>
                 )}
