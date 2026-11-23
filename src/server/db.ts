@@ -9,7 +9,7 @@
  * Cada mudança emite um evento (tópico) usado pelo tempo real (SSE).
  */
 import { EventEmitter } from "node:events";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pipeline, remoteEnabled, type Cmd } from "./remote";
 import type { AtletaScoutRow, RodadaScoutRow, SyncLogRow, TemporadaScoutRow } from "./scoutStore";
@@ -49,6 +49,15 @@ export class Collection<T extends { id: string }> {
   dirty = new Map<string, T | null>();
   /** versão do Redis que esta instância já tem em memória (-1 = desconhecida) */
   remoteVer = -1;
+  /**
+   * Mudanças desta instância ainda não gravadas no disco (null = apagado). A hospedagem pode
+   * rodar vários processos do app com o mesmo disco: antes de ler ou gravar, cada um confere se
+   * o arquivo mudou por outro processo, relê e põe por cima só o que ele mesmo mudou — assim
+   * ninguém sobrescreve com uma cópia velha o que outro acabou de salvar (ex.: conta nova).
+   */
+  private pend = new Map<string, T | null>();
+  /** marca (data + tamanho) do arquivo na última leitura/gravação deste processo */
+  private marcaDisco = "";
 
   constructor(
     private name: string,
@@ -65,7 +74,32 @@ export class Collection<T extends { id: string }> {
   }
 
   private mark(id: string, row: T | null) {
+    this.pend.set(id, row);
     if (remoteEnabled()) this.dirty.set(id, row);
+  }
+
+  private marcaAtual(): string {
+    try {
+      const st = statSync(this.file());
+      return `${st.mtimeMs}:${st.size}`;
+    } catch {
+      return "";
+    }
+  }
+
+  /** Lê o disco e põe por cima as mudanças locais ainda não gravadas. */
+  private lerDisco() {
+    const rows = new Map<string, T>();
+    try {
+      const f = this.file();
+      if (existsSync(f)) for (const r of JSON.parse(readFileSync(f, "utf8")) as T[]) rows.set(r.id, r);
+      this.marcaDisco = this.marcaAtual();
+    } catch (err) {
+      console.error(`[db] falha ao ler ${this.name}:`, err);
+      return; // arquivo no meio de uma gravação: fica com o que está em memória
+    }
+    for (const [id, r] of this.pend) r ? rows.set(id, r) : rows.delete(id);
+    this.rows = rows;
   }
 
   /** Troca o conteúdo pelo do Redis, mantendo por cima o que esta instância ainda não enviou. */
@@ -94,14 +128,13 @@ export class Collection<T extends { id: string }> {
   }
 
   private load() {
-    if (this.loaded) return;
-    this.loaded = true;
-    try {
-      const f = this.file();
-      if (existsSync(f)) for (const r of JSON.parse(readFileSync(f, "utf8")) as T[]) this.rows.set(r.id, r);
-    } catch (err) {
-      console.error(`[db] falha ao ler ${this.name}:`, err);
+    if (!this.loaded) {
+      this.loaded = true;
+      this.lerDisco();
+      return;
     }
+    // sem Redis, o disco é a verdade: se outro processo gravou, relê
+    if (!remoteEnabled() && this.marcaAtual() !== this.marcaDisco) this.lerDisco();
   }
 
   private persist(silent = false) {
@@ -117,8 +150,13 @@ export class Collection<T extends { id: string }> {
     try {
       mkdirSync(join(dataDir(), "db"), { recursive: true });
       const f = this.file();
-      writeFileSync(f + ".tmp", JSON.stringify([...this.rows.values()]));
-      renameSync(f + ".tmp", f);
+      // outro processo gravou depois da nossa última leitura: junta antes de gravar
+      if (!remoteEnabled() && this.marcaAtual() !== this.marcaDisco) this.lerDisco();
+      const tmp = `${f}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify([...this.rows.values()]));
+      renameSync(tmp, f);
+      this.marcaDisco = this.marcaAtual();
+      this.pend.clear();
     } catch (err) {
       console.error(`[db] falha ao gravar ${this.name}:`, err);
     }
@@ -186,6 +224,8 @@ export class Collection<T extends { id: string }> {
   _reset() {
     this.rows.clear();
     this.dirty.clear();
+    this.pend.clear();
+    this.marcaDisco = this.marcaAtual();
     this.remoteVer = -1;
     this.loaded = true;
   }

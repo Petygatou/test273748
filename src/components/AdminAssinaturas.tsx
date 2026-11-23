@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { timeAgo } from "../lib/format";
 import { useRealtime } from "../lib/realtime";
 import { adminAssinaturaAcaoFn, adminAssinaturasFn } from "../server/fnsAssinatura";
+import { CampoSenha } from "./CampoSenha";
 import { Alert, Card, SectionTitle, StatTile } from "./ui";
 
 const dataBR = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
@@ -106,9 +107,8 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
             )}
           </div>
           {!d.segredoNaVariavel && (
-            <input
-              className="input font-mono"
-              type="password"
+            <CampoSenha
+              className="font-mono"
               autoComplete="off"
               placeholder={d.segredoDefinido ? "salva — cole outra só para trocar" : "cole aqui a chave do webhook"}
               value={segredo}
