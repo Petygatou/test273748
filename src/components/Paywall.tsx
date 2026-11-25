@@ -67,11 +67,34 @@ export function Paywall({ titulo = "Esta parte é para assinantes" }: { titulo?:
                 <Lock size={16} aria-hidden /> Entrar ou criar conta
               </Link>
             </div>
-          ) : data.checkout ? (
+          ) : data.planos.length ? (
             <div className="space-y-2">
-              <a href={data.checkout} target="_blank" rel="noopener noreferrer" className="btn btn-primary w-full justify-center">
-                <Crown size={16} aria-hidden /> Assinar agora
-              </a>
+              {data.planos.length === 1 ? (
+                <a href={data.planos[0].checkout ?? "#"} target="_blank" rel="noopener noreferrer" className="btn btn-primary w-full justify-center">
+                  <Crown size={16} aria-hidden /> Assinar agora{data.planos[0].preco ? ` · ${data.planos[0].preco}` : ""}
+                </a>
+              ) : (
+                <div className="space-y-2">
+                  {data.planos.map((p, i) => (
+                    <a
+                      key={p.id}
+                      href={p.checkout ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--color-brand)] ${i === 0 ? "border-[var(--color-brand)]/60 bg-[var(--color-brand)]/10" : "border-[var(--color-line)]"}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold">{p.nome}</span>
+                        {p.descricao && <span className="block text-xs text-[var(--color-ink-3)]">{p.descricao}</span>}
+                      </span>
+                      <span className="shrink-0 text-right">
+                        {p.preco && <span className="font-display block text-base font-extrabold">{p.preco}</span>}
+                        <span className="text-xs font-semibold text-[var(--color-brand)]">Assinar →</span>
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
               <p className="text-center text-xs text-[var(--color-ink-3)]">Use no pagamento o mesmo e-mail da sua conta do Tropa.</p>
               <button type="button" onClick={conferir} disabled={conferindo} className="btn w-full justify-center">
                 {conferindo ? <RefreshCw size={16} className="animate-spin" aria-hidden /> : <Check size={16} aria-hidden />}

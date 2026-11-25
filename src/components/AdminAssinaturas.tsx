@@ -40,7 +40,10 @@ export function AdminAssinaturas() {
 type Painel = Awaited<ReturnType<typeof adminAssinaturasFn>>;
 
 function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknown> }) {
-  const [checkout, setCheckout] = useState(d.config.checkout);
+  type PlanoEd = { id: string; nome: string; preco: string; descricao: string; checkout: string };
+  const vazio = (): PlanoEd => ({ id: "", nome: "", preco: "", descricao: "", checkout: "" });
+  const [planos, setPlanos] = useState<PlanoEd[]>(d.config.planos?.length ? d.config.planos : [vazio()]);
+  const mudarPlano = (i: number, campo: keyof PlanoEd, v: string) => setPlanos((ps) => ps.map((p, j) => (j === i ? { ...p, [campo]: v } : p)));
   const [produto, setProduto] = useState(d.config.produto);
   const [segredo, setSegredo] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -54,7 +57,7 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
     setOcupado(true);
     setMsg(null);
     try {
-      await adminAssinaturaAcaoFn({ data: { acao: "config", ativo, checkout, produto, segredo } });
+      await adminAssinaturaAcaoFn({ data: { acao: "config", ativo, checkout: planos[0]?.checkout ?? "", produto, segredo, planos } });
       await onSalvo();
       setSegredo("");
       setMsg({ ok: true, t: ativo ? "Cobrança ligada: as páginas pagas pedem assinatura." : "Salvo." });
@@ -117,12 +120,50 @@ function Configuracao({ d, onSalvo }: { d: Painel; onSalvo: () => Promise<unknow
             />
           )}
         </li>
-        <li className="space-y-1.5">
-          <b>3. Link do checkout</b> da assinatura (começa com https://pay.cakto.com.br/).
-          <input className="input" placeholder="https://pay.cakto.com.br/..." value={checkout} onChange={(e) => setCheckout(e.target.value)} aria-label="Link do checkout" />
+        <li className="space-y-2">
+          <div>
+            <b>3. Planos à venda.</b> Cada produto da Cakto vira um plano, com o seu link de checkout (começa com https://pay.cakto.com.br/). Todos liberam o site; a tela “Assine” mostra os planos
+            nesta ordem.
+          </div>
+          {planos.map((p, i) => (
+            <div key={i} className="space-y-2 rounded-xl border border-[var(--color-line)] p-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-ink-3)]">
+                <span>Plano {i + 1}</span>
+                {planos.length > 1 && (
+                  <button type="button" className="inline-flex items-center gap-1 text-[var(--color-critical-ink)]" onClick={() => setPlanos((ps) => ps.filter((_, j) => j !== i))}>
+                    <Trash2 size={13} aria-hidden /> remover
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
+                <input className="input" placeholder="Nome (ex.: Só o site)" value={p.nome} onChange={(e) => mudarPlano(i, "nome", e.target.value)} aria-label={`Nome do plano ${i + 1}`} />
+                <input className="input" placeholder="Preço (ex.: R$ 49,99/mês)" value={p.preco} onChange={(e) => mudarPlano(i, "preco", e.target.value)} aria-label={`Preço do plano ${i + 1}`} />
+              </div>
+              <input
+                className="input"
+                placeholder="O que inclui (ex.: acesso completo ao site)"
+                value={p.descricao}
+                onChange={(e) => mudarPlano(i, "descricao", e.target.value)}
+                aria-label={`Descrição do plano ${i + 1}`}
+              />
+              <input
+                className="input"
+                placeholder="https://pay.cakto.com.br/..."
+                value={p.checkout}
+                onChange={(e) => mudarPlano(i, "checkout", e.target.value)}
+                aria-label={i === 0 ? "Link do checkout" : `Link do checkout do plano ${i + 1}`}
+              />
+            </div>
+          ))}
+          {planos.length < 6 && (
+            <button type="button" className="btn" onClick={() => setPlanos((ps) => [...ps, vazio()])}>
+              + Adicionar plano
+            </button>
+          )}
         </li>
         <li className="space-y-1.5">
-          <b>4. ID do produto</b> <span className="text-[var(--color-ink-3)]">(opcional: se você vende outras coisas na Cakto, só este produto libera o Tropa)</span>
+          <b>4. IDs dos produtos</b>{" "}
+          <span className="text-[var(--color-ink-3)]">(opcional: se você vende outras coisas na Cakto, coloque aqui os IDs dos produtos do Tropa, separados por vírgula)</span>
           <input className="input" placeholder="deixe vazio para aceitar qualquer produto" value={produto} onChange={(e) => setProduto(e.target.value)} aria-label="ID do produto" />
         </li>
       </ol>

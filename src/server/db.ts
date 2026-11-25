@@ -572,7 +572,17 @@ export interface ConfigPagamentoRow {
   produto: string;
   /** segredo do webhook colado no Painel ADM (nunca volta para o navegador) */
   segredo?: string;
+  /** planos à venda (cada um com o seu checkout da Cakto); todos liberam o site */
+  planos?: PlanoRow[];
   atualizadoEm: string;
+}
+export interface PlanoRow {
+  id: string;
+  nome: string;
+  /** como aparece no site, ex.: "R$ 49,99/mês" */
+  preco: string;
+  descricao: string;
+  checkout: string;
 }
 
 export const db = {

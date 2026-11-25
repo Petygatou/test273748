@@ -10,7 +10,7 @@
  * ou vem da variável de ambiente CAKTO_WEBHOOK_SECRET, que tem prioridade.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
-import { db, emit, type AssinaturaRow, type ConfigPagamentoRow, type UserRow } from "./db";
+import { db, emit, type AssinaturaRow, type ConfigPagamentoRow, type PlanoRow, type UserRow } from "./db";
 
 const DIA = 86_400_000;
 /** sem data de renovação no aviso: um mês + folga para a cobrança da renovação cair */
@@ -24,15 +24,35 @@ export function config(): ConfigPagamentoRow {
   return db.configPagamento.get("pagamento") ?? { id: "pagamento", ativo: false, checkout: "", produto: "", atualizadoEm: "" };
 }
 
-export function salvarConfig(p: { ativo: boolean; checkout: string; produto: string; segredo?: string }) {
-  const checkout = p.checkout.trim();
+/** Planos à venda. Configuração antiga (um link só) vira um plano. */
+export function planos(c = config()): PlanoRow[] {
+  if (c.planos?.length) return c.planos;
+  return c.checkout ? [{ id: "principal", nome: "Tropa completo", preco: "", descricao: "", checkout: c.checkout }] : [];
+}
+
+function limparPlanos(lista: PlanoRow[]): PlanoRow[] {
+  const ok: PlanoRow[] = [];
+  lista.slice(0, 6).forEach((pl, i) => {
+    const nome = pl.nome.trim().slice(0, 40);
+    const checkout = pl.checkout.trim();
+    if (!nome && !checkout) return; // linha vazia
+    if (!nome) throw new Error(`Dê um nome ao plano ${i + 1}.`);
+    if (!/^https:\/\/[^\s]+$/.test(checkout)) throw new Error(`O link do plano “${nome}” precisa começar com https://`);
+    ok.push({ id: pl.id?.trim() || `p${Date.now().toString(36)}${i}`, nome, preco: pl.preco.trim().slice(0, 30), descricao: pl.descricao.trim().slice(0, 160), checkout });
+  });
+  return ok;
+}
+
+export function salvarConfig(p: { ativo: boolean; checkout: string; produto: string; segredo?: string; planos?: PlanoRow[] }) {
+  const lista = p.planos ? limparPlanos(p.planos) : undefined;
+  const checkout = (lista ? (lista[0]?.checkout ?? "") : p.checkout).trim();
   const novo = p.segredo?.trim() ?? "";
   if (novo && (novo.length < 16 || /\s/.test(novo))) throw new Error("A chave do webhook parece incompleta: copie de novo da Cakto, sem espaços.");
   const segredo = novo || config().segredo || "";
   if (p.ativo && !segredoDefinido() && !segredo) throw new Error("Cole a chave do webhook da Cakto antes de ligar a cobrança.");
   if (checkout && !/^https:\/\/[^\s]+$/.test(checkout)) throw new Error("O link do checkout precisa começar com https://");
   if (p.ativo && !checkout) throw new Error("Cole o link do checkout da Cakto antes de ligar a cobrança.");
-  db.configPagamento.put({ id: "pagamento", ativo: p.ativo, checkout, produto: p.produto.trim(), segredo, atualizadoEm: new Date().toISOString() });
+  db.configPagamento.put({ id: "pagamento", ativo: p.ativo, checkout, produto: p.produto.trim(), segredo, planos: lista ?? config().planos, atualizadoEm: new Date().toISOString() });
   emit("assinaturas");
 }
 
@@ -52,9 +72,9 @@ export function temAcesso(u: UserRow | null, eAdmin: (u: UserRow) => boolean): b
   return acessoValido(db.assinaturas.get(u.email));
 }
 
-/** Link do checkout com o e-mail da conta já preenchido. */
-export function linkCheckout(email?: string | null): string | null {
-  const c = config().checkout;
+/** Link do checkout com o e-mail da conta já preenchido (padrão: o do primeiro plano). */
+export function linkCheckout(email?: string | null, url = config().checkout): string | null {
+  const c = url;
   if (!c) return null;
   if (!email) return c;
   try {
@@ -179,11 +199,14 @@ export function lerAviso(corpo: unknown): AvisoCakto {
 /** Aplica um aviso já autenticado. Devolve o que foi feito (fica no histórico do Painel ADM). */
 export function aplicarAviso(a: AvisoCakto, agora = Date.now()): string {
   const efeito = efeitoDoEvento(a.evento);
-  const filtro = config().produto;
+  // um ou mais IDs de produto (separados por vírgula ou espaço); vazio = qualquer produto
+  const filtro = config()
+    .produto.split(/[\s,;]+/)
+    .filter(Boolean);
   let resultado: string;
   if (!efeito) resultado = "só registrado (não muda o acesso)";
   else if (!a.email) resultado = "ignorado: o aviso não trouxe e-mail";
-  else if (filtro && a.produto && a.produto !== filtro) resultado = `ignorado: produto ${a.produto} não é o da assinatura`;
+  else if (filtro.length && a.produto && !filtro.includes(a.produto)) resultado = `ignorado: produto ${a.produto} não é um dos planos do Tropa`;
   else {
     const atual = db.assinaturas.get(a.email);
     const base = {
@@ -246,7 +269,7 @@ export function painel() {
     .map((a) => ({ ...a, valida: acessoValido(a, agora), semPrazo: a.validaAte === SEM_PRAZO, temConta: Boolean(db.users.find((u) => u.email === a.email)) }))
     .sort((x, y) => Number(y.valida) - Number(x.valida) || y.atualizadoEm.localeCompare(x.atualizadoEm));
   return {
-    config: { ...config(), segredo: undefined },
+    config: { ...config(), segredo: undefined, planos: planos() },
     segredoDefinido: segredoDefinido(),
     segredoNaVariavel: Boolean(process.env.CAKTO_WEBHOOK_SECRET?.trim()),
     resumo: {
