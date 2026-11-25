@@ -174,3 +174,36 @@ describe("chave do webhook colada no Painel ADM", () => {
     }
   });
 });
+
+describe("vários planos", () => {
+  it("salva os planos, o primeiro vira o checkout padrão; config antiga vira um plano; filtro aceita vários produtos", async () => {
+    // config antiga (um link só)
+    m.salvarConfig({ ativo: false, checkout: "https://pay.cakto.com.br/completo", produto: "" });
+    expect(m.planos().map((p) => p.checkout)).toEqual(["https://pay.cakto.com.br/completo"]);
+
+    m.salvarConfig({
+      ativo: true,
+      checkout: "",
+      produto: "prod-completo, prod-site",
+      planos: [
+        { id: "", nome: "Tropa completo", preco: "R$ 79,90/mês", descricao: "site + grupo", checkout: "https://pay.cakto.com.br/completo" },
+        { id: "", nome: "Só o site", preco: "R$ 49,99/mês", descricao: "acesso ao site", checkout: "https://pay.cakto.com.br/site" },
+        { id: "", nome: "", preco: "", descricao: "", checkout: "" }, // linha vazia some
+      ],
+    });
+    expect(m.planos().map((p) => [p.nome, p.preco])).toEqual([
+      ["Tropa completo", "R$ 79,90/mês"],
+      ["Só o site", "R$ 49,99/mês"],
+    ]);
+    expect(m.config().checkout).toBe("https://pay.cakto.com.br/completo");
+    expect(m.linkCheckout("a@b.com", m.planos()[1].checkout)).toBe("https://pay.cakto.com.br/site?email=a%40b.com");
+
+    // os dois produtos liberam; outro produto não
+    m.aplicarAviso(m.lerAviso({ event: "purchase_approved", data: { customer: { email: "site@x.com" }, product: { id: "prod-site" } } }));
+    expect(m.acessoValido(db.assinaturas.get("site@x.com"))).toBe(true);
+    expect(m.aplicarAviso(m.lerAviso({ event: "purchase_approved", data: { customer: { email: "z@x.com" }, product: { id: "outro" } } }))).toMatch(/ignorado/);
+
+    expect(() => m.salvarConfig({ ativo: false, checkout: "", produto: "", planos: [{ id: "", nome: "Sem link", preco: "", descricao: "", checkout: "pay.cakto" }] })).toThrow(/https/);
+    expect(() => m.salvarConfig({ ativo: true, checkout: "", produto: "", planos: [] })).toThrow(/checkout/);
+  });
+});
