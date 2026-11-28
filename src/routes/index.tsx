@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, ArrowRight, Bell, ChevronRight, ClipboardList, Coins, Crown, FlaskConical, Gem, Radio, Scale, ShieldCheck, Swords, Target, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { OutcomeBar } from "../components/FixtureCard";
@@ -13,10 +13,16 @@ import type { Club, FixtureOdds, PlayerProjection } from "../engine/types";
 import { topBy } from "../lib/derive";
 import { dateTime, fmt1, fmt2, pct, signed } from "../lib/format";
 import { useAlerts } from "../lib/alerts";
+import { meQuery } from "../lib/auth";
 import { analysisQuery, backtestQuery, mudancasQuery } from "../lib/queries";
 import { posRodadaFn } from "../server/fnsCartola";
 
 export const Route = createFileRoute("/")({
+  // quem não está logado entra pela landing page; quem tem conta vê o Início do app
+  beforeLoad: async ({ context }) => {
+    const me = await context.queryClient.fetchQuery(meQuery).catch(() => null);
+    if (!me) throw redirect({ href: "/landing/" });
+  },
   component: Home,
 });
 
