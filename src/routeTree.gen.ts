@@ -35,6 +35,7 @@ import { Route as ApiImportarRouteImport } from './routes/api/importar'
 import { Route as ApiMediaRouteImport } from './routes/api/media'
 import { Route as ApiSaudeRouteImport } from './routes/api/saude'
 import { Route as ApiUploadRouteImport } from './routes/api/upload'
+import { Route as ApiVitrineRouteImport } from './routes/api/vitrine'
 import { Route as JogadorIdRouteImport } from './routes/jogador.$id'
 import { Route as MediaFileRouteImport } from './routes/media/$file'
 
@@ -168,6 +169,11 @@ const ApiUploadRoute = ApiUploadRouteImport.update({
   path: '/api/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVitrineRoute = ApiVitrineRouteImport.update({
+  id: '/api/vitrine',
+  path: '/api/vitrine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JogadorIdRoute = JogadorIdRouteImport.update({
   id: '/jogador/$id',
   path: '/jogador/$id',
@@ -206,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
   '/api/upload': typeof ApiUploadRoute
+  '/api/vitrine': typeof ApiVitrineRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
   '/api/upload': typeof ApiUploadRoute
+  '/api/vitrine': typeof ApiVitrineRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -267,6 +275,7 @@ export interface FileRoutesById {
   '/api/media': typeof ApiMediaRoute
   '/api/saude': typeof ApiSaudeRoute
   '/api/upload': typeof ApiUploadRoute
+  '/api/vitrine': typeof ApiVitrineRoute
   '/jogador/$id': typeof JogadorIdRoute
   '/media/$file': typeof MediaFileRoute
 }
@@ -299,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/saude'
     | '/api/upload'
+    | '/api/vitrine'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesByTo: FileRoutesByTo
@@ -329,6 +339,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/saude'
     | '/api/upload'
+    | '/api/vitrine'
     | '/jogador/$id'
     | '/media/$file'
   id:
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/media'
     | '/api/saude'
     | '/api/upload'
+    | '/api/vitrine'
     | '/jogador/$id'
     | '/media/$file'
   fileRoutesById: FileRoutesById
@@ -390,6 +402,7 @@ export interface RootRouteChildren {
   ApiMediaRoute: typeof ApiMediaRoute
   ApiSaudeRoute: typeof ApiSaudeRoute
   ApiUploadRoute: typeof ApiUploadRoute
+  ApiVitrineRoute: typeof ApiVitrineRoute
   JogadorIdRoute: typeof JogadorIdRoute
   MediaFileRoute: typeof MediaFileRoute
 }
@@ -578,6 +591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/vitrine': {
+      id: '/api/vitrine'
+      path: '/api/vitrine'
+      fullPath: '/api/vitrine'
+      preLoaderRoute: typeof ApiVitrineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jogador/$id': {
       id: '/jogador/$id'
       path: '/jogador/$id'
@@ -622,6 +642,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaRoute: ApiMediaRoute,
   ApiSaudeRoute: ApiSaudeRoute,
   ApiUploadRoute: ApiUploadRoute,
+  ApiVitrineRoute: ApiVitrineRoute,
   JogadorIdRoute: JogadorIdRoute,
   MediaFileRoute: MediaFileRoute,
 }
