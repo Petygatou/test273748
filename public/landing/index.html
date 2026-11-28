@@ -186,6 +186,33 @@
   .tropa-league-shot img { height: 340px; }
 }
 
+
+/* ===== Ajustes para celular (Tropa) ===== */
+.brand img{border-radius:10px}
+.mobilecta{transition:transform .25s ease,opacity .25s ease}
+@media (max-width: 760px) {
+  .brand span{display:none}
+  .wrap{width:min(1160px,91%)}
+  .hero{padding:34px 0 40px}
+  h1{font-size:clamp(36px,11vw,46px);margin:16px 0}
+  .lead{font-size:16px}
+  .heroactions{flex-direction:column;gap:10px;margin:22px 0 18px}
+  .heroactions .btn{width:100%;padding:15px 18px;font-size:15px}
+  .proofline{gap:10px 16px;margin-top:14px;font-size:12.5px}
+  .hero-visual{min-height:250px;border-radius:22px;margin-top:22px}
+  .hero-logo-visual,.hero-team-visual{width:min(62%,240px);max-height:220px}
+  .hero-visual-caption{bottom:14px;font-size:9px}
+  .section{padding:46px 0}
+  .positioning{padding:38px 0}
+  .card{padding:18px;border-radius:16px}
+  .grid{gap:12px;margin-top:22px}
+  .price,.shirt{padding:22px}
+  /* botão fixo: uma linha, menor, respeita a barra do iPhone e só aparece depois do início */
+  .mobilecta{left:3%;width:94%;bottom:calc(10px + env(safe-area-inset-bottom));padding:13px 14px;font-size:14px;letter-spacing:.2px;white-space:nowrap;border-radius:14px;box-shadow:0 10px 30px #000a,0 6px 20px #ff641740;transform:translateY(140%);opacity:0;pointer-events:none}
+  .mobilecta.visivel{transform:none;opacity:1;pointer-events:auto}
+  .footer{padding-bottom:calc(90px + env(safe-area-inset-bottom))}
+}
+@media (max-width: 360px) { .mobilecta{font-size:12.5px} }
 </style>
 </head>
 <body>
@@ -225,5 +252,15 @@ document.getElementById('shirt-order').addEventListener('submit', function(event
   const url = 'https://wa.me/5521972896571?text=' + encodeURIComponent(message);
   window.open(url, '_blank', 'noopener,noreferrer');
 });
+</script>
+
+<script>
+// celular: o botão fixo só aparece depois que o início (com os botões) sai da tela
+(function () {
+  var cta = document.querySelector('.mobilecta');
+  var hero = document.querySelector('.hero');
+  if (!cta || !hero || !('IntersectionObserver' in window)) { if (cta) cta.classList.add('visivel'); return; }
+  new IntersectionObserver(function (es) { cta.classList.toggle('visivel', !es[0].isIntersecting); }, { threshold: 0.05 }).observe(hero);
+})();
 </script>
 </body></html>
