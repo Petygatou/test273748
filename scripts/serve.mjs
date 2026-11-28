@@ -17,6 +17,10 @@ const TYPES = {
   ".css": "text/css; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".html": "text/html; charset=utf-8",
   ".ico": "image/x-icon",
   ".webmanifest": "application/manifest+json",
   ".json": "application/json",
@@ -47,9 +51,17 @@ function comprimidoEstatico(file, enc) {
 
 function staticFile(pathname) {
   const safe = normalize(decodeURIComponent(pathname)).replace(/^(\.\.[/\\])+/, "");
-  const file = join(root, safe);
+  let file = join(root, safe);
   if (!file.startsWith(root) || !existsSync(file)) return null;
-  const st = statSync(file);
+  let st = statSync(file);
+  // pasta com index.html (ex.: /landing/): serve a página; sem a barra no fim, redireciona
+  if (st.isDirectory()) {
+    const idx = join(file, "index.html");
+    if (!existsSync(idx)) return null;
+    if (!pathname.endsWith("/")) return { redirect: `${pathname}/` };
+    file = idx;
+    st = statSync(file);
+  }
   return st.isFile() ? { file, size: st.size } : null;
 }
 
@@ -58,6 +70,10 @@ createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
     if (req.method === "GET" || req.method === "HEAD") {
       const f = url.pathname !== "/" && staticFile(url.pathname);
+      if (f?.redirect) {
+        res.writeHead(301, { Location: f.redirect + url.search });
+        return res.end();
+      }
       if (f) {
         const type = TYPES[extname(f.file)] ?? "application/octet-stream";
         const cache = url.pathname.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600";
